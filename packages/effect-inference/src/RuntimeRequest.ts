@@ -4,6 +4,7 @@
  * @since 0.5.0
  * @module
  */
+import { Role } from "@scenesystems/effect-lm/Role"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
@@ -13,10 +14,7 @@ import * as Model from "./Model.js"
 import * as Route from "./Route.js"
 
 /** Schema for the semantic role assigned to an inference request. @since 0.5.0 @category schemas */
-export const Role = Schema.Literals(["task", "teacher", "proposer", "evaluator", "critic"])
-  .annotate({ identifier: "@scenesystems/effect-inference/RuntimeRequest/Role" })
-/** Inference-request role inferred from its schema. @since 0.5.0 @category models */
-export type Role = typeof Role.Type
+export { Role } from "@scenesystems/effect-lm/Role"
 
 /**
  * Model intent, optional route, and capability requirements supplied by a

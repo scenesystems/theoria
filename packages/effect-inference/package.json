@@ -37,6 +37,7 @@
     "./Runtime": "./src/Runtime.ts",
     "./RuntimeEvidence": "./src/RuntimeEvidence.ts",
     "./TextProvider": "./src/TextProvider.ts",
+    "./ModelBinder": "./src/ModelBinder.ts",
     "./OpenAiCompatible": "./src/OpenAiCompatible.ts",
     "./HuggingFace": "./src/HuggingFace.ts",
     "./HuggingFaceEmbeddingModel": "./src/HuggingFaceEmbeddingModel.ts",
@@ -68,6 +69,7 @@
     "effect": "^4.0.0"
   },
   "dependencies": {
+    "@scenesystems/effect-lm": "workspace:^",
     "@effect/ai-anthropic": "4.0.0",
     "@effect/ai-openai": "4.0.0",
     "@effect/ai-openrouter": "4.0.0",

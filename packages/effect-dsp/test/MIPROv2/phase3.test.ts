@@ -10,34 +10,12 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import {
-  Array as Arr,
-  Boolean as Bool,
-  Effect,
-  Equal,
-  Layer,
-  Match,
-  Number as Num,
-  Option,
-  Record as Rec,
-  Ref,
-  Schema,
-  String,
-  Tuple
-} from "effect"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import { Array as Arr, Effect, Equal, Layer, Match, Option, Record as Rec, Ref, Schema, String, Struct } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
-import { makeTrialRefs } from "../../src/internal/miprov2/phase3State.js"
-import {
-  evaluateBaseline,
-  EvaluateBaselineOptions,
-  evaluateTrial,
-  EvaluateTrialOptions
-} from "../../src/internal/miprov2/runtime/evaluate.js"
-import {
-  BestAveragingCandidate,
-  Phase3Config,
-  type Phase3DimensionIndex
-} from "../../src/internal/miprov2/runtime/model.js"
+import { bestFullEvaluation, nextFullEvaluation, ToldEvaluation } from "../../src/internal/miprov2/phase3State.js"
+import * as Sampling from "../../src/internal/miprov2/sampling.js"
+import { TrialEvaluation } from "../../src/MIPROv2.js"
 import {
   DemoCandidate,
   InstructionCandidate,
@@ -58,17 +36,101 @@ const makeQaSignature = () =>
   )
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) })
 )
 
 describe("MIPROv2 Phase 3", () => {
+  it.effect("nonpositive trial budgets evaluate only the baseline and preserve the RNG stream", () =>
+    Effect.gen(function*() {
+      const module = yield* Module.predict("qa", yield* makeQaSignature())
+      const original = yield* Ref.get(module.parameters)
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
+      const rng = yield* PseudoRandom.makeCPython(9)
+      const before = yield* rng.snapshot
+      const instructions = [
+        new PredictorInstructionCandidates({
+          predictorName: "qa",
+          candidates: [
+            new InstructionCandidate({
+              predictorName: "qa",
+              instruction: original.instructions,
+              tip: "baseline",
+              rolloutId: Option.none(),
+              prompt: "baseline",
+              isBaseline: true
+            })
+          ]
+        })
+      ]
+      yield* Effect.forEach([0, -2], (budget) =>
+        Effect.gen(function*() {
+          const result = yield* run(
+            new Options({
+              module,
+              valset: trainset,
+              metric: Metric.exactMatch("answer"),
+              demoCandidates: [],
+              instructionCandidates: instructions,
+              trialBudget: budget,
+              minibatchSize: 1
+            })
+          ).pipe(
+            Effect.provideService(LanguageModel.LanguageModel, mock.service),
+            Effect.provideService(Sampling.Current, Option.some(rng))
+          )
+          expect(result.diagnostics.evaluations).toHaveLength(1)
+          expect(result.diagnostics.bestScore).toBe(0.5)
+          expect(result.diagnostics.bestTrial).toBe(0)
+          expect(result.parameters.qa).toEqual(original)
+          expect(yield* rng.snapshot).toEqual(before)
+        }))
+    }))
+
+  it.effect("rounds percentage scores using Python half-even and the exact binary input", () =>
+    Effect.gen(function*() {
+      const module = yield* Module.predict("qa", yield* makeQaSignature())
+      const original = yield* Ref.get(module.parameters)
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
+      yield* Effect.forEach([
+        { score: 0.00125, percent: 0.12 },
+        { score: 0.00625, percent: 0.62 },
+        { score: 0.02675, percent: 2.67 },
+        { score: 0.50005, percent: 50.01 },
+        { score: -0.00125, percent: -0.12 }
+      ], ({ score, percent }) =>
+        Effect.gen(function*() {
+          const result = yield* run(
+            new Options({
+              module,
+              valset: Arr.take(trainset, 1),
+              metric: Metric.withFeedback(() =>
+                Effect.succeed(new Metric.Score({ value: score, feedback: Option.none() }))
+              ),
+              demoCandidates: [],
+              instructionCandidates: [
+                new PredictorInstructionCandidates({
+                  predictorName: "qa",
+                  candidates: [
+                    new InstructionCandidate({
+                      predictorName: "qa",
+                      instruction: original.instructions,
+                      tip: "baseline",
+                      rolloutId: Option.none(),
+                      prompt: "baseline",
+                      isBaseline: true
+                    })
+                  ]
+                })
+              ],
+              trialBudget: 1,
+              minibatch: false
+            })
+          ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+          expect(result.diagnostics.baselineObjective).toBe(percent / 100)
+        }))
+    }))
+
   it.effect("computes trial budget from MAX(2M·log(N), 3N/2) with optional minimum override", () =>
     Effect.gen(function*() {
       const budget = trialBudget({
@@ -80,18 +142,18 @@ describe("MIPROv2 Phase 3", () => {
         predictorCount: 2,
         demoCandidateCount: 4,
         instructionCandidateCount: 3,
-        minimum: 8
+        minimum: 20
       })
 
-      expect(budget).toBe(6)
-      expect(boundedBudget).toBe(8)
+      expect(budget).toBe(16)
+      expect(boundedBudget).toBe(20)
     }))
 
   it.effect("builds categorical search dimensions and enforces multivariate TPE", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const baselineParams = yield* Ref.get(module.params)
+      const baselineParameters = yield* Ref.get(module.parameters)
       const demoCandidates = Arr.make(
         new PredictorDemoCandidates({
           predictorName: "qa",
@@ -99,8 +161,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "zero-shot",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -108,8 +170,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "bootstrap-unshuffled",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -123,9 +185,9 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "qa",
-              instruction: baselineParams.instructions,
+              instruction: baselineParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             }),
@@ -133,7 +195,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "qa",
               instruction: "Use precise one-word capitals",
               tip: "precision",
-              cacheBustMarker: "[miprov2-proposal:qa:1:seed:1]",
+              rolloutId: Option.some(1),
               prompt: "proposal",
               isBaseline: false
             })
@@ -149,7 +211,11 @@ describe("MIPROv2 Phase 3", () => {
         new Options({
           module,
           valset: trainset,
-          metric: Metric.exactMatch("answer"),
+          metric: Metric.withFeedback((example, prediction, context) =>
+            Effect.gen(function*() {
+              expect(yield* Ref.get(module.parameters)).toEqual(baselineParameters)
+              return yield* Metric.exactMatch("answer").score(example, prediction, context)
+            }), "immutable"),
           demoCandidates,
           instructionCandidates,
           trialBudget: 4,
@@ -159,7 +225,7 @@ describe("MIPROv2 Phase 3", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      expect(result.diagnostics.dimensionNames).toEqual(Arr.make("qa__demo", "qa__instruction"))
+      expect(result.diagnostics.dimensionNames).toEqual(Arr.make("0_predictor_instruction", "0_predictor_demos"))
       expect(result.diagnostics.samplerKind).toBe("tpe")
       expect(result.diagnostics.multivariate).toBe(true)
     }))
@@ -188,39 +254,29 @@ describe("MIPROv2 Phase 3", () => {
             )
         })
       )
-      const originalRootParams = yield* Ref.get(root.params)
-      const originalChildParams = yield* Ref.get(child.params)
+      const originalRootParameters = yield* Ref.get(root.parameters)
+      const originalChildParameters = yield* Ref.get(child.parameters)
       const demoCandidates = Arr.make(
-        new PredictorDemoCandidates({
-          predictorName: "root",
-          candidates: Arr.make(
-            new DemoCandidate({
-              predictorName: "root",
-              kind: "zero-shot",
-              params: originalRootParams
-            })
-          )
-        }),
         new PredictorDemoCandidates({
           predictorName: "child",
           candidates: Arr.make(
             new DemoCandidate({
               predictorName: "child",
               kind: "zero-shot",
-              params: originalChildParams
+              parameters: originalChildParameters
             }),
             new DemoCandidate({
               predictorName: "child",
               kind: "bootstrap-unshuffled",
-              params: new ModuleParameters({
-                instructions: originalChildParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: originalChildParameters.instructions,
                 demos: Arr.make(
                   new Demonstration({
                     input: { question: "What is the capital of France?" },
                     output: { answer: "Paris" }
                   })
                 ),
-                outputStrategy: originalChildParams.outputStrategy
+                outputStrategy: originalChildParameters.outputStrategy
               })
             })
           )
@@ -228,26 +284,13 @@ describe("MIPROv2 Phase 3", () => {
       )
       const instructionCandidates = Arr.make(
         new PredictorInstructionCandidates({
-          predictorName: "root",
-          candidates: Arr.make(
-            new InstructionCandidate({
-              predictorName: "root",
-              instruction: originalRootParams.instructions,
-              tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:root:0:seed:1]",
-              prompt: "baseline",
-              isBaseline: true
-            })
-          )
-        }),
-        new PredictorInstructionCandidates({
           predictorName: "child",
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "child",
-              instruction: originalChildParams.instructions,
+              instruction: originalChildParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:child:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             })
@@ -273,22 +316,22 @@ describe("MIPROv2 Phase 3", () => {
 
       expect(report.message).toContain("destination contract for predictor 'child'")
       expect(yield* Ref.get(mock.calls)).toEqual(Arr.empty())
-      expect(yield* Ref.get(root.params)).toBe(originalRootParams)
-      expect(yield* Ref.get(child.params)).toBe(originalChildParams)
+      expect(yield* Ref.get(root.parameters)).toBe(originalRootParameters)
+      expect(yield* Ref.get(child.parameters)).toBe(originalChildParameters)
     }))
 
   it.effect("rejects ambiguous, unknown, and internally mismatched candidate identities", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const originalParams = yield* Ref.get(module.params)
+      const originalParameters = yield* Ref.get(module.parameters)
       const demoSet = new PredictorDemoCandidates({
         predictorName: "qa",
         candidates: Arr.make(
           new DemoCandidate({
             predictorName: "qa",
             kind: "zero-shot",
-            params: originalParams
+            parameters: originalParameters
           })
         )
       })
@@ -298,9 +341,9 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "qa",
-              instruction: originalParams.instructions,
+              instruction: originalParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             })
@@ -313,9 +356,9 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "other",
-              instruction: originalParams.instructions,
+              instruction: originalParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:other:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             })
@@ -328,7 +371,7 @@ describe("MIPROv2 Phase 3", () => {
           new DemoCandidate({
             predictorName: "other",
             kind: "zero-shot",
-            params: originalParams
+            parameters: originalParameters
           })
         )
       })
@@ -383,14 +426,14 @@ describe("MIPROv2 Phase 3", () => {
       expect(mismatchedReport.message).toContain("identifies predictor 'other'")
       expect(unknownReport.message).toContain("Unknown phase-3 demo candidates for predictor 'other'")
       expect(yield* Ref.get(mock.calls)).toEqual(Arr.empty())
-      expect(yield* Ref.get(module.params)).toBe(originalParams)
+      expect(yield* Ref.get(module.parameters)).toBe(originalParameters)
     }))
 
   it.effect("tracks minibatch cadence, periodic full evals, and baseline-prior registration", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const baselineParams = yield* Ref.get(module.params)
+      const baselineParameters = yield* Ref.get(module.parameters)
       const demoCandidates = Arr.make(
         new PredictorDemoCandidates({
           predictorName: "qa",
@@ -398,8 +441,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "zero-shot",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -407,8 +450,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "bootstrap-shuffled",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -422,9 +465,9 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "qa",
-              instruction: baselineParams.instructions,
+              instruction: baselineParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             }),
@@ -432,7 +475,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "qa",
               instruction: "Always answer Paris for French capitals",
               tip: "anchor",
-              cacheBustMarker: "[miprov2-proposal:qa:1:seed:1]",
+              rolloutId: Option.some(1),
               prompt: "proposal",
               isBaseline: false
             })
@@ -464,203 +507,46 @@ describe("MIPROv2 Phase 3", () => {
       ).pipe(Effect.provide(layer))
 
       expect(result.diagnostics.priorTrialCount).toBe(1)
-      expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(2, 5))
-      expect(result.diagnostics.minibatchTrialNumbers).toEqual(Arr.make(0, 1, 2, 3, 4, 5))
+      expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(0, 4, 8))
+      expect(result.diagnostics.minibatchTrialNumbers).toEqual(Arr.make(1, 2, 3, 5, 6, 7))
       expect(
-        Arr.some(Arr.fromIterable(result.optimizationResult.trials), (trial) => Equal.equals(trial.prior, true))
+        Arr.some(Arr.fromIterable(result.optimizationResult.trials), (trial) => Equal.equals(trial.trialNumber, 0))
       ).toBe(true)
     }))
 
-  it.effect("keeps the finite checkpoint candidate when trial zero scores NaN", () =>
+  it.effect("ranks repeated configs by mean, permits baseline replay, and permanently skips checkpoints", () =>
     Effect.gen(function*() {
-      const zeroIndex: Phase3DimensionIndex = 0
-      const oneIndex: Phase3DimensionIndex = 1
-      const baselineConfig = Rec.set(
-        Rec.set(Rec.empty<string, Phase3DimensionIndex>(), "qa__demo", zeroIndex),
-        "qa__instruction",
-        zeroIndex
-      )
-      const nanConfig = Rec.set(
-        Rec.set(Rec.empty<string, Phase3DimensionIndex>(), "qa__demo", oneIndex),
-        "qa__instruction",
-        oneIndex
-      )
-      const refs = yield* makeTrialRefs
-      const seenConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
-      const scores = yield* Ref.make<ReadonlyArray<number>>(Arr.make(NaN, 1))
-
-      yield* Ref.set(
-        refs.bestAveragingRef,
-        Option.some(new BestAveragingCandidate({ config: baselineConfig, score: 1 }))
-      )
-      yield* evaluateTrial(
-        new EvaluateTrialOptions({
-          config: nanConfig,
-          refs,
-          minibatchExamples: trainset,
-          valset: trainset,
-          fullEvalEvery: 1,
-          emit: () => Effect.void,
-          evaluateOn: (config) =>
-            Ref.update(seenConfigs, (seen) => Arr.append(seen, config)).pipe(
-              Effect.andThen(
-                Ref.modify(scores, (remaining) => Tuple.make(Arr.head(remaining), Arr.drop(remaining, 1))).pipe(
-                  Effect.flatMap(Effect.fromOption)
-                )
-              )
-            )
+      const row = (trial: number, choice: number, score: number, percent: number, fullValidation = false) =>
+        new ToldEvaluation({
+          evaluation: new TrialEvaluation({
+            trial,
+            config: { instruction: choice },
+            score,
+            fullValidation,
+            sampled: !fullValidation
+          }),
+          percent
         })
-      )
-
-      const seen = yield* Ref.get(seenConfigs)
-      const checkpointConfig = Option.getOrElse(Arr.last(seen), () => nanConfig)
-
-      expect(checkpointConfig).toEqual(baselineConfig)
-      expect(Arr.length(seen)).toBe(2)
+      const history = [row(0, 0, 0.9, 90, true), row(1, 1, 1, 100), row(2, 1, 0, 0), row(3, 0, 0.7, 70)]
+      expect(yield* nextFullEvaluation(history)).toEqual({ instruction: 0 })
+      const checkpointed = Arr.append(history, row(4, 0, 0, 0, true))
+      expect(yield* nextFullEvaluation(Arr.append(checkpointed, row(5, 0, 1, 100)))).toEqual({ instruction: 1 })
+      expect(Option.getOrThrow(bestFullEvaluation(Arr.map(checkpointed, (told) => told.evaluation))).trial).toBe(0)
     }))
 
-  it.effect("does not retain failed full-checkpoint candidates for later trials", () =>
+  it.effect("mean and full-score ties retain the first observed combination, not the latest", () =>
     Effect.gen(function*() {
-      const baselineConfig: Phase3Config = { qa__demo: 0, qa__instruction: 0 }
-      const failedConfig: Phase3Config = { qa__demo: 0, qa__instruction: 1 }
-      const validConfig: Phase3Config = { qa__demo: 0, qa__instruction: 2 }
-      const refs = yield* makeTrialRefs
-      yield* evaluateBaseline(
-        new EvaluateBaselineOptions({
-          baselineConfig,
-          refs,
-          valset: trainset,
-          evaluateOn: () => Effect.succeed(Num.multiply(5, -1))
-        })
-      )
-      const failure = new AllTrialsFailed({ message: "full checkpoint failed", trialCount: 2 })
-      const failed = yield* evaluateTrial(
-        new EvaluateTrialOptions({
-          config: failedConfig,
-          refs,
-          minibatchExamples: Arr.take(trainset, 1),
-          valset: trainset,
-          fullEvalEvery: 1,
-          emit: () => Effect.void,
-          evaluateOn: (_config, examples) =>
-            Bool.match(Num.Equivalence(Arr.length(examples), 1), {
-              onTrue: () => Effect.succeed(Num.multiply(1, -1)),
-              onFalse: () => Effect.fail(failure)
-            })
-        })
-      ).pipe(Effect.flip)
-      expect(failed).toBe(failure)
-      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.multiply(5, -1)))
-      expect(yield* Ref.get(refs.bestAveragingRef)).toEqual(Option.some(
-        new BestAveragingCandidate({
-          config: baselineConfig,
-          score: Num.multiply(5, -1)
-        })
-      ))
-      const fullConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
-      const score = yield* evaluateTrial(
-        new EvaluateTrialOptions({
-          config: validConfig,
-          refs,
-          minibatchExamples: Arr.take(trainset, 1),
-          valset: trainset,
-          fullEvalEvery: 1,
-          emit: () => Effect.void,
-          evaluateOn: (config, examples) =>
-            Bool.match(Num.Equivalence(Arr.length(examples), 2), {
-              onFalse: () => Effect.void,
-              onTrue: () => Ref.update(fullConfigs, Arr.append(config))
-            }).pipe(Effect.as(Num.multiply(3, -1)))
-        })
-      )
-      expect(score).toBe(Num.multiply(3, -1))
-      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.multiply(3, -1)))
-      expect(yield* Ref.get(fullConfigs)).toEqual(Arr.make(validConfig))
-      expect(yield* Ref.get(refs.fullEvalTrialsRef)).toEqual(Arr.make(1))
-    }))
-
-  it.effect("evicts a stored candidate that fails the next cadence-two checkpoint", () =>
-    Effect.gen(function*() {
-      const baselineConfig: Phase3Config = { qa__demo: 0, qa__instruction: 0 }
-      const failedConfig: Phase3Config = { qa__demo: 0, qa__instruction: 1 }
-      const validConfig: Phase3Config = { qa__demo: 0, qa__instruction: 2 }
-      const lowerConfig: Phase3Config = { qa__demo: 0, qa__instruction: 3 }
-      const refs = yield* makeTrialRefs
-      const baseline = yield* evaluateBaseline(
-        new EvaluateBaselineOptions({
-          baselineConfig,
-          refs,
-          valset: trainset,
-          evaluateOn: () => Effect.succeed(Num.multiply(5, -1))
-        })
-      )
-      yield* evaluateTrial(
-        new EvaluateTrialOptions({
-          config: failedConfig,
-          refs,
-          minibatchExamples: Arr.take(trainset, 1),
-          valset: trainset,
-          fullEvalEvery: 2,
-          emit: () => Effect.void,
-          evaluateOn: () => Effect.succeed(Num.multiply(1, -1))
-        })
-      )
-      expect(yield* Ref.get(refs.bestAveragingRef)).toEqual(Option.some(
-        new BestAveragingCandidate({ config: failedConfig, score: Num.multiply(1, -1) })
-      ))
-      const failure = new AllTrialsFailed({ message: "stored checkpoint failed", trialCount: 2 })
-      const fullConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
-      const failed = yield* evaluateTrial(
-        new EvaluateTrialOptions({
-          config: validConfig,
-          refs,
-          minibatchExamples: Arr.take(trainset, 1),
-          valset: trainset,
-          fullEvalEvery: 2,
-          emit: () => Effect.void,
-          evaluateOn: (config, examples) =>
-            Bool.match(Num.Equivalence(Arr.length(examples), 1), {
-              onTrue: () => Effect.succeed(Num.multiply(3, -1)),
-              onFalse: () => Ref.update(fullConfigs, Arr.append(config)).pipe(Effect.andThen(Effect.fail(failure)))
-            })
-        })
-      ).pipe(Effect.flip)
-      const candidateAfterFailure = yield* Ref.get(refs.bestAveragingRef)
-      const bestAfterFailure = yield* Ref.get(refs.bestScoreRef)
-
-      yield* Effect.forEach(Arr.make(validConfig, lowerConfig), (config) =>
-        evaluateTrial(
-          new EvaluateTrialOptions({
-            config,
-            refs,
-            minibatchExamples: Arr.take(trainset, 1),
-            valset: trainset,
-            fullEvalEvery: 2,
-            emit: () => Effect.void,
-            evaluateOn: (evaluatedConfig, examples) =>
-              Bool.match(Num.Equivalence(Arr.length(examples), 1), {
-                onTrue: () =>
-                  Effect.succeed(
-                    Match.value(Schema.toEquivalence(Phase3Config)(evaluatedConfig, validConfig)).pipe(
-                      Match.when(true, () => Num.multiply(3, -1)),
-                      Match.orElse(() => Num.multiply(4, -1))
-                    )
-                  ),
-                onFalse: () => Ref.update(fullConfigs, Arr.append(evaluatedConfig)).pipe(Effect.as(Num.multiply(2, -1)))
-              })
-          })
-        ))
-
-      expect(yield* Ref.get(fullConfigs)).toEqual(Arr.make(failedConfig, validConfig))
-      expect(failed).toBe(failure)
-      expect(candidateAfterFailure).toEqual(Option.none())
-      expect(bestAfterFailure).toEqual(Option.some(Num.multiply(1, -1)))
-      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.multiply(1, -1)))
-      expect(yield* Ref.get(refs.bestAveragingRef)).toEqual(Option.some(
-        new BestAveragingCandidate({ config: validConfig, score: Num.multiply(3, -1) })
-      ))
-      expect(yield* Ref.get(refs.fullEvalTrialsRef)).toEqual(Arr.make(3))
-      expect(yield* Ref.get(refs.minibatchTrialsRef)).toEqual(Arr.make(0, 1, 2, 3))
-      expect(Arr.head(baseline)).toEqual(Option.some(Num.multiply(5, -1)))
+      const rows = Arr.map([3, 1, 3, 3], (instruction, trial) =>
+        new TrialEvaluation({
+          trial,
+          config: { instruction },
+          score: 0.8,
+          fullValidation: false,
+          sampled: true
+        }))
+      expect(yield* nextFullEvaluation(Arr.map(rows, (evaluation) => new ToldEvaluation({ evaluation, percent: 80 }))))
+        .toEqual({ instruction: 3 })
+      const full = Arr.map(rows, (row) => new TrialEvaluation(Struct.assign(row, { fullValidation: true })))
+      expect(Option.getOrThrow(bestFullEvaluation(full)).trial).toBe(0)
     }))
 })

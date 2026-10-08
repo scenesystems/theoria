@@ -11,6 +11,7 @@
   "references": [
     { "path": "./packages/digest/tsconfig.examples.json" },
     { "path": "./packages/effect-study/tsconfig.examples.json" },
+    { "path": "./packages/effect-lm/tsconfig.examples.json" },
     { "path": "./packages/effect-dsp/tsconfig.examples.json" },
     { "path": "./packages/effect-inference/tsconfig.examples.json" },
     { "path": "./packages/effect-math/tsconfig.examples.json" },

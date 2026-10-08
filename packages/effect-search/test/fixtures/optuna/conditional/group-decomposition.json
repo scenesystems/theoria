@@ -3,36 +3,60 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
     "additions": [
-      ["optimizer", "lr"],
-      ["optimizer", "beta1", "beta2"],
-      ["optimizer", "momentum"]
+      [
+        "optimizer",
+        "lr"
+      ],
+      [
+        "optimizer",
+        "beta1",
+        "beta2"
+      ],
+      [
+        "optimizer",
+        "momentum"
+      ]
     ],
-    "dimensions": ["optimizer", "lr", "beta1", "beta2", "momentum"],
+    "dimensions": [
+      "optimizer",
+      "lr",
+      "beta1",
+      "beta2",
+      "momentum"
+    ],
     "expectedGroups": [
       {
-        "dimensions": ["beta1", "beta2"],
+        "dimensions": [
+          "beta1",
+          "beta2"
+        ],
         "key": "beta1|beta2"
       },
       {
-        "dimensions": ["lr"],
+        "dimensions": [
+          "lr"
+        ],
         "key": "lr"
       },
       {
-        "dimensions": ["momentum"],
+        "dimensions": [
+          "momentum"
+        ],
         "key": "momentum"
       },
       {
-        "dimensions": ["optimizer"],
+        "dimensions": [
+          "optimizer"
+        ],
         "key": "optimizer"
       }
     ]

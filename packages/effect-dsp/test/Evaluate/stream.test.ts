@@ -8,7 +8,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Result, Schema, Stream } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -23,7 +23,7 @@ const makeQaSignature = () =>
   )
 
 describe("Evaluate.stream", () => {
-  it.effect("preserves run/stream parity over success and failure semantics", () =>
+  it.effect("preserves run/stream parity with exactly one failed row at index 2 and a terminal completion", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -36,14 +36,14 @@ describe("Evaluate.stream", () => {
         examples: [
           new Example({
             input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
+            labels: Option.some({ answer: "Paris" })
           }),
           new Example({
             input: { question: "What is the capital of Japan?" },
-            output: { answer: "Tokyo" }
+            labels: Option.some({ answer: "Tokyo" })
           }),
           new Example({
-            input: { question: "What is the capital of Canada?" }
+            input: { question: 73 }
           })
         ],
         metrics: {
@@ -71,27 +71,36 @@ describe("Evaluate.stream", () => {
             EvaluationCompleted: () => ({ ...state, finished: state.finished + 1 })
           })(event)
       )
-      const failedEvent = Arr.findFirst(events, (event) => event._tag === "ExampleFailed")
+      const failedEvents = Arr.filterMap(events, (event) =>
+        Match.value(event).pipe(
+          Match.tag("ExampleFailed", (failed) => Result.succeed(failed.failure)),
+          Match.orElse(() => Result.failVoid)
+        ))
       const completion = Arr.last(events)
 
+      // Only the third row (non-string question) fails; both string rows are scored.
+      expect(report.totalExamples).toBe(3)
+      expect(report.successCount).toBe(2)
+      expect(report.failureCount).toBe(1)
+      expect(counts).toEqual({ started: 3, completed: 2, failed: 1, finished: 1 })
       expect(counts.started).toBe(report.totalExamples)
       expect(counts.completed).toBe(report.successCount)
       expect(counts.failed).toBe(report.failureCount)
-      expect(counts.finished).toBe(1)
-      expect(Option.isSome(completion)).toBe(true)
+      expect(Arr.map(failedEvents, (failure) => ({ index: failure.index, tag: failure.tag }))).toEqual([
+        { index: 2, tag: "EvaluationFailed" }
+      ])
+      expect(failedEvents).toEqual(report.failures)
 
-      if (Option.isSome(failedEvent) && failedEvent.value._tag === "ExampleFailed") {
-        expect(failedEvent.value.failure.index).toBe(2)
-        expect(failedEvent.value.failure.tag).toBe("EvaluationFailed")
-      }
-
-      if (Option.isSome(completion)) {
-        expect(completion.value._tag).toBe("EvaluationCompleted")
-
-        if (completion.value._tag === "EvaluationCompleted") {
-          expect(completion.value.total).toBe(report.totalExamples)
-          expect(completion.value.overallScore).toBe(report.overallScores.exact)
-        }
-      }
+      Option.match(completion, {
+        onNone: () => expect.fail("Evaluate.stream emitted no events"),
+        onSome: (event) =>
+          Match.value(event).pipe(
+            Match.tag("EvaluationCompleted", (completed) => {
+              expect(completed.total).toBe(report.totalExamples)
+              expect(completed.overallScore).toBe(report.overallScores.exact)
+            }),
+            Match.orElse((other) => expect.fail(`last Evaluate.stream event was ${other._tag}`))
+          )
+      })
     }))
 })

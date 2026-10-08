@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Equal, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Data, Equal, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
 import { Choice } from "../../../Distribution.js"
 import { type SamplerConfig, valueFromConfig } from "../../../internal/configAccess.js"
@@ -61,7 +61,7 @@ const collectValues = <A>(
   trialsInput: Iterable<CompletedTrialForSplit>,
   conditionsInput: Iterable<SearchSpace.Condition>,
   normalize: (value: unknown) => Option.Option<A>
-) => {
+): Array<[CompletedTrialForSplit, A]> => {
   const trials = Arr.fromIterable(trialsInput)
   const conditions = Arr.fromIterable(conditionsInput)
   return Arr.flatMap(trials, (trial) =>
@@ -70,11 +70,11 @@ const collectValues = <A>(
         configValue(trial.config, parameter.name).pipe(
           Option.flatMap(normalize),
           Option.match({
-            onNone: () => Arr.empty(),
-            onSome: Arr.of
+            onNone: () => Arr.empty<[CompletedTrialForSplit, A]>(),
+            onSome: (value) => Arr.of(Tuple.make(trial, value))
           })
         )),
-      Match.orElse(() => Arr.empty())
+      Match.orElse(() => Arr.empty<[CompletedTrialForSplit, A]>())
     ))
 }
 
@@ -86,7 +86,7 @@ const valuesWithFallback = <A>(
   const trials = Arr.fromIterable(trialsInput)
   return Arr.reduce(
     conditionFallbackLadder(parameter.activeWhen),
-    Arr.empty<A>(),
+    Arr.empty<[CompletedTrialForSplit, A]>(),
     (selected, conditions) =>
       Match.value(Num.isGreaterThan(Arr.length(selected), 0)).pipe(
         Match.when(true, () => selected),
@@ -109,10 +109,7 @@ const valuesWithFallback = <A>(
 export const numericValuesForParameter = (
   parameter: SearchSpace.Parameter,
   trialsInput: Iterable<CompletedTrialForSplit>
-) => {
-  const trials = Arr.fromIterable(trialsInput)
-  return valuesWithFallback(parameter, trials, asFiniteNumber)
-}
+): Array<number> => weightedNumericValuesForParameter(parameter, trialsInput).values
 
 /**
  * Extracts primitive choice values for a categorical parameter from completed
@@ -128,7 +125,46 @@ export const numericValuesForParameter = (
 export const primitiveValuesForParameter = (
   parameter: SearchSpace.Parameter,
   trialsInput: Iterable<CompletedTrialForSplit>
-) => {
-  const trials = Arr.fromIterable(trialsInput)
-  return valuesWithFallback(parameter, trials, asChoice)
-}
+): Array<Choice> => weightedPrimitiveValuesForParameter(parameter, trialsInput).values
+
+/**
+ * Observed values with their predetermined kernel weights. `weights` is present only when every
+ * contributing trial carries a MOTPE `belowWeight`, as Optuna's `predetermined_weights` are.
+ *
+ * @since 0.9.0
+ * @category models
+ */
+export class WeightedValues<A> extends Data.Class<{
+  readonly values: Array<A>
+  readonly weights: Option.Option<Array<number>>
+}> {}
+
+const weighted = <A>(pairs: ReadonlyArray<[CompletedTrialForSplit, A]>): WeightedValues<A> =>
+  new WeightedValues({
+    values: Arr.map(pairs, ([, value]) => value),
+    weights: Option.all(Arr.map(pairs, ([trial]) => Option.fromNullishOr(trial.belowWeight)))
+  })
+
+/**
+ * Numeric observations for a parameter with their MOTPE below weights, filtered exactly as
+ * {@link numericValuesForParameter} filters them.
+ *
+ * @since 0.9.0
+ * @category constructors
+ */
+export const weightedNumericValuesForParameter = (
+  parameter: SearchSpace.Parameter,
+  trialsInput: Iterable<CompletedTrialForSplit>
+): WeightedValues<number> => weighted(valuesWithFallback(parameter, Arr.fromIterable(trialsInput), asFiniteNumber))
+
+/**
+ * Categorical observations for a parameter with their MOTPE below weights, filtered exactly as
+ * {@link primitiveValuesForParameter} filters them.
+ *
+ * @since 0.9.0
+ * @category constructors
+ */
+export const weightedPrimitiveValuesForParameter = (
+  parameter: SearchSpace.Parameter,
+  trialsInput: Iterable<CompletedTrialForSplit>
+): WeightedValues<Choice> => weighted(valuesWithFallback(parameter, Arr.fromIterable(trialsInput), asChoice))

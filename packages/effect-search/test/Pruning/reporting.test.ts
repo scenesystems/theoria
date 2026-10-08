@@ -78,11 +78,14 @@ describe("Optimization pruning and early stop contracts", () => {
       const result = yield* requireSome(resultOption)
       const reasons = invalidReportReasons(result.trials)
 
-      expect(reasons).toHaveLength(3)
-      expect(reasons).toContain("duplicate-step")
-      expect(reasons).toContain("non-monotone-step")
-      expect(reasons).toContain("value must be finite")
-      expect(result.bestTrial.trialNumber).toBe(3)
+      expect(reasons).toEqual(["value must be finite"])
+      expect(Arr.map(Arr.fromIterable(result.trials), (trial) => trial.state._tag)).toEqual([
+        "Completed",
+        "Completed",
+        "Failed",
+        "Completed"
+      ])
+      expect(result.bestTrial.trialNumber).toBe(0)
     }))
 
   it.effect("honors Drain and Interrupt stop modes with deterministic heartbeat semantics", () =>

@@ -7,8 +7,10 @@
 import type { Schema } from "effect"
 import { Effect, Record, Ref } from "effect"
 import type { CompositionError } from "../../../DspError.js"
-import { type BestOfNOptions, ComposeGraphOptions, Module } from "../../../Module.js"
+import { type BestOfNOptions, ComposableModule, ComposeGraphOptions, Module } from "../../../Module.js"
+import { predictors } from "../../../ModuleGraph.js"
 import { make as makeDefaultModuleParameters } from "../../../ModuleParameters.js"
+import { withPredictors } from "../../parameterBinding.js"
 import { buildCompositionGraph } from "../compose/graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "../compose/runtime.js"
 import { makeBestOfNForward } from "./runtime.js"
@@ -26,7 +28,7 @@ import { makeBestOfNForward } from "./runtime.js"
  * greatest passing candidate wins, falling back to the greatest candidate
  * overall when none pass.
  * The wrapper owns a separate parameter Ref, but execution reads the inner
- * module's parameters. Its validated child graph includes that inner owner
+ * module's parameters. Its validated child graph includes that inner module
  * and all descendants for discovery, optimization, and persistence. Wrapper
  * and child names must be distinct; invalid graphs fail with `CompositionError`.
  * Inner-module failures retain their original failure
@@ -67,7 +69,7 @@ export const bestOfN = <
         subModules: Record.singleton("inner", options.module)
       })
     )
-    const paramsRef = yield* Ref.make(
+    const parametersRef = yield* Ref.make(
       makeDefaultModuleParameters(options.module.signature.instructions)
     )
     const bestOfNForward = makeBestOfNForward(options)
@@ -75,17 +77,27 @@ export const bestOfN = <
     return new Module({
       name: options.name,
       signature: options.module.signature,
-      params: paramsRef,
-      subModules: composition.subModuleNodesById,
+      parameters: parametersRef,
+      subModules: composition.subModulesById,
+      declarations: composition.declarations,
       forward: makeComposeForward(
         new ComposeForwardOptions({
           moduleName: options.name,
           signature: options.module.signature,
-          paramsRef,
+          parametersRef,
           rootChildIds: composition.rootChildIds,
           graph: composition.graph,
-          subModuleNodes: composition.subModuleNodesById,
-          forward: ({ input }) => bestOfNForward(input)
+          subModules: composition.subModulesById,
+          forward: ({ input }) =>
+            bestOfNForward(input).pipe(withPredictors(predictors(
+              new ComposableModule({
+                name: options.name,
+                signature: options.module.signature,
+                parameters: parametersRef,
+                subModules: composition.subModulesById,
+                declarations: composition.declarations
+              })
+            )))
         })
       )
     })

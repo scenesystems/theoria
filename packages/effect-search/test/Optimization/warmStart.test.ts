@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Equal, Number as Num, Ref } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Number as Num, Option, Ref } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Optimization from "../../src/Optimization.js"
@@ -16,7 +16,7 @@ const captureSampler = (contextsRef: Ref.Ref<Iterable<Context>>): Sampler.Sample
   new Sampler.Sampler({
     kind: Sampler.Random({ options: { seed: 0 } }),
     pendingImputationPolicy: pendingAsZeroPolicy,
-    checkpoint: Effect.succeed({ _tag: "Random", seed: 0 }),
+    checkpoint: Effect.succeed({ _tag: "Random", seed: 0, rng: Option.none() }),
     restore: () => Effect.void,
     suggest: (_space, context) => Ref.update(contextsRef, Arr.append(context)).pipe(Effect.as({ x: 0 }))
   })

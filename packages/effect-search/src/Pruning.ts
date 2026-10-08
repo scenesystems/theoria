@@ -45,7 +45,14 @@ export const isDecision = Decisions.$is
 /** Exhaustively matches a pruning decision. @since 0.7.0 @category pattern matching */
 export const matchDecision = Decisions.$match
 
-/** Inputs supplied to a pruning policy in ascending step order. @since 0.7.0 @category models */
+/**
+ * Inputs supplied to a pruning policy. `reports` holds each accepted step once, in ascending step
+ * order. `latestReport` is the report that just arrived; because reports may arrive with a lower step
+ * than an earlier report, it is not necessarily the last step. Use {@link lastStepReport} for the
+ * report at the maximum step, which is what Optuna pruners call `trial.last_step`.
+ * @since 0.7.0
+ * @category models
+ */
 export class Context extends Data.Class<{
   readonly trialNumber: number
   readonly reports: Iterable<Report>
@@ -68,30 +75,53 @@ const directionFactor = (direction: Direction): number =>
     Match.exhaustive
   )
 
-/** Creates a threshold policy. @since 0.7.0 @category constructors */
+/**
+ * Selects the accepted report at the maximum step, falling back to `latestReport`.
+ * @since 0.9.0
+ * @category combinators
+ */
+export const lastStepReport = (context: Context): Report =>
+  Arr.reduce(
+    Arr.fromIterable(context.reports),
+    context.latestReport,
+    (last, report) =>
+      Bool.match(Num.isGreaterThan(report.step, last.step), {
+        onFalse: () => last,
+        onTrue: () => report
+      })
+  )
+
+const thresholdDecision = (report: Report, limit: number, direction: Direction, minStep: number): Decision =>
+  Match.value(Num.isLessThan(report.step, minStep)).pipe(
+    Match.when(true, () => continueEvaluation()),
+    Match.orElse(() =>
+      Match.value(
+        Num.isGreaterThanOrEqualTo(
+          Num.multiply(report.value, directionFactor(direction)),
+          Num.multiply(limit, directionFactor(direction))
+        )
+      ).pipe(
+        Match.when(true, () =>
+          prune({
+            step: report.step,
+            reason: `threshold(${limit})`,
+            policy: "threshold"
+          })),
+        Match.orElse(() => continueEvaluation())
+      )
+    )
+  )
+
+/**
+ * Creates a threshold policy that inspects the value at the maximum reported step,
+ * so a late report for an earlier step never decides the trial.
+ * @since 0.7.0
+ * @category constructors
+ */
 export const threshold = (limit: number, direction: Direction = "minimize", minStep = 0): Policy =>
   new Policy({
     name: "threshold",
-    decide: ({ latestReport }) =>
-      Match.value(Num.isLessThan(latestReport.step, minStep)).pipe(
-        Match.when(true, () => continueEvaluation()),
-        Match.orElse(() =>
-          Match.value(
-            Num.isGreaterThanOrEqualTo(
-              Num.multiply(latestReport.value, directionFactor(direction)),
-              Num.multiply(limit, directionFactor(direction))
-            )
-          ).pipe(
-            Match.when(true, () =>
-              prune({
-                step: latestReport.step,
-                reason: `threshold(${limit})`,
-                policy: "threshold"
-              })),
-            Match.orElse(() => continueEvaluation())
-          )
-        )
-      )
+    decide: (context) => thresholdDecision(lastStepReport(context), limit, direction, minStep)
   })
 
 /** Controls available to one running objective. @since 0.7.0 @category models */

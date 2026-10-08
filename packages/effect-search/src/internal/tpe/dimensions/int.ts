@@ -3,19 +3,22 @@
  *
  * @since 0.1.0
  */
+import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Chunk, Effect, Number as Num, Option, Tuple } from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import type * as Rng from "../../../internal/rng.js"
-import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
+import { buildContinuousParzen, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
 import { chooseBestCandidate, drawRollPairs } from "../candidateSelection.js"
+import { prepareKernelLogMass } from "../continuousParzen/density.js"
+import { defaultNoiseBandwidthOptions } from "../noiseEstimator.js"
 import { expandedBoundsForStep, normalizeFloat } from "./float.js"
 import { rollFromCandidatePair } from "./rolls.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
-import { numericValuesForParameter } from "./values.js"
+import { numericValuesForParameter, weightedNumericValuesForParameter } from "./values.js"
 
 const normalizeInt = (
   value: number,
@@ -84,19 +87,39 @@ export const intCandidateTraceFromRolls = (
     const stride = Option.getOrElse(step, () => 1)
     const [modelLow, modelHigh] = expandedBoundsForStep(low, high, Option.some(stride))
 
-    const belowParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.below), modelLow, modelHigh)
+    const below = weightedNumericValuesForParameter(parameter, split.below)
+    const belowParzen = buildContinuousParzen(
+      below.values,
+      modelLow,
+      modelHigh,
+      defaultNoiseBandwidthOptions,
+      Option.none(),
+      below.weights
+    )
     const aboveParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.above), modelLow, modelHigh)
     const modelCandidates = Arr.map(
       rolls,
       ([kernelRoll, valueRoll]) => sampleFromParzen(belowParzen, kernelRoll, valueRoll)
     )
-    const logPairs = Arr.map(
-      modelCandidates,
-      (candidate) => Tuple.make(logDensity(belowParzen, candidate), logDensity(aboveParzen, candidate))
+    const candidates = Arr.map(modelCandidates, (candidate) => normalizeInt(candidate, low, high, step))
+    const kernelLogL = Arr.map(candidates, prepareKernelLogMass(belowParzen, stride))
+    const kernelLogG = Arr.map(candidates, prepareKernelLogMass(aboveParzen, stride))
+    const weightsL = Arr.map(belowParzen.kernels, (kernel) => kernel.weight)
+    const weightsG = Arr.map(aboveParzen.kernels, (kernel) => kernel.weight)
+    const marginal = (scores: ReadonlyArray<number>, weights: ReadonlyArray<number>) =>
+      logSumExp(Chunk.fromIterable(Arr.zipWith(scores, weights, (score, weight) => Num.sum(score, logStrict(weight)))))
+    const logPairs = Arr.zipWith(
+      kernelLogL,
+      kernelLogG,
+      (l, g) => Tuple.make(marginal(l, weightsL), marginal(g, weightsG))
     )
 
     return new DimensionScoreTrace({
-      candidates: Chunk.fromIterable(Arr.map(modelCandidates, (candidate) => normalizeInt(candidate, low, high, step))),
+      candidates: Chunk.fromIterable(candidates),
+      kernelLogL,
+      kernelLogG,
+      weightsL,
+      weightsG,
       logL: Arr.map(logPairs, ([logL]) => logL),
       logG: Arr.map(logPairs, ([_logL, logG]) => logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>

@@ -14,7 +14,8 @@ export const buildContinuousParzen = (
   low: number,
   high: number,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  empiricalObservationVariance: Option.Option<number> = Option.none()
+  empiricalObservationVariance: Option.Option<number> = Option.none(),
+  predeterminedWeights: Option.Option<ReadonlyArray<number>> = Option.none()
 ): ContinuousParzen => {
   const observations = Arr.fromIterable(observationsInput)
 
@@ -45,7 +46,7 @@ export const buildContinuousParzen = (
       nKernels
     )
   )
-  const weights = normalizedKernelWeights(Arr.length(observations))
+  const weights = normalizedKernelWeights(Arr.length(observations), predeterminedWeights)
   const kernels = Arr.map(means, (mean, index) =>
     new ContinuousKernel({
       mean,

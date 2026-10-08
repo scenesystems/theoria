@@ -1,0 +1,226 @@
+{
+  "fixture": "trial-states.constant-liar",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.9.0"
+    }
+  },
+  "payload": {
+    "choices": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "completed": [
+      {
+        "trialNumber": 0,
+        "value": 1.0,
+        "x": "a"
+      },
+      {
+        "trialNumber": 1,
+        "value": 0.99,
+        "x": "a"
+      },
+      {
+        "trialNumber": 2,
+        "value": 0.98,
+        "x": "b"
+      },
+      {
+        "trialNumber": 3,
+        "value": 0.1,
+        "x": "a"
+      },
+      {
+        "trialNumber": 4,
+        "value": 0.1,
+        "x": "a"
+      },
+      {
+        "trialNumber": 5,
+        "value": 0.1,
+        "x": "a"
+      },
+      {
+        "trialNumber": 6,
+        "value": 0.1,
+        "x": "b"
+      },
+      {
+        "trialNumber": 7,
+        "value": 0.1,
+        "x": "b"
+      },
+      {
+        "trialNumber": 8,
+        "value": 0.1,
+        "x": "c"
+      },
+      {
+        "trialNumber": 9,
+        "value": 0.1,
+        "x": "c"
+      },
+      {
+        "trialNumber": 10,
+        "value": 0.1,
+        "x": "c"
+      },
+      {
+        "trialNumber": 11,
+        "value": 0.1,
+        "x": "c"
+      },
+      {
+        "trialNumber": 12,
+        "value": 0.1,
+        "x": "c"
+      },
+      {
+        "trialNumber": 13,
+        "value": 0.1,
+        "x": "c"
+      },
+      {
+        "trialNumber": 14,
+        "value": 0.1,
+        "x": "d"
+      },
+      {
+        "trialNumber": 15,
+        "value": 0.1,
+        "x": "d"
+      },
+      {
+        "trialNumber": 16,
+        "value": 0.1,
+        "x": "d"
+      },
+      {
+        "trialNumber": 17,
+        "value": 0.1,
+        "x": "d"
+      },
+      {
+        "trialNumber": 18,
+        "value": 0.1,
+        "x": "d"
+      },
+      {
+        "trialNumber": 19,
+        "value": 0.1,
+        "x": "d"
+      },
+      {
+        "trialNumber": 20,
+        "value": 0.1,
+        "x": "d"
+      }
+    ],
+    "direction": "maximize",
+    "expected": {
+      "defaultConstantLiar": false,
+      "runningConstantLiar": [
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b",
+        "b"
+      ],
+      "runningDefault": [
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a"
+      ],
+      "withoutRunning": [
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+        "a"
+      ]
+    },
+    "multivariate": true,
+    "nStartupTrials": 2,
+    "running": {
+      "trialNumber": 21,
+      "x": "a"
+    },
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ]
+  }
+}

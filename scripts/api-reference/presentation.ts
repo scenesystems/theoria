@@ -111,7 +111,6 @@ export const buildApiPresentation = (input: ConstructorParameters<typeof BuildAp
     (route) => route.path
   )
   const pages: ReadonlyArray<ApiPage> = Arr.zipWith(input.routes, input.exportsByRoute, (route, exports) => ({
-    schemaVersion: 2,
     kind: "api-module",
     path: route.path,
     canonical: route.canonical,

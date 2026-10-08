@@ -1,0 +1,401 @@
+{
+  "fixture": "gepa-aggregate-best",
+  "payload": {
+    "seed": 0,
+    "splits": {
+      "train": [
+        {
+          "id": "train-0",
+          "question": "train-0",
+          "answer": "label-0"
+        },
+        {
+          "id": "train-1",
+          "question": "train-1",
+          "answer": "label-1"
+        }
+      ],
+      "val": [
+        {
+          "id": "val-0",
+          "question": "val-0",
+          "answer": "label-0"
+        },
+        {
+          "id": "val-1",
+          "question": "val-1",
+          "answer": "label-1"
+        }
+      ]
+    },
+    "metricCalls": [
+      {
+        "id": "val-0",
+        "answer": "specialist",
+        "score": 1.0,
+        "target": null
+      },
+      {
+        "id": "val-1",
+        "answer": "specialist",
+        "score": 0.0,
+        "target": null
+      },
+      {
+        "id": "train-0",
+        "answer": "specialist",
+        "score": 1.0,
+        "target": null
+      },
+      {
+        "id": "train-1",
+        "answer": "specialist",
+        "score": 0.0,
+        "target": null
+      },
+      {
+        "id": "train-0",
+        "answer": "specialist",
+        "score": 1.0,
+        "target": "self"
+      },
+      {
+        "id": "train-1",
+        "answer": "specialist",
+        "score": 0.0,
+        "target": "self"
+      },
+      {
+        "id": "train-0",
+        "answer": "generalist",
+        "score": 0.8,
+        "target": null
+      },
+      {
+        "id": "train-1",
+        "answer": "generalist",
+        "score": 0.8,
+        "target": null
+      },
+      {
+        "id": "val-0",
+        "answer": "generalist",
+        "score": 0.8,
+        "target": null
+      },
+      {
+        "id": "val-1",
+        "answer": "generalist",
+        "score": 0.8,
+        "target": null
+      }
+    ],
+    "events": [
+      {
+        "event": "selected",
+        "iteration": 1,
+        "candidate_idx": 0,
+        "candidate": {
+          "self": "specialist"
+        },
+        "score": 0.5
+      },
+      {
+        "event": "minibatch",
+        "iteration": 1,
+        "minibatch_ids": [
+          0,
+          1
+        ],
+        "trainset_size": 2
+      },
+      {
+        "event": "budget",
+        "iteration": 1,
+        "metric_calls_used": 4,
+        "metric_calls_delta": 2,
+        "metric_calls_remaining": 4
+      },
+      {
+        "event": "budget",
+        "iteration": 1,
+        "metric_calls_used": 6,
+        "metric_calls_delta": 2,
+        "metric_calls_remaining": 2
+      },
+      {
+        "event": "budget",
+        "iteration": 1,
+        "metric_calls_used": 8,
+        "metric_calls_delta": 2,
+        "metric_calls_remaining": 0
+      },
+      {
+        "event": "accepted",
+        "iteration": 1,
+        "new_candidate_idx": 1,
+        "new_score": 1.6,
+        "parent_ids": [
+          0
+        ]
+      }
+    ],
+    "maxMetricCalls": 8,
+    "totalMetricCalls": 8,
+    "aggregateScores": [
+      0.5,
+      0.8
+    ],
+    "perInstanceWinners": {
+      "0": [
+        0
+      ],
+      "1": [
+        1
+      ]
+    },
+    "parents": [
+      [
+        null
+      ],
+      [
+        0
+      ]
+    ],
+    "bestIndex": 1,
+    "candidates": [
+      {
+        "traces": [],
+        "train": [],
+        "demos": [],
+        "signature": {
+          "instructions": "specialist",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      },
+      {
+        "traces": [],
+        "train": [],
+        "demos": [],
+        "signature": {
+          "instructions": "generalist",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      }
+    ],
+    "taskHistory": [
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        specialist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nspecialist"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        specialist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nspecialist"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        specialist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nspecialist"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        specialist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nspecialist"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        generalist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\ngeneralist"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        generalist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\ngeneralist"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        generalist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\ngeneralist"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        generalist"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\ngeneralist"
+        ]
+      }
+    ],
+    "reflectionHistory": [
+      {
+        "messages": null,
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\n```generalist```"
+        ]
+      }
+    ],
+    "state": {
+      "traces": [],
+      "train": [],
+      "demos": [],
+      "signature": {
+        "instructions": "generalist",
+        "fields": [
+          {
+            "prefix": "Question:",
+            "description": "${question}"
+          },
+          {
+            "prefix": "Answer:",
+            "description": "${answer}"
+          }
+        ]
+      },
+      "lm": null
+    }
+  }
+}

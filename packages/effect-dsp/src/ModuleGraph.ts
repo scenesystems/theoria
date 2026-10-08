@@ -4,10 +4,107 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Data, Equivalence, Graph as NativeGraph, HashMap, Option, Order, Schema, Tuple } from "effect"
-import { Id, NodeSignature } from "./Module.js"
+import {
+  Array as Arr,
+  Boolean,
+  Chunk,
+  Data,
+  Equivalence,
+  Graph as NativeGraph,
+  HashMap,
+  Option,
+  Order,
+  Record,
+  Schema,
+  Tuple
+} from "effect"
+import * as Defaults from "./internal/module/compose/defaults.js"
+import { type ComposableModule, Id, Structure } from "./Module.js"
+import * as Predictor from "./Predictor.js"
+import { Text } from "./Signature.js"
 
 const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: Id) => moduleId)
+
+/** Enumerates predictors in sorted path order, retaining shared aliases.
+ * A frozen path freezes its predictor even when another path is not frozen.
+ * Bound defaults are resolved per predictor across every path; the outermost
+ * bound level holding a value under any path to the predictor wins.
+ * @since 0.7.0
+ * @category combinators
+ */
+export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predictor> => {
+  const visit = (module: Structure, path: string, frozen: boolean): ReadonlyArray<Predictor.Predictor> => {
+    const excluded = frozen || Option.getOrElse(Option.fromUndefinedOr(module.frozen), () => false)
+    return Arr.match(Defaults.sortedDeclarations(module), {
+      onEmpty: (): ReadonlyArray<Predictor.Predictor> => [
+        new Predictor.Predictor({
+          path,
+          name: module.name,
+          aliases: Chunk.empty(),
+          frozen: excluded,
+          signature: module.signature,
+          signatureDigest: module.signatureDigest,
+          parameters: module.parameters,
+          demonstrationCodec: module.demonstrationCodec,
+          boundParameters: Option.flatMap(
+            Arr.findFirst(defaults, (entry) => entry.parameters === module.parameters),
+            (entry) => entry.value
+          )
+        })
+      ],
+      onNonEmpty: (entries) =>
+        Arr.flatMap(
+          entries,
+          ([alias, child]: readonly [string, Structure]) => visit(child, `${path}.${alias}`, excluded)
+        )
+    })
+  }
+  const structure = new Structure({
+    id: Schema.decodeSync(Id)(root.name),
+    name: root.name,
+    signature: new Text({
+      description: root.signature.description,
+      instructions: root.signature.instructions
+    }),
+    signatureDigest: root.signature.digest,
+    demonstrationCodec: root.signature.demonstrationCodec,
+    parameters: root.parameters,
+    subModules: root.subModules,
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(root.declarations),
+      () => Record.fromEntries(HashMap.toEntries(root.subModules))
+    ),
+    frozen: Option.getOrElse(Option.fromUndefinedOr(root.frozen), () => false),
+    boundParameters: Option.getOrElse(Option.fromUndefinedOr(root.boundParameters), () => ({}))
+  })
+  // Bound defaults belong to predictors, not aliases: resolve each shared
+  // predictor once across every path before projecting its canonical entry.
+  const defaults = Defaults.resolve(structure, root.name)
+  const entries = visit(structure, root.name, false)
+  return Chunk.fromIterable(Arr.reduce(entries, Arr.empty<Predictor.Predictor>(), (predictors, entry) => {
+    const existing = Arr.findFirstIndex(predictors, (predictor) => predictor.parameters === entry.parameters)
+    return Option.match(existing, {
+      onNone: () => Arr.append(predictors, entry),
+      onSome: (index) =>
+        Arr.map(predictors, (predictor, position) =>
+          Boolean.match(position === index, {
+            onFalse: () => predictor,
+            onTrue: () =>
+              new Predictor.Predictor({
+                path: predictor.path,
+                name: predictor.name,
+                aliases: Chunk.append(predictor.aliases, entry.path),
+                frozen: predictor.frozen || entry.frozen,
+                signature: predictor.signature,
+                signatureDigest: predictor.signatureDigest,
+                parameters: predictor.parameters,
+                demonstrationCodec: predictor.demonstrationCodec,
+                boundParameters: predictor.boundParameters
+              })
+          }))
+    })
+  }))
+}
 
 const uniqueSortedModuleIds = (moduleIds: Iterable<Id>): Node["subModuleIds"] =>
   Arr.dedupeWith(Arr.sort(moduleIds, moduleIdOrder), Equivalence.String)
@@ -104,7 +201,7 @@ export class Node extends Schema.Class<Node>("@scenesystems/effect-dsp/ModuleGra
   /** Identity used by graph lookup and traversal. */
   moduleId: Schema.suspend(() => Id),
   /** Prompt metadata retained for optimizer inspection. */
-  signature: Schema.suspend(() => NodeSignature),
+  signature: Schema.suspend(() => Text),
   /** Immediate child identities followed by pre-order traversal. */
   subModuleIds: Schema.Array(Schema.suspend(() => Id))
 }) {}

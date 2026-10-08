@@ -50,6 +50,7 @@ const splitTrialFromFixture = (
           new CompletedTrialForSplit({
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
+            state: trial.state,
             value: directionalScore(direction, value),
             sortStep: Num.multiply(-1, 1)
           })
@@ -61,6 +62,7 @@ const splitTrialFromFixture = (
           new CompletedTrialForSplit({
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
+            state: trial.state,
             value: directionalScore(direction, value),
             sortStep: Num.multiply(-1, 1)
           })
@@ -73,6 +75,7 @@ const splitTrialFromFixture = (
         new CompletedTrialForSplit({
           trialNumber: trial.trialNumber,
           config: { trialNumber: trial.trialNumber, state: trial.state },
+          state: trial.state,
           value: score.value,
           sortStep: score.step
         })

@@ -43,6 +43,9 @@ describe("recovery resume-from-storage", () => {
           objective: snapshotSingleObjective
         })
       )
+      const stagingOptions = StudyStorage.fileSystemOptions(
+        yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-search-recovery-resume-staging-" })
+      )
       const stagedResult = yield* Optimization.run(
         new Optimization.FlatOptions({
           space: yield* snapshotSpace,
@@ -51,7 +54,11 @@ describe("recovery resume-from-storage", () => {
           trials: Num.sum(checkpointTrials, replayTailTrials),
           objective: snapshotSingleObjective
         })
+      ).pipe(Effect.provide(OptimizationStorage.layerFileSystem(stagingOptions)))
+      const stagedRecords = yield* OptimizationStorage.makeFileSystem(stagingOptions).pipe(
+        Effect.flatMap((staging) => staging.loadTrialLog())
       )
+      const checkpointRecord = yield* Effect.fromOption(Arr.get(stagedRecords, Num.decrement(checkpointTrials)))
 
       const baselineSingle = snapshotSingleObjectiveResult(baselineResult)
       const stagedSingle = snapshotSingleObjectiveResult(stagedResult)
@@ -62,11 +69,12 @@ describe("recovery resume-from-storage", () => {
       const checkpoint = new OptimizationSnapshot.OptimizationSnapshot(Struct.assign(stagedSnapshot, {
         nextTrialNumber: checkpointTrials,
         trials: Arr.take(stagedSnapshot.trials, checkpointTrials),
-        completedCount: checkpointTrials
+        completedCount: checkpointTrials,
+        samplerCheckpoint: checkpointRecord.samplerCheckpoint
       }))
 
       yield* storage.writeSnapshot(checkpoint)
-      yield* Effect.forEach(stagedSnapshot.trials, (trial) => storage.appendTrial(trial), { discard: true })
+      yield* Effect.forEach(stagedRecords, (record) => storage.appendTrial(record), { discard: true })
 
       const resumedResult = yield* Optimization.resumeFromStorage(
         new Optimization.StorageResumeOptions({

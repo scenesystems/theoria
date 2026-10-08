@@ -5,11 +5,12 @@
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
 import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
-import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option, Order, Ref, Schema } from "effect"
 
 import * as OptimizationEvent from "../../../../OptimizationEvent.js"
 import {
   Context as PruningContext,
+  continueEvaluation,
   type Decision,
   matchDecision,
   type Policy,
@@ -67,35 +68,13 @@ const validateValue = (
     Match.orElse(() => Effect.fail(reportError(trialNumber, "value must be finite", step, value)))
   )
 
-const validateMonotonicStep = (
-  trialNumber: number,
-  reports: Reports,
-  step: number,
-  value: number
-): Effect.Effect<void, InvalidObjectiveReport> =>
-  Arr.last(reports).pipe(
-    Option.match({
-      onNone: () => Effect.void,
-      onSome: ({ step: previousStep }) =>
-        Match.value(Num.isGreaterThan(step, previousStep)).pipe(
-          Match.when(true, () => Effect.void),
-          Match.orElse(() =>
-            Match.value(Num.Equivalence(step, previousStep)).pipe(
-              Match.when(
-                true,
-                () => Effect.fail(reportError(trialNumber, "duplicate-step", step, value, previousStep))
-              ),
-              Match.orElse(() => Effect.fail(reportError(trialNumber, "non-monotone-step", step, value, previousStep)))
-            )
-          )
-        )
-    })
-  )
-
 const appendReport = (
   reports: Reports,
   report: Report
 ): Reports => Arr.append(reports, report)
+
+/** Recorded reports keep arrival order, as Optuna does; policies receive them in ascending step order. */
+const byStep = Order.mapInput(Num.Order, (entry: Report) => entry.step)
 
 const setPruned = (
   pruneRef: Ref.Ref<Option.Option<Pruned>>,
@@ -136,23 +115,27 @@ const recordReportWithSpi = (
     const reports = yield* Ref.get(reportRefs.reportsRef)
     yield* validateStep(trialNumber, step)
     yield* validateValue(trialNumber, step, value)
-    yield* validateMonotonicStep(trialNumber, reports, step, value)
+    return yield* Bool.match(Arr.some(reports, (report) => Num.Equivalence(report.step, step)), {
+      onFalse: () =>
+        Effect.gen(function*() {
+          const report = new Report({ step, value })
+          const nextReports = appendReport(reports, report)
+          yield* Ref.set(reportRefs.reportsRef, nextReports)
+          const decision = policy.decide(
+            new PruningContext({
+              trialNumber,
+              reports: Arr.sort(nextReports, byStep),
+              latestReport: report
+            })
+          )
 
-    const report = new Report({ step, value })
-    const nextReports = appendReport(reports, report)
-    yield* Ref.set(reportRefs.reportsRef, nextReports)
-    const decision = policy.decide(
-      new PruningContext({
-        trialNumber,
-        reports: nextReports,
-        latestReport: report
-      })
-    )
+          yield* appendEvent(runtime, OptimizationEvent.TrialReported({ trialNumber, step, value, decision }))
+          yield* setPruned(reportRefs.pruneRef, decision)
 
-    yield* appendEvent(runtime, OptimizationEvent.TrialReported({ trialNumber, step, value, decision }))
-    yield* setPruned(reportRefs.pruneRef, decision)
-
-    return decision
+          return decision
+        }),
+      onTrue: () => Ref.get(reportRefs.pruneRef).pipe(Effect.map(Option.getOrElse(continueEvaluation)))
+    })
   })
 
 /**

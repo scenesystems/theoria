@@ -23,13 +23,19 @@ import {
 
 import * as OptimizationSnapshot from "./OptimizationSnapshot.js"
 
-const Trials = Schema.Array(OptimizationSnapshot.Trial)
+const TrialRecords = Schema.Array(OptimizationSnapshot.TrialRecord)
 
-/** Optimization checkpoint and replay-tail policy. @since 0.7.0 @category services */
+/**
+ * Optimization checkpoint and replay-tail policy. Each journal entry is a
+ * {@link OptimizationSnapshot.TrialRecord}, so sampler state advances durably with every trial.
+ *
+ * @since 0.7.0
+ * @category services
+ */
 export class OptimizationStorage extends Context.Service<
   OptimizationStorage,
   {
-    readonly appendTrial: (trial: OptimizationSnapshot.Trial) => Effect.Effect<void, PersistenceError.Failure>
+    readonly appendTrial: (record: OptimizationSnapshot.TrialRecord) => Effect.Effect<void, PersistenceError.Failure>
     readonly writeSnapshot: (
       snapshot: OptimizationSnapshot.OptimizationSnapshot
     ) => Effect.Effect<void, PersistenceError.Failure>
@@ -37,8 +43,8 @@ export class OptimizationStorage extends Context.Service<
       Option.Option<OptimizationSnapshot.OptimizationSnapshot>,
       PersistenceError.Failure
     >
-    readonly loadTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, PersistenceError.Failure>
-    readonly replayTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, PersistenceError.Failure>
+    readonly loadTrialLog: (_?: void) => Effect.Effect<typeof TrialRecords.Type, PersistenceError.Failure>
+    readonly replayTrialLog: (_?: void) => Effect.Effect<typeof TrialRecords.Type, PersistenceError.Failure>
   }
 >()("@scenesystems/effect-search/OptimizationStorage") {}
 
@@ -51,7 +57,7 @@ const specialize = (storage: StudyStorage.Service): Effect.Effect<Service, Persi
       new StudyStorage.OpenOptions({
         runId: "optimization",
         definitionDigest: "@scenesystems/effect-search/OptimizationSnapshot",
-        eventSchema: OptimizationSnapshot.Trial,
+        eventSchema: OptimizationSnapshot.TrialRecord,
         checkpointSchema: OptimizationSnapshot.OptimizationSnapshot
       })
     )
@@ -60,15 +66,15 @@ const specialize = (storage: StudyStorage.Service): Effect.Effect<Service, Persi
     const loadSnapshot = run.loadCheckpoint.pipe(Effect.map(Option.map((checkpoint) => checkpoint.state)))
     const loadTrialLog = run.read().pipe(Stream.map((entry) => entry.event), Stream.runCollect)
     return {
-      appendTrial: (trial) =>
+      appendTrial: (record) =>
         lock.withPermit(Effect.gen(function*() {
           const receipt = yield* run.append(
             new StudyStorage.Append({
-              recordId: yield* Schema.encodeEffect(Schema.FiniteFromString)(trial.trialNumber).pipe(
+              recordId: yield* Schema.encodeEffect(Schema.FiniteFromString)(record.trial.trialNumber).pipe(
                 Effect.mapError(PersistenceError.codec("write"))
               ),
               expectedCursor: yield* Ref.get(cursor),
-              event: trial
+              event: record
             })
           )
           yield* Ref.update(cursor, Num.max(receipt.cursor))
@@ -83,11 +89,14 @@ const specialize = (storage: StudyStorage.Service): Effect.Effect<Service, Persi
       loadTrialLog: () => loadTrialLog,
       replayTrialLog: () =>
         Effect.all(Tuple.make(loadSnapshot, loadTrialLog)).pipe(
-          Effect.map(([snapshot, trials]) =>
+          Effect.map(([snapshot, records]) =>
             Option.match(snapshot, {
-              onNone: () => trials,
+              onNone: () => records,
               onSome: (value) =>
-                Arr.filter(trials, (trial) => Num.isGreaterThanOrEqualTo(trial.trialNumber, value.nextTrialNumber))
+                Arr.filter(
+                  records,
+                  (record) => Num.isGreaterThanOrEqualTo(record.trial.trialNumber, value.nextTrialNumber)
+                )
             })
           )
         )
@@ -138,8 +147,9 @@ const optional = <A>(
   )
 
 /** Appends only when optimization storage is present in the ambient context. @since 0.7.0 @category combinators */
-export const appendIfAvailable = (trial: OptimizationSnapshot.Trial): Effect.Effect<void, PersistenceError.Failure> =>
-  optional((storage) => storage.appendTrial(trial), Effect.void)
+export const appendIfAvailable = (
+  record: OptimizationSnapshot.TrialRecord
+): Effect.Effect<void, PersistenceError.Failure> => optional((storage) => storage.appendTrial(record), Effect.void)
 
 /** Writes only when optimization storage is present in the ambient context. @since 0.7.0 @category combinators */
 export const writeIfAvailable = (

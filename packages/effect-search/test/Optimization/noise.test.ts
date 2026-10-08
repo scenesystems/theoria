@@ -24,7 +24,7 @@ const capturedContextsSampler = (
   new Sampler.Sampler({
     kind: Sampler.Random({ options: { seed: 0 } }),
     pendingImputationPolicy: pendingAsZeroPolicy,
-    checkpoint: Effect.succeed({ _tag: "Random", seed: 0 }),
+    checkpoint: Effect.succeed({ _tag: "Random", seed: 0, rng: Option.none() }),
     restore: () => Effect.void,
     suggest: (_space, context) =>
       Ref.update(contextsRef, (contexts) => Chunk.append(contexts, context)).pipe(

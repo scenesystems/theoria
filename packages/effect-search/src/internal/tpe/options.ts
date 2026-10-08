@@ -101,6 +101,10 @@ export const snapshotSafeOptionsFromRuntime = (
       onNone: () => ({}),
       onSome: (noiseAlpha) => ({ noiseAlpha })
     }),
+    ...Option.match(Option.fromNullishOr(options.constantLiar), {
+      onNone: () => ({}),
+      onSome: (constantLiar) => ({ constantLiar })
+    }),
     ...Option.match(Option.fromNullishOr(options.seed), {
       onNone: () => ({}),
       onSome: (seed) => ({ seed })
@@ -176,6 +180,16 @@ export const seedFromOptions = (options: TpeOptions): number => numberOptionOr(O
  */
 export const multivariateFromOptions = (options: TpeOptions): boolean =>
   Option.fromNullishOr(options.multivariate).pipe(Option.getOrElse(() => false))
+
+/**
+ * Reads whether pending reservations join the above group as running trials,
+ * defaulting to false like Optuna's `constant_liar`.
+ *
+ * @since 0.9.0
+ * @category configuration
+ */
+export const constantLiarFromOptions = (options: TpeOptions): boolean =>
+  Option.fromNullishOr(options.constantLiar).pipe(Option.getOrElse(() => false))
 
 /**
  * Reads whether dimension grouping is enabled for mixed-type search spaces,

@@ -10,34 +10,23 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Italy?" },
-    output: { answer: "Rome" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) }),
+  new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
 const responseForPrompt = (prompt: string) =>
-  prompt.includes("[miprov2-proposal:")
-    ? "Answer with concise factual city names"
-    : prompt.includes("What is the capital of France?")
-    ? { answer: "Paris" }
-    : prompt.includes("What is the capital of Japan?")
-    ? { answer: "Tokyo" }
-    : prompt.includes("What is the capital of Italy?")
-    ? { answer: "Rome" }
-    : { answer: "Unknown" }
+  Match.value(prompt).pipe(
+    Match.when(Str.includes("Return only "), () => "Answer with concise factual city names"),
+    Match.when(Str.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
+    Match.when(Str.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
+    Match.when(Str.includes("What is the capital of Italy?"), () => ({ answer: "Rome" })),
+    Match.orElse(() => ({ answer: "Unknown" }))
+  )
 
 const runMiproTagTrace = Effect.gen(function*() {
   const signature = yield* Signature.make(
@@ -50,13 +39,13 @@ const runMiproTagTrace = Effect.gen(function*() {
     }
   )
   const module = yield* Module.predict("qa-mipro-stream", signature)
-  const params = yield* Ref.get(module.params)
+  const parameters = yield* Ref.get(module.parameters)
 
   yield* Ref.set(
-    module.params,
+    module.parameters,
     new ModuleParameters({
-      instructions: params.instructions,
-      demos: params.demos,
+      instructions: parameters.instructions,
+      demos: parameters.demos,
       outputStrategy: "structured"
     })
   )
@@ -74,8 +63,9 @@ const runMiproTagTrace = Effect.gen(function*() {
         valset: trainset,
         metric: Metric.exactMatch("answer"),
         numCandidates: 3,
-        numInstructions: 3,
-        trialBudget: 4,
+        auto: Option.none(),
+        minibatch: false,
+        numTrials: 4,
         seed: 21
       })
     )
@@ -87,7 +77,7 @@ const runMiproTagTrace = Effect.gen(function*() {
   return tags
 })
 
-describe("examples/06-optimize-miprov2-stream-mock", () => {
+describe("examples/miprov2-streaming", () => {
   it.effect("emits deterministic canonical phase progression", () =>
     Effect.gen(function*() {
       const first = yield* runMiproTagTrace

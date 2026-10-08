@@ -4,6 +4,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Number as Num, Option, Schema, Tuple } from "effect"
 
 const makeGraph = (children: ReadonlyArray<ReadonlyArray<string>>) =>
@@ -15,7 +16,7 @@ const makeGraph = (children: ReadonlyArray<ReadonlyArray<string>>) =>
         const moduleId = Option.getOrThrow(Arr.head(row))
         return new ModuleGraph.Node({
           moduleId,
-          signature: new Module.NodeSignature({ description: "graph", instructions: "graph" }),
+          signature: new Signature.Text({ description: "graph", instructions: "graph" }),
           subModuleIds: Arr.drop(row, 1)
         })
       }))
@@ -36,7 +37,7 @@ describe("ModuleGraph", () => {
       const nodes = Arr.map(ids, (moduleId, index) =>
         new ModuleGraph.Node({
           moduleId,
-          signature: new Module.NodeSignature({ description: "chain", instructions: "chain" }),
+          signature: new Signature.Text({ description: "chain", instructions: "chain" }),
           subModuleIds: Option.match(Arr.get(ids, Num.increment(index)), {
             onNone: () => Arr.empty<Module.Id>(),
             onSome: (child) => Arr.make(child)

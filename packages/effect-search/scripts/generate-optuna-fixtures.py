@@ -1,153 +1,94 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#   "optuna==4.3.0",
-#   "numpy>=1.26,<2",
-# ]
-# [tool.uv]
-# exclude-newer = "2026-03-15T00:00:00Z"
-# ///
-"""Generate deterministic Optuna-aligned fixture artifacts for effect-search tests.
-
-All expected values should be computed from live Optuna internals.
-The payloads are committed to the repository so parity suites never
-derive expected values from the implementation under test.
-
-Requirements: uv (https://docs.astral.sh/uv/)
-Usage:        uv run scripts/generate-optuna-fixtures.py
-"""
-
-from __future__ import annotations
+#!/usr/bin/env -S uv run --locked
+"""Generate / byte-check all Optuna reference fixtures with one pinned runtime."""
 
 import argparse
+import difflib
+import hashlib
 import json
+import os
+import platform
 import sys
 from pathlib import Path
-from typing import Any
 
-# Family imports — each module exports generate(generated_at) -> list[dict]
-from fixtures._common import GENERATOR_VERSION, write_json
+if os.environ.get("PYTHONHASHSEED") != "0":
+    os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
+
+# Use the same NumPy math path on orb and CI CPUs; SIMD dispatch changes last bits.
+# GPSampler also uses PyTorch/MKL and SciPy/OpenBLAS. Fix dispatch and reduction
+# order before importing any numerical library; never round reference outputs.
+CPU_ENVIRONMENT = {"NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F", "ATEN_CPU_CAPABILITY": "default",
+                   "MKL_CBWR": "COMPATIBLE", "OPENBLAS_CORETYPE": "HASWELL", "OPENBLAS_NUM_THREADS": "1",
+                   "MKL_NUM_THREADS": "1", "OMP_NUM_THREADS": "1"}
+os.environ.update(CPU_ENVIRONMENT)
+ENVIRONMENT = {"PYTHONHASHSEED": "0", **CPU_ENVIRONMENT}
+
+import optuna
+
 from fixtures import (
-    gamma,
-    split_trials,
-    pruned_score,
-    truncated_normal,
-    categorical_parzen,
-    continuous_kde,
-    ei,
-    motpe,
-    study_replay,
-    conditional,
-    pruning,
-    mixed_space,
-    noise_bandwidth,
-    multivariate_gaussian,
-    constrained_tpe,
-    advanced_samplers,
+    gamma, split_trials, pruned_score, truncated_normal, categorical_parzen,
+    continuous_kde, ei, motpe, study_replay, conditional, pruning, mixed_space,
+    noise_bandwidth, multivariate_gaussian, constrained_tpe, advanced_samplers,
+    mipro_kernel, trial_states, motpe_hssp, tpe_numeric,
 )
+from fixtures._common import DEFAULT_GENERATED_AT
 
-FAMILIES = [
-    gamma,
-    split_trials,
-    pruned_score,
-    truncated_normal,
-    categorical_parzen,
-    continuous_kde,
-    ei,
-    motpe,
-    study_replay,
-    conditional,
-    pruning,
-    mixed_space,
-    noise_bandwidth,
-    multivariate_gaussian,
-    constrained_tpe,
-    advanced_samplers,
-]
-
-DEFAULT_GENERATED_AT = "2026-03-15T00:00:00Z"
+ROOT = Path(__file__).resolve().parents[1] / "test/fixtures"
+FAMILIES = [gamma, split_trials, pruned_score, truncated_normal, categorical_parzen,
+            continuous_kde, ei, motpe, study_replay, conditional, pruning, mixed_space,
+            noise_bandwidth, multivariate_gaussian, constrained_tpe, advanced_samplers,
+            trial_states, motpe_hssp, tpe_numeric]
 
 
-def collect_fixtures(generated_at: str) -> list[dict[str, Any]]:
-    """Collect all fixture documents from every family module."""
-    docs: list[dict[str, Any]] = []
+def render(value, *, sort_keys=False):
+    return (json.dumps(value, indent=2, sort_keys=sort_keys, allow_nan=False) + "\n").encode()
+
+
+def run(check=False):
+    assert optuna.__version__ == "4.9.0"
+    upstream = {"optuna": optuna.__version__, "python": platform.python_version(),
+                "platform": f"{platform.system()}-{platform.machine()}"}
+    outputs, entries = {}, []
     for family in FAMILIES:
-        docs.extend(family.generate(generated_at))
-    return docs
-
-
-def fixture_file_path(doc: dict[str, Any]) -> str:
-    """Resolve the output path for a fixture document.
-
-    Uses the explicit 'file' key if present, otherwise falls back to
-    '{fixture-name}.json'.
-    """
-    if "file" in doc:
-        return doc["file"]
-    return f"{doc['fixture']}.json"
-
-
-def build_manifest(generated_at: str, fixture_docs: list[dict[str, Any]]) -> dict[str, Any]:
-    fixtures = [
-        {
-            "name": doc["fixture"],
-            "file": fixture_file_path(doc),
-        }
-        for doc in fixture_docs
-    ]
-
-    return {
-        "generator": {
-            "script": "scripts/generate-optuna-fixtures.py",
-            "generatorVersion": GENERATOR_VERSION,
-            "upstream": "optuna",
-            "upstreamVersion": "4.3.0",
-            "pythonVersion": "3.11",
-            "generatedAt": generated_at,
-        },
-        "fixtures": sorted(fixtures, key=lambda entry: entry["name"]),
-    }
-
-
-def run(output_dir: Path, generated_at: str) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    fixture_docs = collect_fixtures(generated_at)
-
-    for doc in fixture_docs:
-        # Strip the 'file' key before writing — it's routing metadata, not fixture content
-        path = output_dir / fixture_file_path(doc)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        output_doc = {k: v for k, v in doc.items() if k != "file"}
-        write_json(path, output_doc)
-
-    manifest = build_manifest(generated_at, fixture_docs)
-    write_json(output_dir / "manifest.json", manifest)
-
-    print(f"Generated {len(fixture_docs)} fixtures in {output_dir}")
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate deterministic Optuna fixture files")
-    parser.add_argument(
-        "--output-dir",
-        default="test/fixtures/optuna",
-        help="Fixture output directory relative to effect-search/",
-    )
-    parser.add_argument(
-        "--generated-at",
-        default=DEFAULT_GENERATED_AT,
-        help="Version-stamped generation timestamp",
-    )
-
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-    run(Path(args.output_dir), args.generated_at)
+        for doc in family.generate(DEFAULT_GENERATED_AT):
+            name = doc.get("file", f"{doc['fixture']}.json")
+            raw = render({k: v for k, v in doc.items() if k != "file"}, sort_keys=True)
+            outputs[ROOT / "optuna" / name] = raw
+            entries.append({"name": doc["fixture"], "file": name,
+                            "sha256": hashlib.sha256(raw).hexdigest()})
+    outputs[ROOT / "optuna/manifest.json"] = render({
+        "upstream": upstream, "generator": "scripts/generate-optuna-fixtures.py",
+        "environment": ENVIRONMENT,
+        "fixtures": sorted(entries, key=lambda entry: entry["name"]),
+    }, sort_keys=True)
+    kernel = mipro_kernel.generate()
+    selection = kernel.pop("trajectorySelection")
+    raw = render(kernel)
+    outputs[ROOT / "optuna-mipro/categorical.json"] = raw
+    outputs[ROOT / "optuna-mipro/manifest.json"] = render({
+        "upstream": upstream, "environment": ENVIRONMENT, "trajectorySelection": selection, "fixtures": [{
+            "id": "optuna-mipro-categorical", "file": "categorical.json",
+            "evidence": "upstream-kernel", "sha256": hashlib.sha256(raw).hexdigest(),
+            "generator": "scripts/fixtures/mipro_kernel.py",
+            "description": "TPESampler ask/tell plus fixed-history joint categorical frequencies; includes FAIL.",
+        }],
+    })
+    actual_paths = {path for directory in (ROOT / "optuna", ROOT / "optuna-mipro")
+                    for path in directory.rglob("*") if path.is_file()}
+    if actual_paths - outputs.keys():
+        raise ValueError(f"Unowned fixture files: {actual_paths - outputs.keys()}")
+    for path, raw in outputs.items():
+        if check:
+            if path.read_bytes() != raw:
+                diff = "".join(difflib.unified_diff(path.read_text().splitlines(True), raw.decode().splitlines(True),
+                                                  fromfile="committed", tofile="upstream"))
+                raise ValueError(f"Optuna fixture differs: {path.relative_to(ROOT)}\n{diff}")
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+    print(f"{'Verified' if check else 'Generated'} {len(entries)} Optuna 4.9.0 fixtures and MIPRO kernel with hashes")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true")
+    run(parser.parse_args().check)

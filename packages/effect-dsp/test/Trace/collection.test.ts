@@ -20,6 +20,7 @@ const entry = (moduleName: string) =>
     const input = yield* encode(Input, { question: "Capital?" })
     const output = yield* encode(Output, { answer: "Paris" })
     return new Trace.Entry({
+      execution: yield* Schema.decodeEffect(Trace.Execution.Id)(moduleName),
       moduleName,
       signatureDescription: "Answer questions",
       input,

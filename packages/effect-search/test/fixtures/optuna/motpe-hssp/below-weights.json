@@ -1,0 +1,418 @@
+{
+  "fixture": "motpe-hssp.below-weights",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.9.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "directions": [
+          "minimize",
+          "minimize"
+        ],
+        "expectedWeights": [
+          0.10000000000000009,
+          1.0,
+          0.10000000000000009,
+          1e-12
+        ],
+        "id": "2d-front",
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              4.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              2.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              4.0,
+              1.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 3,
+            "values": [
+              3.0,
+              3.0
+            ]
+          }
+        ]
+      },
+      {
+        "directions": [
+          "minimize",
+          "maximize"
+        ],
+        "expectedWeights": [
+          0.10000000000000009,
+          1e-12,
+          1.0,
+          0.10000000000000009
+        ],
+        "id": "2d-with-infeasible",
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              -4.0
+            ]
+          },
+          {
+            "constraints": [
+              1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              0.5,
+              -5.0
+            ]
+          },
+          {
+            "constraints": [
+              0.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              2.0,
+              -2.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 3,
+            "values": [
+              4.0,
+              -1.0
+            ]
+          }
+        ]
+      },
+      {
+        "directions": [
+          "minimize",
+          "minimize",
+          "minimize"
+        ],
+        "expectedWeights": [
+          0.39000000000000085,
+          0.39000000000000085,
+          0.39000000000000085,
+          1.0,
+          1e-12
+        ],
+        "id": "3d-front",
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              2.0,
+              3.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              3.0,
+              1.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              2.0,
+              3.0,
+              1.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 3,
+            "values": [
+              2.0,
+              2.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 4,
+            "values": [
+              3.0,
+              3.0,
+              3.0
+            ]
+          }
+        ]
+      },
+      {
+        "directions": [
+          "minimize",
+          "minimize",
+          "minimize",
+          "minimize"
+        ],
+        "expectedWeights": [
+          0.33474972992437907,
+          0.3347497299243791,
+          0.3347497299243793,
+          0.33474972992437924,
+          1.0,
+          1e-12
+        ],
+        "id": "4d-decremental",
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              2.0,
+              3.0,
+              4.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              4.0,
+              3.0,
+              2.0,
+              1.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              2.0,
+              4.0,
+              1.0,
+              3.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 3,
+            "values": [
+              3.0,
+              1.0,
+              4.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 4,
+            "values": [
+              2.5,
+              2.5,
+              2.5,
+              2.5
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 5,
+            "values": [
+              4.0,
+              4.0,
+              4.0,
+              4.0
+            ]
+          }
+        ]
+      },
+      {
+        "directions": [
+          "minimize",
+          "minimize",
+          "minimize",
+          "minimize",
+          "minimize"
+        ],
+        "expectedWeights": [
+          1e-12,
+          0.13406795224977056,
+          1e-12,
+          1.0,
+          1e-12
+        ],
+        "id": "5d-duplicates",
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              2.0,
+              3.0,
+              4.0,
+              5.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              5.0,
+              4.0,
+              3.0,
+              2.0,
+              1.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              1.0,
+              2.0,
+              3.0,
+              4.0,
+              5.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 3,
+            "values": [
+              3.0,
+              3.0,
+              3.0,
+              3.0,
+              3.0
+            ]
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "trialNumber": 4,
+            "values": [
+              2.0,
+              5.0,
+              1.0,
+              4.0,
+              3.0
+            ]
+          }
+        ]
+      },
+      {
+        "directions": [
+          "minimize",
+          "minimize"
+        ],
+        "expectedWeights": [
+          1.0,
+          1e-12,
+          1e-12
+        ],
+        "id": "single-feasible",
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "constraints": [
+              2.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              2.0,
+              1.0
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

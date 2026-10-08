@@ -42,6 +42,13 @@ export * as ModuleGraph from "./ModuleGraph.js"
  */
 export * as ModuleParameters from "./ModuleParameters.js"
 
+/** Named predictors and stable program paths. @since 0.7.0 @category modules */
+export * as Predictor from "./Predictor.js"
+/** Immutable parameter snapshots. @since 0.7.0 @category modules */
+export * as ParameterSet from "./ParameterSet.js"
+/** Bound optimizer results with algorithm-specific reports. @since 0.7.0 @category optimization */
+export * as Optimized from "./Optimized.js"
+
 /**
  * Scores predictions with effectful or synchronous metrics and composes their results.
  *
@@ -74,6 +81,12 @@ export * as Artifact from "./Artifact.js"
  * @category models
  */
 export * as Example from "./Example.js"
+
+/** Decoded invocation output with collected trace and usage.
+ * @since 0.7.0
+ * @category models
+ */
+export * as Prediction from "./Prediction.js"
 
 /**
  * Collects module-call records and usage totals in fiber-local scopes.
@@ -154,3 +167,8 @@ export * as Payload from "./Payload.js"
  * @category testing
  */
 export * as MockLanguageModel from "./MockLanguageModel.js"
+/** Collects immutable teacher execution evidence for prompt optimizers.
+ * @since 0.7.0
+ * @category optimizers
+ */
+export * as TeacherTrace from "./TeacherTrace.js"

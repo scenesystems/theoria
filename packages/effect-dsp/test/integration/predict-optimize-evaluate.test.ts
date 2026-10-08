@@ -10,29 +10,23 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Record, Ref, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) })
 )
 
 const responseForPrompt = (prompt: string) =>
-  prompt.includes("What is the capital of France?")
-    ? { answer: "Paris" }
-    : prompt.includes("What is the capital of Japan?")
-    ? { answer: "Tokyo" }
-    : { answer: "Unknown" }
+  Match.value(prompt).pipe(
+    Match.when(Str.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
+    Match.when(Str.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
+    Match.orElse(() => ({ answer: "Unknown" }))
+  )
 
 describe("integration/predict-optimize-evaluate", () => {
-  it.effect("runs the full pipeline with deterministic mock-layer behavior", () =>
+  it.effect("evaluates, bootstraps demos and re-evaluates the compiled program with every row succeeding", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make(
         "Answer geography questions with concise city names",
@@ -44,13 +38,13 @@ describe("integration/predict-optimize-evaluate", () => {
         }
       )
       const module = yield* Module.predict("qa-e2e", signature)
-      const initialParams = yield* Ref.get(module.params)
+      const initialParameters = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
+          instructions: initialParameters.instructions,
+          demos: initialParameters.demos,
           outputStrategy: "structured"
         })
       )
@@ -71,21 +65,21 @@ describe("integration/predict-optimize-evaluate", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      yield* BootstrapFewShot.run(
+      const compiled = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module,
           trainset,
           metric: Metric.exactMatch("answer"),
           maxRounds: 2,
           maxBootstrappedDemos: 2,
-          threshold: 1,
-          fallbackToLabeledFewShot: false
+          metricThreshold: Option.some(1),
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provide(layer))
 
       const optimizedReport = yield* Evaluate.run(
         new Evaluate.Options({
-          module,
+          module: compiled.program,
           examples: trainset,
           metrics: {
             exactMatch: Metric.exactMatch("answer")
@@ -94,19 +88,19 @@ describe("integration/predict-optimize-evaluate", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      const optimizedParams = yield* Ref.get(module.params)
-      const prediction = yield* module.forward({ question: "What is the capital of France?" }).pipe(
+      const optimizedParameters = Option.getOrThrow(Record.get(compiled.parameters, module.name))
+      const prediction = yield* compiled.program.forward({ question: "What is the capital of France?" }).pipe(
         Effect.provide(layer)
       )
       const calls = yield* Ref.get(mock.calls)
 
       expect(baselineReport.totalExamples).toBe(trainset.length)
       expect(baselineReport.failureCount).toBe(0)
-      expect(optimizedParams.demos.length).toBeGreaterThan(0)
+      expect(optimizedParameters.demos.length).toBeGreaterThan(0)
       expect(optimizedReport.successCount).toBe(optimizedReport.totalExamples)
       expect(optimizedReport.failureCount).toBe(0)
       expect(optimizedReport.successCount).toBeGreaterThanOrEqual(baselineReport.successCount)
       expect(prediction).toEqual({ answer: "Paris" })
-      expect(Arr.some(calls, (call) => call.prompt.includes("What is the capital of France?"))).toBe(true)
+      expect(Arr.some(calls, (call) => Str.includes("What is the capital of France?")(call.prompt))).toBe(true)
     }))
 })

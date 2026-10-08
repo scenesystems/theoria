@@ -229,7 +229,6 @@ const guidePath = (packageSlug: string, slug: string): string =>
   )
 
 const makePage = (input: ConstructorParameters<typeof MakePageInput>[0]): typeof GuidePageSchema.Type => ({
-  schemaVersion: 1,
   kind: "guide",
   path: guidePath(input.sourcePackage.directoryName, input.slug),
   package: {

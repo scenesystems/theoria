@@ -5,7 +5,7 @@
  */
 import { Match, Option } from "effect"
 
-import { provenanceVersion, type Resolved, type Route, selectedProvider } from "../Route.js"
+import { type Resolved, type Route, selectedProvider } from "../Route.js"
 import type { RuntimeRequest } from "../RuntimeRequest.js"
 
 const selectionReasonForRoute = (route: Route): string =>
@@ -43,7 +43,6 @@ export const make = (
   providerModel: request.model.modelRef,
   runtimeFlavor: route.runtimeFlavorHint,
   selectionReason: selectionReasonForRoute(route),
-  schemaVersion: provenanceVersion,
   ...Option.fromNullishOr(route.deploymentId).pipe(
     Option.match({
       onNone: () => ({}),

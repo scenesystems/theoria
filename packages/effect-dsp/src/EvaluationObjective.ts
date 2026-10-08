@@ -7,7 +7,7 @@
 import { Value as SearchObjectiveValue } from "@scenesystems/effect-search/Objective"
 import { Array as Arr, Match, Number, Option, Order, Record, Schema } from "effect"
 import { Failure, Report } from "./Evaluate.js"
-import { Result as MetricResult } from "./Metric.js"
+import { Score } from "./Metric.js"
 
 /** Scalar or vector projection mode.
  * @since 0.4.0
@@ -21,7 +21,7 @@ export const Mode = Schema.Literals(["single", "multi"])
  */
 export class MetricScore extends Schema.Class<MetricScore>("@scenesystems/effect-dsp/EvaluationObjective/MetricScore")({
   name: Schema.String,
-  score: MetricResult.fields.score
+  score: Score.fields.value
 }) {}
 
 /** Evaluation context retained beside a projected objective.
@@ -52,7 +52,7 @@ export class Projection extends Schema.Class<Projection>("@scenesystems/effect-d
  */
 export type ObjectiveValue = SearchObjectiveValue
 
-const Entry = Schema.Tuple([Schema.String, MetricResult.fields.score])
+const Entry = Schema.Tuple([Schema.String, Score.fields.value])
 const Names = Schema.Array(Schema.String)
 const entryOrder: Order.Order<typeof Entry.Type> = Order.mapInput(Order.String, ([name]) => name)
 const entries = (report: Report) => Arr.sort(Record.toEntries(report.overallScores), entryOrder)
@@ -60,7 +60,7 @@ const names = (report: Report) => Arr.map(entries(report), ([name]) => name)
 const score = (report: Report, name: string): number =>
   Option.getOrElse(Record.get(report.overallScores, name), () => 0)
 const averageDuration = (report: Report): number =>
-  Arr.match(report.results, {
+  Arr.match(report.outcomes, {
     onEmpty: () => 0,
     onNonEmpty: (results) =>
       Number.divideUnsafe(
@@ -79,16 +79,13 @@ const telemetry = (report: Report): Telemetry =>
   })
 const decodeProjection = Schema.decodeEffect(Projection)
 
-/** Projects one named aggregate metric, or the first name in stable order.
+/** Projects one named aggregate metric, or the report's failure-inclusive average.
  * @since 0.4.0
  * @category constructors
  */
 export const projectSingleObjective = (report: Report, metricName: Option.Option<string>) =>
   decodeProjection({
-    objective: score(
-      report,
-      Option.getOrElse(metricName, () => Option.getOrElse(Arr.head(names(report)), () => "score"))
-    ),
+    objective: Option.match(metricName, { onNone: () => report.average, onSome: (name) => score(report, name) }),
     telemetry: telemetry(report)
   })
 

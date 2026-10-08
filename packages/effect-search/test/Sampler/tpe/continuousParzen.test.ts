@@ -33,8 +33,8 @@ describe("tpe continuous parzen", () => {
       const minSigma = Num.divideUnsafe(1, 5)
       const observationKernels = Arr.take(parzen.kernels, 3)
 
-      Arr.forEach(observationKernels, (kernel) => {
-        expect(kernel.sigma).toBeCloseTo(0.2, 12)
+      Arr.forEach(observationKernels, (kernel, index) => {
+        expect(kernel.sigma).toBeCloseTo(Arr.getUnsafe([0.2, 0.3, 0.3], index), 12)
         expect(kernel.sigma).toBeGreaterThanOrEqual(minSigma)
         expect(kernel.sigma).toBeLessThanOrEqual(1)
       })

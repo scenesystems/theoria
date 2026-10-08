@@ -22,7 +22,9 @@ describe("OptimizationSnapshot.decodeUnknown", () => {
           objective: snapshotSingleObjective
         })
       )
-      const snapshot = yield* Optimization.snapshot(result)
+      const snapshot = yield* Optimization.snapshot(result).pipe(
+        Effect.flatMap(Schema.encodeEffect(OptimizationSnapshot.OptimizationSnapshot))
+      )
       const first = yield* Effect.fromOption(Arr.head(snapshot.trials))
       const corruptTrials = Arr.make(
         Struct.assign(first, { trialNumber: 9007199254740991 }),
@@ -51,7 +53,9 @@ describe("OptimizationSnapshot.decodeUnknown", () => {
           objective: snapshotSingleObjective
         })
       )
-      const snapshot = yield* Optimization.snapshot(result)
+      const snapshot = yield* Optimization.snapshot(result).pipe(
+        Effect.flatMap(Schema.encodeEffect(OptimizationSnapshot.OptimizationSnapshot))
+      )
       const decoded = yield* OptimizationSnapshot.decodeUnknown(Struct.assign(snapshot, { completedCount: count }))
       expect(decoded.completedCount).toBe(2)
       expect(decoded.samplerMetrics.completedCount).toBe(2)
@@ -77,7 +81,9 @@ describe("OptimizationSnapshot.decodeUnknown", () => {
 
       const single = yield* Effect.fromOption(snapshotSingleObjectiveResult(result))
 
-      const snapshot = yield* Optimization.snapshot(single)
+      const snapshot = yield* Optimization.snapshot(single).pipe(
+        Effect.flatMap(Schema.encodeEffect(OptimizationSnapshot.OptimizationSnapshot))
+      )
 
       const decoded = yield* OptimizationSnapshot.decodeUnknown(Struct.assign(snapshot, {
         nextTrialNumber: 99,

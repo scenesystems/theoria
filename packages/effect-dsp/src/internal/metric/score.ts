@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean, Match, Number, Option, Predicate, Record, Result, Schema, String } from "effect"
 
 const normalize = (value: string): string => String.toLowerCase(String.trim(value))
@@ -111,7 +112,7 @@ export const tokenOverlap = (left: Iterable<string>, right: Iterable<string>): n
  */
 export const averageNumbers = (scores: Iterable<number>): number => {
   const values = Arr.fromIterable(scores)
-  return Option.getOrElse(Number.divide(Number.sumAll(values), Arr.length(values)), () => 0)
+  return Option.getOrElse(Number.divide(Numeric.sumNeumaier(values), Arr.length(values)), () => 0)
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
-import { Array as Arr, Effect, Option, Ref, Stream } from "effect"
+import { Array as Arr, Effect, Option, Ref, Schema, Stream } from "effect"
 
 const events = Arr.make(
   GEPA.events.IterationStarted({ iteration: 1, frontierSize: 1 }),
@@ -53,18 +53,13 @@ describe("GEPA progress", () => {
       expect(summary.maxFrontierSize).toBe(3)
     }))
 
-  it.effect("reports changed instructions even when the score is unchanged", () =>
-    Effect.sync(() => {
-      const outcome = GEPA.summarizeOutcome({
-        baselineScore: 0.5,
-        optimizedScore: 0.5,
-        instructionBefore: "Short",
-        instructionAfter: "Longer text",
-        events: GEPA.summarizeEvents(events)
-      })
-      expect(outcome.scoreDelta).toBe(0)
-      expect(outcome.instructionChanged).toBe(true)
-      expect(outcome.instructionLengthBeforeOptimization).toBe(5)
-      expect(outcome.instructionLengthAfterOptimization).toBe(11)
+  it.effect("round-trips optimizer report evidence through JSON", () =>
+    Effect.gen(function*() {
+      const codec = Schema.fromJsonString(GEPA.Report)
+      const encoded = yield* Schema.encodeEffect(codec)(GEPA.summarizeEvents(events))
+      const report = yield* Schema.decodeEffect(codec)(encoded)
+      expect(report.optimizationBestCandidateId).toBe("candidate-1")
+      expect(report.maxFrontierSize).toBe(3)
+      expect(report.acceptanceAcceptedCount).toBe(0)
     }))
 })

@@ -6,7 +6,10 @@ import { Array as Arr, DateTime, Effect, Ref, Result, Schema } from "effect"
 
 import * as Artifact from "../../src/Artifact.js"
 import { envelopeEventPublisher } from "../../src/internal/optimization/events.js"
+import * as Optimization from "../../src/Optimization.js"
 import * as OptimizationEvent from "../../src/OptimizationEvent.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const runIdText = "01HZ0000000000000000000000"
 
@@ -32,6 +35,26 @@ const makeMetadata = Effect.gen(function*() {
 })
 
 describe("Artifact", () => {
+  it.effect("round-trips optimization snapshots with their advanced random streams", () =>
+    Effect.gen(function*() {
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* SearchSpace.make({ choice: SearchSpace.categorical(["a", "b", "c"]) }),
+          sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 9, nStartupTrials: 1 })),
+          direction: "maximize",
+          trials: 3,
+          objective: () => Effect.succeed(1)
+        })
+      )
+      const envelope = Artifact.OptimizationSnapshot({
+        ...yield* makeMetadata,
+        snapshot: yield* Optimization.snapshot(result)
+      })
+      const codec = Schema.fromJsonString(Artifact.Envelope)
+      const wire = yield* Schema.encodeEffect(codec)(envelope)
+      expect(yield* Schema.decodeEffect(codec)(wire)).toEqual(envelope)
+    }))
+
   it.effect("propagates allocator failure before publishing an optimization envelope", () =>
     Effect.gen(function*() {
       const metadata = yield* makeMetadata

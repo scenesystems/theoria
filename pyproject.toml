@@ -1,0 +1,21 @@
+[dependency-groups]
+dev = [
+  "dspy==3.4.0",
+  "gepa==0.1.4",
+  "optuna==4.9.0",
+  "numpy>=1.26,<2",
+  "cmaes>=0.12",
+  "scipy",
+  "torch",
+]
+
+[tool.uv.dependency-groups]
+dev = { requires-python = ">=3.12" }
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

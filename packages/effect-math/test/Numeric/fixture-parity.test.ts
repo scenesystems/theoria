@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number, Schema } from "effect"
+import { Chunk, Effect, Match, Number, Schema } from "effect"
 
-import { abs, expm1, log1p, sum } from "../../src/Numeric.js"
+import { abs, expm1, log1p, sum, sumPairwise } from "../../src/Numeric.js"
 import { loadFixture, NumericScalarParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const log1pExpm1Tolerance = 1e-15
@@ -28,6 +28,8 @@ describe("Numeric SciPy fixture parity", () => {
               expectWithinTolerance(expm1(v.input.x), v.expected, log1pExpm1Tolerance)),
             Match.when({ operation: "sum" }, (v) =>
               expectWithinTolerance(sum(v.input.values), v.expected, sumTolerance)),
+            Match.when({ operation: "sumPairwise" }, (v) =>
+              expect(sumPairwise(Chunk.fromIterable(v.input.values)), v.id).toBe(v.expected)),
             Match.exhaustive
           )
         ))

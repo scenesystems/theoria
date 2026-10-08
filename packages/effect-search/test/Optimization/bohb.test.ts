@@ -69,7 +69,7 @@ describe("bohb scheduler", () => {
 
   it.effect("is deterministic for identical BOHB seeds", () =>
     Effect.gen(function*() {
-      const scheduler = yield* Scheduler.bohb(
+      const makeScheduler = Scheduler.bohb(
         new Scheduler.BohbOptions({
           maxResource: 9,
           reductionFactor: 3,
@@ -81,6 +81,7 @@ describe("bohb scheduler", () => {
           })
         })
       )
+      const scheduler = yield* makeScheduler
       const left = yield* Optimization.run(
         new Optimization.ScheduledOptions({
           space: yield* space(),
@@ -92,7 +93,7 @@ describe("bohb scheduler", () => {
       const right = yield* Optimization.run(
         new Optimization.ScheduledOptions({
           space: yield* space(),
-          scheduler,
+          scheduler: yield* makeScheduler,
           direction: "minimize",
           objective
         })

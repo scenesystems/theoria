@@ -52,6 +52,7 @@ The public model is a set of owner-named concerns. Each link is both the source 
 | [`Optimization`](./src/Optimization.ts)   | Bisection root finding and golden-section minimization                                                                                                                                |
 | [`Probability`](./src/Probability.ts)     | Shannon entropy and its validated and policy-aware forms                                                                                                                              |
 | [`Distribution`](./src/Distribution.ts)   | Normal and uniform density, cumulative, and transform operations plus normal, log-normal, exponential, uniform, beta, gamma, Student's t, categorical, binomial, and Poisson families |
+| [`PseudoRandom`](./src/PseudoRandom.ts)   | Reproducible CPython `random` and NumPy legacy `RandomState` streams over one MT19937 engine, with portable checkpoint `State` and validated draw forms                               |
 | [`Policy`](./src/Policy.ts)               | Runtime randomness, precision, backend, and diagnostics services, settings snapshots, and complete policy Layers                                                                      |
 | [`Scalar`](./src/Scalar.ts)               | Scalar-lane capabilities, policy, and resolution between Float64 and BigDecimal                                                                                                       |
 | [`Backend`](./src/Backend.ts)             | Backend capabilities and backend resolution for a selected scalar lane                                                                                                                |
@@ -162,6 +163,30 @@ Policy-aware operations declare their configuration as `Context.Service` service
 
 For `Numeric.sumWithPolicies`, `compensated` selects Kahan-compensated accumulation over an immutable `Chunk`. The `scalar` policy selects ordinary iteration-order accumulation. This preference does not imply a different algorithm for every operation: `LinearAlgebra.dotWithPolicies`, for example, records the preference in diagnostics while using its documented dot-product algorithm.
 
+## Seeded reference streams and upstream sums
+
+[`PseudoRandom`](./src/PseudoRandom.ts) reproduces two upstream generators bit for bit, for statistical sampling only and never for cryptographic material. `makeCPython` seeds CPython's integer-array `random.seed` and provides `random`, `getrandbits`, `randbelow`, `randint`, `choice`, `shuffle`, and `sample`. `makeNumPyLegacy` seeds NumPy's uint32 legacy `RandomState` and provides `randomSample`, `rand`, `uniform`, and weighted `choice`. Each stream is independent: every operation is one atomic state transition, `snapshot` captures a Schema-encodable `State` without drawing, and `restore` or the class constructor continues from a captured or decoded `State`. These streams serve reference parity where a consumer must match upstream draws; they do not read `Policy.Randomness`.
+
+CPython operations come in two forms. The `Validated` forms (`randbelowValidated`, `randintValidated`, `choiceValidated`, `getrandbitsValidated`, `sampleValidated`) check CPython's argument domain before drawing and fail with `PseudoRandom.InvalidArgument` without consuming randomness. The base forms are for trusted arguments: they return identical values for valid input and raise the same `InvalidArgument` as a defect, before any draw, when a precondition is violated.
+
+```ts typecheck
+import { Chunk, Effect } from "effect"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+
+const options = Chunk.make("a", "b", "c")
+
+export const replay = Effect.gen(function* () {
+  const stream = yield* PseudoRandom.makeCPython(0)
+  const checkpoint = yield* stream.snapshot
+  const first = yield* stream.choiceValidated(options)
+  const resumed = new PseudoRandom.CPython(checkpoint)
+  const again = yield* resumed.choice(options)
+  return { first, again }
+})
+```
+
+`replay` returns the same element twice: the resumed stream continues from the captured state. `Numeric.sumNeumaier` matches CPython 3.12's builtin float `sum`, including cancellation, overflow, infinities, and signed zero, and `Numeric.sumPairwise` reproduces NumPy's pairwise summation order. Use them where a result must match those upstream reductions; `cpython-sum` and `numeric.scalar-parity` record the interpreter evidence.
+
 ## Computation planning
 
 The planning concerns describe how a numerical computation should run without executing its kernel. [`Scalar`](./src/Scalar.ts) selects an available Float64 or BigDecimal lane. [`Precision`](./src/Precision.ts) evaluates convergence and escalation. [`Backend`](./src/Backend.ts) resolves a backend compatible with the selected lane. [`Autodiff`](./src/Autodiff.ts) chooses forward or reverse mode, or an allowed finite-difference fallback. [`Uncertainty`](./src/Uncertainty.ts) defines lane-specific result envelopes.
@@ -182,7 +207,9 @@ The [examples directory](./examples/) contains runnable programs showing base, v
 
 ## Reference fixtures
 
-Committed SciPy/NumPy fixtures provide independent numerical expectations. From this package directory, run `bun run fixtures:check` to validate them or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
+Committed SciPy/NumPy/CPython fixtures provide independent numerical expectations. The manifest records each payload's SHA-256. From this package directory, run `bun run fixtures:check` to validate the manifest, every payload's schema and hash, and the absence of unlisted files, or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
+
+`bun run fixtures:verify` validates schemas and SHA-256 hashes, then regenerates all 16 payloads and the manifest and compares all 17 files byte for byte, locally and in CI. The generator pins `PYTHONHASHSEED=0` and `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing NumPy, using the locked Python environment on Linux x86_64. The five formerly CPU-sensitive payloads are repinned to this portable dispatch: a last-ulp provenance change with no library behavior change.
 
 The Effect entrypoint discovers reference families, runs Python processes in scopes with bounded concurrency, decodes their JSON responses through the fixture schemas, and writes the fixture files and manifest. Python owns SciPy/NumPy reference computation, result conversion, and JSON input/output. The manifest records the actual SciPy, NumPy, and Python versions used.
 

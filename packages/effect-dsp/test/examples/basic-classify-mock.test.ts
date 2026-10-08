@@ -8,7 +8,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
-describe("examples/02-basic-classify-mock", () => {
+describe("examples/basic-classify-mock", () => {
   it.effect("produces deterministic classify output with a direct mock layer", () =>
     Effect.gen(function*() {
       const classifierSignature = yield* Signature.make(

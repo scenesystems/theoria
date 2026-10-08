@@ -1,61 +1,60 @@
 {
   "fixture": "geometry.distance-parity",
   "metadata": {
-    "generatedAt": "2026-03-23T00:00:00Z",
+    "generatedAt": "2026-10-06T10:08:01Z",
     "generator": {
-      "script": "scripts/generate-scipy-fixtures.py",
-      "version": "1.0.0"
+      "script": "scripts/generate-scipy-fixtures.py"
     },
     "upstream": {
       "name": "scipy",
-      "version": "1.15.2"
+      "version": "1.17.1"
     }
   },
   "payload": {
     "cases": [
       {
-        "expected": 5.0,
         "id": "euclidean-2d-345",
+        "operation": "distance",
         "input": {
           "a": [0, 0],
           "b": [3, 4],
           "metric": "euclidean"
         },
-        "operation": "distance"
+        "expected": 5
       },
       {
-        "expected": 5.196152422706632,
         "id": "euclidean-3d",
+        "operation": "distance",
         "input": {
           "a": [1, 2, 3],
           "b": [4, 5, 6],
           "metric": "euclidean"
         },
-        "operation": "distance"
+        "expected": 5.196152422706632
       },
       {
-        "expected": 0.0,
         "id": "euclidean-identical",
+        "operation": "distance",
         "input": {
           "a": [1, 2],
           "b": [1, 2],
           "metric": "euclidean"
         },
-        "operation": "distance"
+        "expected": 0
       },
       {
-        "expected": 7.211102550927978,
         "id": "euclidean-negative",
+        "operation": "distance",
         "input": {
           "a": [-1, -2],
           "b": [3, 4],
           "metric": "euclidean"
         },
-        "operation": "distance"
+        "expected": 7.211102550927978
       },
       {
-        "expected": 10.0,
         "id": "euclidean-high-d",
+        "operation": "distance",
         "input": {
           "a": [
             1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -69,143 +68,143 @@
           ],
           "metric": "euclidean"
         },
-        "operation": "distance"
+        "expected": 10
       },
       {
-        "expected": 7.0,
         "id": "manhattan-2d",
+        "operation": "distance",
         "input": {
           "a": [0, 0],
           "b": [3, 4],
           "metric": "manhattan"
         },
-        "operation": "distance"
+        "expected": 7
       },
       {
-        "expected": 9.0,
         "id": "manhattan-3d",
+        "operation": "distance",
         "input": {
           "a": [1, 2, 3],
           "b": [4, 5, 6],
           "metric": "manhattan"
         },
-        "operation": "distance"
+        "expected": 9
       },
       {
-        "expected": 0.0,
         "id": "manhattan-identical",
+        "operation": "distance",
         "input": {
           "a": [5, 5],
           "b": [5, 5],
           "metric": "manhattan"
         },
-        "operation": "distance"
+        "expected": 0
       },
       {
-        "expected": 10.0,
         "id": "manhattan-negative",
+        "operation": "distance",
         "input": {
           "a": [-3, -1],
           "b": [2, 4],
           "metric": "manhattan"
         },
-        "operation": "distance"
+        "expected": 10
       },
       {
-        "expected": 7.0,
         "id": "chebyshev-2d",
+        "operation": "distance",
         "input": {
           "a": [0, 0],
           "b": [3, 7],
           "metric": "chebyshev"
         },
-        "operation": "distance"
+        "expected": 7
       },
       {
-        "expected": 6.0,
         "id": "chebyshev-3d",
+        "operation": "distance",
         "input": {
           "a": [1, 2, 3],
           "b": [4, 1, 9],
           "metric": "chebyshev"
         },
-        "operation": "distance"
+        "expected": 6
       },
       {
-        "expected": 0.0,
         "id": "chebyshev-identical",
+        "operation": "distance",
         "input": {
           "a": [1, 1],
           "b": [1, 1],
           "metric": "chebyshev"
         },
-        "operation": "distance"
+        "expected": 0
       },
       {
-        "expected": 8.0,
         "id": "chebyshev-negative",
+        "operation": "distance",
         "input": {
           "a": [-5, 2],
           "b": [3, -1],
           "metric": "chebyshev"
         },
-        "operation": "distance"
+        "expected": 8
       },
       {
-        "expected": 1.414213562373095e-300,
         "id": "euclidean-tiny",
+        "operation": "distance",
         "input": {
           "a": [1e-300, 0],
           "b": [0, 1e-300],
           "metric": "euclidean"
         },
-        "operation": "distance"
+        "expected": 1.414213562373095e-300
       },
       {
-        "expected": 1.414213562373095e150,
         "id": "euclidean-large",
+        "operation": "distance",
         "input": {
           "a": [1e150, 0],
           "b": [0, 1e150],
           "metric": "euclidean"
         },
-        "operation": "distance"
+        "expected": 1.414213562373095e150
       },
       {
-        "expected": [2.0, 3.0],
         "id": "midpoint-2d",
+        "operation": "midpoint",
         "input": {
           "a": [0, 0],
           "b": [4, 6]
         },
-        "operation": "midpoint"
+        "expected": [2, 3]
       },
       {
-        "expected": [3.0, 4.0, 5.0],
         "id": "midpoint-3d",
+        "operation": "midpoint",
         "input": {
           "a": [1, 2, 3],
           "b": [5, 6, 7]
         },
-        "operation": "midpoint"
+        "expected": [3, 4, 5]
       },
       {
-        "expected": [0.0, 0.0],
         "id": "midpoint-negative",
+        "operation": "midpoint",
         "input": {
           "a": [-2, -4],
           "b": [2, 4]
         },
-        "operation": "midpoint"
+        "expected": [0, 0]
       },
       {
-        "expected": [3.0, 3.0],
         "id": "midpoint-identical",
+        "operation": "midpoint",
         "input": {
           "a": [3, 3],
           "b": [3, 3]
         },
-        "operation": "midpoint"
+        "expected": [3, 3]
       }
     ]
   }

@@ -10,14 +10,14 @@ import { Boolean as Bool, Clock, Effect, Match, Number as Num, Option, Ref, Stri
 import * as Cache from "../../../Cache.js"
 import * as ObjectiveCache from "../../../ObjectiveCache.js"
 import * as OptimizationEvent from "../../../OptimizationEvent.js"
-import * as OptimizationSnapshot from "../../../OptimizationSnapshot.js"
-import * as OptimizationStorage from "../../../OptimizationStorage.js"
 import type { Policy } from "../../../Pruning.js"
+import type * as Sampler from "../../../Sampler.js"
 import * as Errors from "../../../SearchError.js"
 import type { SearchError } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
 import * as Trial from "../../../Trial.js"
 import { appendEvent, emitLifecycleEvents } from "../events.js"
+import { journalTrial } from "../journal.js"
 import type { OptimizePlan, OptimizeSettings } from "../options/plan.js"
 import type { OptimizationRuntime } from "./bootstrap.js"
 import { emitTrialCostedAndMarkBudget, shouldSkipByMaxCost } from "./budget.js"
@@ -49,14 +49,24 @@ const trialErrorFromCacheError = (
     cause: error
   })
 
+/**
+ * Records the finalized trial and journals it with the sampler checkpoint inside the
+ * study transaction that serializes suggestions. The record never observes a partially
+ * drawn suggestion, and journal order matches checkpoint order, so the last durable
+ * record carries the latest captured sampler state. Fiber interruption is deferred until
+ * the append and in-memory update finish; this is not an OS-crash transaction.
+ */
 const recordFinalizedTrial = <Config>(
   runtime: OptimizationRuntime<Config>,
+  sampler: Sampler.Sampler,
   finalized: Trial.Trial<Config>
-): Effect.Effect<void> =>
-  GenericStudy.modify(runtime.study, (state) =>
-    Effect.succeed(Tuple.make(
-      undefined,
-      new GenericStudy.State({ lifecycle: state.lifecycle, history: History.set(state.history, finalized) })
+): Effect.Effect<void, SearchError> =>
+  Effect.uninterruptible(GenericStudy.modify(runtime.study, (state) =>
+    journalTrial(sampler, finalized).pipe(
+      Effect.as(Tuple.make(
+        undefined,
+        new GenericStudy.State({ lifecycle: state.lifecycle, history: History.set(state.history, finalized) })
+      ))
     )))
 
 const executeReservedTrial = Effect.fn("effect-search/Optimization.executeReservedTrial")(
@@ -117,8 +127,7 @@ const executeReservedTrial = Effect.fn("effect-search/Optimization.executeReserv
         onNone: () =>
           Effect.gen(function*() {
             const cancelled = Trial.cancel(running)
-            yield* recordFinalizedTrial(runtime, cancelled)
-            yield* OptimizationStorage.appendIfAvailable(OptimizationSnapshot.fromTrial(cancelled))
+            yield* recordFinalizedTrial(runtime, options.sampler, cancelled)
             yield* appendEvent(runtime, OptimizationEvent.TrialCancelled({ trialNumber, reason: "timeout" }))
             return cancelled
           }),
@@ -132,14 +141,14 @@ const executeReservedTrial = Effect.fn("effect-search/Optimization.executeReserv
               finishedAt,
               objectiveExitValue(objectiveExit),
               yield* Ref.get(reportRefs.pruneRef),
+              yield* Ref.get(reportRefs.reportsRef),
               retryCount,
               objectiveCost(objectiveExit),
               objectiveEvaluationCount(objectiveExit),
               objectiveVariance(objectiveExit)
             )
 
-            yield* recordFinalizedTrial(runtime, finalized)
-            yield* OptimizationStorage.appendIfAvailable(OptimizationSnapshot.fromTrial(finalized))
+            yield* recordFinalizedTrial(runtime, options.sampler, finalized)
             yield* emitLifecycleEvents(settings.objectiveSpec, finalized, runtime)
             yield* emitTrialCostedAndMarkBudget(settings, runtime, finalized)
             yield* applyTrialStoppingPolicies(settings, runtime, finalized)

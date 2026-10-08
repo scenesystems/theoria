@@ -44,6 +44,15 @@ export class FixtureSchemaDecodeError extends Schema.TaggedError<FixtureSchemaDe
   { fixture: FixtureNameSchema, path: Schema.String, cause: Schema.Unknown }
 ) {}
 
+export class FixtureHashMismatchError extends Schema.TaggedError<FixtureHashMismatchError>(
+  "@scenesystems/effect-math/test/helpers/fixtures/errors/FixtureHashMismatchError"
+)("FixtureHashMismatchError", {
+  fixture: FixtureNameSchema,
+  path: Schema.String,
+  expected: Schema.String,
+  actual: Schema.String
+}) {}
+
 export class FixtureNotFoundError extends Schema.TaggedError<FixtureNotFoundError>(
   "@scenesystems/effect-math/test/helpers/fixtures/errors/FixtureNotFoundError"
 )("FixtureNotFoundError", {
@@ -56,6 +65,7 @@ export const FixtureRegistryError = Schema.Union([
   FixtureFileReadError,
   FixtureMalformedJsonError,
   FixtureManifestDecodeError,
+  FixtureHashMismatchError,
   FixtureSchemaDecodeError,
   FixtureNotFoundError
 ])

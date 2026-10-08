@@ -8,7 +8,7 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Effect, HashMap, Match, Number, Option, Ref, Schema } from "effect"
 import type { Record } from "effect"
 import type * as Tool from "effect/ai/Tool"
-import { defaultReactMaxIterations, type Id, Module, type Node, type ReactOptions } from "../../../Module.js"
+import { defaultReactMaxIterations, type Id, Module, type ReactOptions, type Structure } from "../../../Module.js"
 import { make as makeDefaultModuleParameters, type ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
 import { makeReactForward, ReactRuntimeOptions } from "./runtime.js"
@@ -19,7 +19,7 @@ const normalizeMaxIterations = (maxIterations: number): number =>
     Match.orElse(() => 1)
   )
 
-const makeInitialParams = <
+const makeInitialParameters = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(
@@ -40,7 +40,8 @@ const makeInitialParams = <
  * Every completed model response records trace and usage data. Provider
  * and checked tool failures retain their native types and requirements.
  * Exhausting the call cap without parsed output
- * fails with `ParseOutputError` containing the last response and diagnostics.
+ * fails with `ParseOutputError` containing the last response, diagnostics and
+ * `context` (predictor path, encoded input and first native prompt).
  * The cap defaults to {@link defaultReactMaxIterations}; finite values are
  * rounded down, while values below one and non-finite values become one.
  *
@@ -64,7 +65,7 @@ export const react = <
   options: ReactOptions<I, O, Tools>
 ): Effect.Effect<Module<I, O, Tool.HandlerError<Tools[keyof Tools]>, Tool.HandlerServices<Tools[keyof Tools]>>> =>
   Effect.gen(function*() {
-    const paramsRef = yield* Ref.make(makeInitialParams(options.signature))
+    const parametersRef = yield* Ref.make(makeInitialParameters(options.signature))
     const maxIterations = normalizeMaxIterations(
       Option.getOrElse(Option.fromNullishOr(options.maxIterations), () => defaultReactMaxIterations)
     )
@@ -72,15 +73,15 @@ export const react = <
     return new Module({
       name: options.name,
       signature: options.signature,
-      params: paramsRef,
-      subModules: HashMap.empty<Id, Node>(),
+      parameters: parametersRef,
+      subModules: HashMap.empty<Id, Structure>(),
       forward: makeReactForward(
         new ReactRuntimeOptions({
           moduleName: options.name,
           signature: options.signature,
           inputSchema: options.signature.inputSchema,
           outputSchema: options.signature.outputSchema,
-          paramsRef,
+          parametersRef,
           toolkit: options.toolkit,
           maxIterations
         })

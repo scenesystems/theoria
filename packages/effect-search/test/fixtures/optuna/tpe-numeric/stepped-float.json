@@ -1,0 +1,739 @@
+{
+  "fixture": "tpe-numeric.stepped-float",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.9.0"
+    }
+  },
+  "payload": {
+    "history": [
+      {
+        "trialNumber": 0,
+        "value": 0.0,
+        "x": 0.25
+      },
+      {
+        "trialNumber": 1,
+        "value": 0.01,
+        "x": 0.5
+      },
+      {
+        "trialNumber": 2,
+        "value": 1.0,
+        "x": 0.0
+      },
+      {
+        "trialNumber": 3,
+        "value": 1.1,
+        "x": 0.75
+      },
+      {
+        "trialNumber": 4,
+        "value": 1.2,
+        "x": 1.0
+      },
+      {
+        "trialNumber": 5,
+        "value": 1.3,
+        "x": 1.0
+      },
+      {
+        "trialNumber": 6,
+        "value": 1.4,
+        "x": 0.75
+      },
+      {
+        "trialNumber": 7,
+        "value": 1.5,
+        "x": 0.0
+      },
+      {
+        "trialNumber": 8,
+        "value": 1.6,
+        "x": 0.5
+      },
+      {
+        "trialNumber": 9,
+        "value": 1.7,
+        "x": 0.25
+      },
+      {
+        "trialNumber": 10,
+        "value": 1.8,
+        "x": 0.0
+      },
+      {
+        "trialNumber": 11,
+        "value": 1.9,
+        "x": 1.0
+      },
+      {
+        "trialNumber": 12,
+        "value": 2.0,
+        "x": 0.75
+      },
+      {
+        "trialNumber": 13,
+        "value": 2.1,
+        "x": 0.25
+      },
+      {
+        "trialNumber": 14,
+        "value": 2.2,
+        "x": 1.0
+      },
+      {
+        "trialNumber": 15,
+        "value": 2.3,
+        "x": 0.0
+      },
+      {
+        "trialNumber": 16,
+        "value": 2.4,
+        "x": 0.5
+      },
+      {
+        "trialNumber": 17,
+        "value": 2.5,
+        "x": 0.75
+      },
+      {
+        "trialNumber": 18,
+        "value": 2.6,
+        "x": 1.0
+      },
+      {
+        "trialNumber": 19,
+        "value": 2.7,
+        "x": 0.25
+      }
+    ],
+    "nearTie": 1e-09,
+    "runs": [
+      {
+        "expected": [
+          {
+            "gap": 0.287035804528,
+            "seed": 0,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 1,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 2,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 3,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 4,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 5,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 6,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 7,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 8,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 9,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 10,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 11,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 12,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 13,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 14,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 15,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 16,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 17,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 18,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 19,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 20,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 21,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 22,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 23,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 24,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 25,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 26,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 27,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 28,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 29,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 30,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 31,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 32,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 33,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 34,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 35,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 36,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 37,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 38,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 39,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 40,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 41,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 42,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 43,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 44,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 45,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 46,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 47,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 48,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 49,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 50,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 51,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 52,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 53,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 54,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 55,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 56,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 57,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 58,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 59,
+            "selected": 0.5
+          }
+        ],
+        "nEiCandidates": 24
+      },
+      {
+        "expected": [
+          {
+            "gap": null,
+            "seed": 0,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.735807685454,
+            "seed": 1,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 2,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 3,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 4,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 5,
+            "selected": 0.5
+          },
+          {
+            "gap": 1.022843489982,
+            "seed": 6,
+            "selected": 0.5
+          },
+          {
+            "gap": 1.795469173059,
+            "seed": 7,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 8,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.735807685454,
+            "seed": 9,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 10,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 11,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 12,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 13,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.735807685454,
+            "seed": 14,
+            "selected": 0.25
+          },
+          {
+            "gap": null,
+            "seed": 15,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 16,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 17,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 18,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.735807685454,
+            "seed": 19,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.083547812586,
+            "seed": 20,
+            "selected": 0.75
+          },
+          {
+            "gap": null,
+            "seed": 21,
+            "selected": 0.0
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 22,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 23,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 24,
+            "selected": 0.25
+          },
+          {
+            "gap": 1.022843489982,
+            "seed": 25,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 26,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 27,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 28,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 29,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 30,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.735807685454,
+            "seed": 31,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.856173495663,
+            "seed": 32,
+            "selected": 0.75
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 33,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 34,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 35,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 36,
+            "selected": 0.25
+          },
+          {
+            "gap": null,
+            "seed": 37,
+            "selected": 0.5
+          },
+          {
+            "gap": null,
+            "seed": 38,
+            "selected": 0.75
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 39,
+            "selected": 0.5
+          },
+          {
+            "gap": null,
+            "seed": 40,
+            "selected": 0.25
+          },
+          {
+            "gap": 1.022843489982,
+            "seed": 41,
+            "selected": 0.5
+          },
+          {
+            "gap": 1.022843489982,
+            "seed": 42,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 43,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 44,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 45,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 46,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 47,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 48,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 49,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 50,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.652259872869,
+            "seed": 51,
+            "selected": 0.25
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 52,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 53,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.939295677396,
+            "seed": 54,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 55,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 56,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 57,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.287035804528,
+            "seed": 58,
+            "selected": 0.5
+          },
+          {
+            "gap": 0.735807685454,
+            "seed": 59,
+            "selected": 0.25
+          }
+        ],
+        "nEiCandidates": 3
+      }
+    ],
+    "sampler": {
+      "multivariate": false,
+      "nStartupTrials": 10
+    },
+    "space": {
+      "high": 1.0,
+      "low": 0.0,
+      "step": 0.25
+    }
+  }
+}

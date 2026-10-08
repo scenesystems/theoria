@@ -4,13 +4,14 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Effect, Option, Predicate, Record, Schema, String } from "effect"
+import { Array as Arr, Boolean, Effect, Option, Predicate, Record, Schema, String, Struct } from "effect"
 import * as AiError from "effect/ai/AiError"
 import * as Prompt from "effect/ai/Prompt"
 import type { ModuleParameters } from "../../ModuleParameters.js"
 import { encode } from "../../Payload.js"
-import type { FieldInfo, Signature } from "../../Signature.js"
-import { encodedFieldSchema, encodedFieldsToInfoArray } from "../signature/fields.js"
+import { FieldInfo, type Signature } from "../../Signature.js"
+import { effective } from "../signature/effective.js"
+import { encodedFieldSchema, encodedFieldsToInfoArray, fieldsToInfoArray } from "../signature/fields.js"
 import { renderFieldMarker, renderOutputRequirements, renderOutputTemplate } from "./protocol.js"
 
 const promptError = () =>
@@ -36,8 +37,25 @@ const renderFieldLine = (name: string, description: Option.Option<string>): stri
 
 const renderFieldSection = (fields: Iterable<FieldInfo>): string =>
   Arr.join(
-    Arr.map(Arr.fromIterable(fields), (field) => renderFieldLine(field.name, field.description)),
+    Arr.map(Arr.fromIterable(fields), (field) =>
+      renderFieldLine(
+        Option.match(field.prefix, { onNone: () => field.name, onSome: (prefix) => `${field.name} (${prefix})` }),
+        field.description
+      )),
     "\n"
+  )
+
+// Signature constructors accept Struct and encodeKeys(Struct), both preserving
+// field order. Pair decoded metadata with its wire key rather than renaming markers.
+const promptFields = (schema: Schema.Top, fields: ReadonlyArray<FieldInfo>) =>
+  Arr.zipWith(
+    fieldsToInfoArray(schema),
+    encodedFieldsToInfoArray(schema),
+    (decoded, encoded) =>
+      new FieldInfo(Struct.assign(
+        Option.getOrElse(Arr.findFirst(fields, (field) => field.name === decoded.name), () => decoded),
+        { name: encoded.name }
+      ))
   )
 
 const renderFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(schema: Schema.Schema<A>, values: A) =>
@@ -60,26 +78,28 @@ const renderFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(sche
  */
 export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   signature: Signature<I, O>,
-  params: ModuleParameters,
+  parameters: ModuleParameters,
   input: Schema.Schema.Type<Schema.Struct<I>>,
   feedback: Option.Option<string> = Option.none()
 ): Effect.Effect<Prompt.Prompt, AiError.AiError, Schema.Struct<I>["EncodingServices"]> =>
   Effect.gen(function*() {
-    const inputFields = encodedFieldsToInfoArray(signature.inputSchema)
-    const outputFields = encodedFieldsToInfoArray(signature.outputSchema)
+    const composed = effective(signature, parameters)
+    const inputFields = promptFields(signature.inputSchema, composed.fields)
+    const outputFields = promptFields(signature.outputSchema, composed.fields)
     const outputNames = Arr.map(outputFields, (field) => field.name)
     const encoded = yield* Schema.encodeEffect(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
     const content = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), encoded)
-    const demonstrations = yield* Effect.forEach(params.demos, (demo) =>
+    const projected = yield* Effect.forEach(
+      parameters.demos,
+      (demo) => signature.demonstrationCodec.decode(demo).pipe(Effect.mapError(promptError))
+    )
+    // DSPy's adapter keeps a demo only with at least one output field; an empty
+    // assistant turn would teach nothing and some providers reject it.
+    const renderable = Arr.filter(projected, (demo) => Boolean.not(Record.isEmptyRecord(demo.output)))
+    const demonstrations = yield* Effect.forEach(renderable, (validated) =>
       Effect.gen(function*() {
-        const input = yield* Schema.decodeEffect(Schema.toEncoded(signature.inputSchema))(demo.input).pipe(
-          Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.toEncoded(signature.inputSchema), record))
-        )
-        const output = yield* Schema.decodeEffect(Schema.toEncoded(signature.outputSchema))(demo.output).pipe(
-          Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.toEncoded(signature.outputSchema), record))
-        )
+        const input = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), validated.input)
+        const output = yield* renderFieldBlock(Schema.toEncoded(signature.outputSchema), validated.output)
         return Arr.make(
           Prompt.userMessage({ content: Arr.make(Prompt.textPart({ text: input })) }),
           Prompt.assistantMessage({ content: Arr.make(Prompt.textPart({ text: output })) })
@@ -91,7 +111,7 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
           content: Arr.join(
             Arr.make(
               String.concat("Task: ", signature.description),
-              String.concat("Instructions: ", params.instructions),
+              String.concat("Instructions: ", parameters.instructions),
               String.concat("Input fields:\n", renderFieldSection(inputFields)),
               String.concat("Output fields:\n", renderFieldSection(outputFields)),
               String.concat("Output template:\n", renderOutputTemplate(outputNames))

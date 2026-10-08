@@ -201,7 +201,7 @@ export const pruneStopSpace = makeSlotSpace(64)
 export const pruneStopSampler = new Sampler.Sampler({
   kind: Sampler.Random({ options: { seed: 0 } }),
   pendingImputationPolicy: pendingAsZeroPolicy,
-  checkpoint: Effect.succeed({ _tag: "Random", seed: 0 }),
+  checkpoint: Effect.succeed({ _tag: "Random", seed: 0, rng: Option.none() }),
   restore: () => Effect.void,
   suggest: (_space, context) => Effect.succeed({ slot: context.nextTrialNumber })
 })

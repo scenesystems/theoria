@@ -78,6 +78,16 @@ export const cards: ReadonlyArray<Card> = [
     license: "MIT"
   },
   {
+    id: "effect-lm",
+    title: "@scenesystems/effect-lm",
+    packageName: "@scenesystems/effect-lm",
+    description: "Binds model roles, generation settings, and runtime identities for typed programs.",
+    group: "effect",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-lm",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-lm",
+    license: "MIT"
+  },
+  {
     id: "effect-inference",
     title: "@scenesystems/effect-inference",
     packageName: "@scenesystems/effect-inference",

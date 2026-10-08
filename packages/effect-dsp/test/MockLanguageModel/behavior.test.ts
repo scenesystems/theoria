@@ -2,7 +2,7 @@
  * Behavioral contracts for the public in-memory language-model test double.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Result } from "@scenesystems/effect-dsp/Metric"
+import { Score } from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import { Array as Arr, Chunk, Effect, Number, Order, Ref, Schema, Stream, String } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
@@ -98,7 +98,7 @@ describe("MockLanguageModel", () => {
     Effect.gen(function*() {
       const schema = Schema.Struct({
         value: Schema.Struct({
-          score: Schema.NullOr(Result.fields.score),
+          score: Schema.NullOr(Score.fields.value),
           note: Schema.optional(Schema.String)
         })
       })
@@ -119,7 +119,7 @@ describe("MockLanguageModel", () => {
         }))
 
       expect(Arr.map(failures, (failure) => failure.reason._tag)).toEqual(
-        Arr.make("UnknownError", "StructuredOutputError")
+        Arr.make("StructuredOutputError", "StructuredOutputError")
       )
     }))
 

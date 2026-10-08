@@ -137,9 +137,9 @@ describe("Calibration boundary contracts", () => {
 
   it.effect("optimize fails with OptimizationSnapshotMissing when storage drops its snapshot", () =>
     Effect.gen(function*() {
-      const trialLog = yield* Ref.make(Arr.empty<OptimizationSnapshot.Trial>())
+      const trialLog = yield* Ref.make(Arr.empty<OptimizationSnapshot.TrialRecord>())
       const evictingStorage: OptimizationStorage.Service = {
-        appendTrial: (trial) => Ref.update(trialLog, (trials) => Arr.append(trials, trial)),
+        appendTrial: (record) => Ref.update(trialLog, (records) => Arr.append(records, record)),
         loadSnapshot: () => Effect.succeedNone,
         loadTrialLog: () => Ref.get(trialLog),
         replayTrialLog: () => Ref.get(trialLog),

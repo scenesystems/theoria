@@ -28,11 +28,11 @@ const makeQaSignature = () =>
 
 class RegistrationProjection extends Data.Class<{
   readonly id: string
-  readonly subModuleIds: Module.Registration["subModuleIds"]
+  readonly subModuleIds: Module.Discovered["subModuleIds"]
 }> {}
 
 const registrationProjection = (
-  registrations: Iterable<Module.Registration>
+  registrations: Iterable<Module.Discovered>
 ) =>
   Arr.map(Arr.fromIterable(registrations), (registration) =>
     new RegistrationProjection({
@@ -41,9 +41,9 @@ const registrationProjection = (
     }))
 
 const registrationById = (
-  registrations: Iterable<Module.Registration>,
+  registrations: Iterable<Module.Discovered>,
   moduleId: string
-): Option.Option<Module.Registration> =>
+): Option.Option<Module.Discovered> =>
   Arr.findFirst(
     Arr.fromIterable(registrations),
     (registration) => Equal.equals(registration.id, moduleId)
@@ -80,7 +80,7 @@ describe("Module discovery", () => {
       expect(ModuleGraph.traversal(graph)).toEqual(Arr.make("observed"))
     }))
 
-  it.effect("collects both concurrent ensemble lineages and their live parameters", () =>
+  it.effect("collects both concurrent ensemble lineages and their parameters", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const leafA = yield* Module.compose(
@@ -141,14 +141,14 @@ describe("Module discovery", () => {
 
       expect(lineageA.path).toEqual(Arr.make(rootId, memberAId, leafAId))
       expect(lineageB.path).toEqual(Arr.make(rootId, memberBId, leafBId))
-      expect(leafARegistration.params).toBe(leafA.params)
-      expect(leafBRegistration.params).toBe(leafB.params)
+      expect(leafARegistration.parameters).toBe(leafA.parameters)
+      expect(leafBRegistration.parameters).toBe(leafB.parameters)
 
-      yield* Ref.update(leafA.params, (params) => withInstructions(params, "Updated A"))
-      yield* Ref.update(leafB.params, (params) => withInstructions(params, "Updated B"))
+      yield* Ref.update(leafA.parameters, (parameters) => withInstructions(parameters, "Updated A"))
+      yield* Ref.update(leafB.parameters, (parameters) => withInstructions(parameters, "Updated B"))
 
-      expect((yield* Ref.get(leafARegistration.params)).instructions).toBe("Updated A")
-      expect((yield* Ref.get(leafBRegistration.params)).instructions).toBe("Updated B")
+      expect((yield* Ref.get(leafARegistration.parameters)).instructions).toBe("Updated A")
+      expect((yield* Ref.get(leafBRegistration.parameters)).instructions).toBe("Updated B")
     }))
 
   it.effect("atomically rejects one concurrent conflicting registration and retains the winner", () =>
@@ -199,7 +199,7 @@ describe("Module discovery", () => {
       const registration = Option.getOrThrow(Arr.head(registrations))
 
       expect(registrations).toHaveLength(1)
-      expect(registration.params).toBe(winner.params)
+      expect(registration.parameters).toBe(winner.parameters)
     }))
 
   it.effect("isolates nested scopes and restores the outer collector after failure and interruption", () =>

@@ -154,6 +154,9 @@ const clearanceBelow = (placed: PlaceMarkers, x: number, radius: number, reach: 
  * their touch targets: each one is pushed down just far enough to clear
  * those before it. These are invariants of the geometry, not something the
  * search has to discover.
+ * The first disc starts at the top padding, so the paper shows a complete
+ * marker on arrival regardless of the sampler's vertical offset. That offset
+ * shapes the remaining discs, which still clear every disc before them.
  */
 export const placeMarkers = (
   features: PlaceFeatures,
@@ -188,10 +191,14 @@ export const placeMarkers = (
       x,
       radius,
       reach,
-      Num.max(
-        Num.sum(stage.padding, radius),
-        Num.multiply(w, Num.sum(meander.top, Num.multiply(index, meander.step)))
-      )
+      Arr.match(placed, {
+        onEmpty: () => Num.sum(stage.padding, radius),
+        onNonEmpty: () =>
+          Num.max(
+            Num.sum(stage.padding, radius),
+            Num.multiply(w, Num.sum(meander.top, Num.multiply(index, meander.step)))
+          )
+      })
     )
     const marker: PlaceMarker = { name: feature.name, description: feature.description, x, y, radius, reach }
     return Arr.append(

@@ -65,7 +65,7 @@ describe("constrained tpe", () => {
       expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(Arr.of(1))
     }))
 
-  it.effect("falls back to unconstrained split when feasible history is absent", () =>
+  it.effect("ranks positive violations when feasible history is absent", () =>
     Effect.sync(() => {
       const split = splitSingleObjective(
         Arr.make(
@@ -76,7 +76,7 @@ describe("constrained tpe", () => {
         "minimize"
       )
 
-      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(Arr.of(0))
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(Arr.of(1))
     }))
 
   it.effect("uses constraint density-ratio product to rank infeasible carry-over trials", () =>

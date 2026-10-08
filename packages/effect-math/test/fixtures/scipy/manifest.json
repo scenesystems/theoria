@@ -1,66 +1,113 @@
 {
-  "fixtures": [
-    {
-      "file": "algebra/polynomial-parity.json",
-      "name": "algebra.polynomial-parity"
-    },
-    {
-      "file": "calculus/numerical-parity.json",
-      "name": "calculus.numerical-parity"
-    },
-    {
-      "file": "complex/arithmetic-parity.json",
-      "name": "complex.arithmetic-parity"
-    },
-    {
-      "file": "distribution/algebra-parity.json",
-      "name": "distribution.algebra-parity"
-    },
-    {
-      "file": "geometry/distance-parity.json",
-      "name": "geometry.distance-parity"
-    },
-    {
-      "file": "linalg/vector-parity.json",
-      "name": "linalg.vector-parity"
-    },
-    {
-      "file": "numeric/logspace-parity.json",
-      "name": "numeric.logspace-parity"
-    },
-    {
-      "file": "numeric/scalar-parity.json",
-      "name": "numeric.scalar-parity"
-    },
-    {
-      "file": "optimization/solver-parity.json",
-      "name": "optimization.solver-parity"
-    },
-    {
-      "file": "probability/distribution-parity.json",
-      "name": "probability.distribution-parity"
-    },
-    {
-      "file": "special/function-parity.json",
-      "name": "special.function-parity"
-    },
-    {
-      "file": "special/inverse-parity.json",
-      "name": "special.inverse-parity"
-    },
-    {
-      "file": "statistics/estimator-parity.json",
-      "name": "statistics.estimator-parity"
-    }
-  ],
   "generator": {
-    "generatedAt": "2026-03-23T00:00:00Z",
-    "generatorVersion": "1.0.0",
-    "numpyVersion": "1.26.4",
-    "pythonVersion": "3.13.5",
     "script": "scripts/generate-scipy-fixtures.py",
     "upstream": "scipy",
-    "upstreamVersion": "1.17.1"
+    "upstreamVersion": "1.17.1",
+    "numpyVersion": "1.26.4",
+    "pythonVersion": "3.12.14",
+    "generatedAt": "2026-10-06T10:08:01Z"
   },
-  "schemaVersion": "1.0.0"
+  "provenance": {
+    "cpuDispatch": {
+      "observation": "All reference families run with PYTHONHASHSEED=0 and NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F before NumPy imports. The listed cpuSensitiveFiles were repinned from AVX-512/SVML dispatch to this portable environment: last-ulp reference provenance changes only, with no library behavior change. Every payload and the manifest are regenerated and byte-compared in CI.",
+      "generatorPinnedEnvironment": ["PYTHONHASHSEED=0", "NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F"],
+      "cpuSensitiveFiles": [
+        "complex/arithmetic-parity.json",
+        "distribution/algebra-parity.json",
+        "numeric/logspace-parity.json",
+        "numeric/scalar-parity.json",
+        "probability/distribution-parity.json"
+      ],
+      "evidence": {
+        "file": "numeric/scalar-parity.json",
+        "case": "expm1-one",
+        "operation": "numpy.expm1",
+        "input": "1.0",
+        "committed": "1.718281828459045",
+        "avx512fDisabled": "1.718281828459045"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "name": "algebra.polynomial-parity",
+      "file": "algebra/polynomial-parity.json",
+      "sha256": "5a0094d79389ecb70c9679548da79e457ceeb4fc02d96489a37c17d5ff7191c5"
+    },
+    {
+      "name": "calculus.numerical-parity",
+      "file": "calculus/numerical-parity.json",
+      "sha256": "d463fd6f4a6627caf425ae9998e92e93b9a1f032a4615a931eda19a060af3cf4"
+    },
+    {
+      "name": "complex.arithmetic-parity",
+      "file": "complex/arithmetic-parity.json",
+      "sha256": "44176b639216d0f83e17d701d62a58de4ad1e6a49f3ec4e7abc87878279b2f8f"
+    },
+    {
+      "name": "cpython-random",
+      "file": "cpython-random.json",
+      "sha256": "451bcd532749058e799c876a41f37c253c0cd8cbc3b4a1e8db06ba6d62b6693e"
+    },
+    {
+      "name": "cpython-sum",
+      "file": "cpython-sum.json",
+      "sha256": "0a1898b76b2e5f1849d88efb42304d455f89f1fbfaae249f9990e8449f66d15b"
+    },
+    {
+      "name": "distribution.algebra-parity",
+      "file": "distribution/algebra-parity.json",
+      "sha256": "da6ee045938cacec6dd314ac93b166708ce9288c000629181425bd362c054d8e"
+    },
+    {
+      "name": "geometry.distance-parity",
+      "file": "geometry/distance-parity.json",
+      "sha256": "5950e9b10bc04f94676bd3fa5d4f2bc9cc1f5f0c1fff53eb176c47d478069d22"
+    },
+    {
+      "name": "linalg.vector-parity",
+      "file": "linalg/vector-parity.json",
+      "sha256": "b42efd776aaca482538013fbaaad0dfce3cb181405de1d25178cde4ec0649fd2"
+    },
+    {
+      "name": "numeric.logspace-parity",
+      "file": "numeric/logspace-parity.json",
+      "sha256": "5be8d1708ab788375cbed46864c73842308886879233a32157ef576dc34b7ed1"
+    },
+    {
+      "name": "numeric.scalar-parity",
+      "file": "numeric/scalar-parity.json",
+      "sha256": "f84ce12ee22c3b9615c65fbad58b440411759383d5711b642a0cb316565fbe80"
+    },
+    {
+      "name": "numpy-random",
+      "file": "numpy-random.json",
+      "sha256": "0d8cc79bc74f537a30fd9f86ecc0f05221041fd46357a91578aacb96409e2dcf"
+    },
+    {
+      "name": "optimization.solver-parity",
+      "file": "optimization/solver-parity.json",
+      "sha256": "85d720ad924e7f5ce1a8fc349ab93355a42f033deda395dd8cc1704d4c67285c"
+    },
+    {
+      "name": "probability.distribution-parity",
+      "file": "probability/distribution-parity.json",
+      "sha256": "5013a21e9cfebb5d2122c73b59d5bf89bf568d381e6c0a245fe39f7a0dea81b4"
+    },
+    {
+      "name": "special.function-parity",
+      "file": "special/function-parity.json",
+      "sha256": "8f8c26c385cb4496da5fc5492e9dbdacdc89df1e217f72ffae0180a81c9f5983"
+    },
+    {
+      "name": "special.inverse-parity",
+      "file": "special/inverse-parity.json",
+      "sha256": "9c6de03132fed3da2927b081343d887a0aee289bd1ee03fa5f3a921fd45c3487"
+    },
+    {
+      "name": "statistics.estimator-parity",
+      "file": "statistics/estimator-parity.json",
+      "sha256": "37fee9b67e24ada7ca45e0194d8f545c27f293a5d98c6471e0ef899ce071dea5"
+    }
+  ]
 }

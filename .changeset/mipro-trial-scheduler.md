@@ -1,0 +1,15 @@
+---
+"@scenesystems/effect-dsp": minor
+---
+
+Align MIPROv2 compile defaults, auto budgets, validation splitting, and seeded multivariate TPE trial scheduling with DSPy 3.4.0. Record baseline, sampled trials, and inserted full-validation checkpoints separately; choose checkpoints by mean minibatch score and return only the best full-validation program. Expose trial evidence in events and reports, preserve zero-shot proposer evidence without a demo search dimension, and report invalid datasets/options and exhausted checkpoint combinations as typed MIPROv2 errors.
+
+Verify full-compile seeded prefixes against pinned upstream runs and test the remaining trial-selection policy using local scores beyond libm-sensitive ties. Include fully strict auto-minibatch coverage and Python-compatible percentage rounding.
+
+Compute percentages in DSPy's multiply/divide/round order from CPython-compatible raw-score sums. Keep exact told percentages internally for checkpoint means, so fraction conversion cannot break equal-mean ties; public evaluation scores remain fractions. Recorded upstream rounding and first-seen checkpoint-tie discriminators cover these numerical boundaries.
+
+Evaluate report means, per-example metric means and Metric.compose use the same CPython-compatible reduction. Evaluate retains unrounded fractions; MIPRO separately applies the upstream percentage operation order.
+
+An absent or none `maxErrors` now resolves to DSPy's `dspy.settings.max_errors`, 10, for the bootstrap phase and every Phase 3 baseline, minibatch and full evaluation (MIPROv2 and MIPROv2Search alike); an evaluation that reaches the limit is logged with its cause and scored 0, as upstream does. `provideTraceback` is now read: every expected module or metric failure of a Phase 3 example is logged at error level with its input, with a hint when false (default) and the failure Cause, including its stack, when true. Defects and interruption are not logged as example failures and propagate. Events and reports are unchanged by it; bootstrap and proposal phases are unaffected.
+
+Breaking: MIPROv2 options follow the pinned compile signature without aliases. `trialBudget` is now `numTrials`; `fullEvalEvery` is now `minibatchFullEvalSteps`; `numInstructions` is removed (instruction count derives from `numCandidates`, as upstream); `numCandidates` is optional and mutually exclusive with `auto` (default light). `diversityTemperature` (a prompt hint) is replaced by `initTemperature`, a real proposer temperature. `valset` defaults to the upstream 80% split instead of the trainset, and `minibatchSize` defaults to 35 freshly sampled rows instead of a 50-row prefix. New options include `auto`, `minibatch`, `teacher`, `teacherSettings`, `metricThreshold`, `maxErrors`, `numThreads`, `proposerSettings`, the four awareness flags, `viewDataBatchSize` and `provideTraceback`. The MIPROv2 `TrialEvaluated` event carries `MIPROv2.TrialEvaluation` fields. `MIPROv2Search.Result.module` is replaced by an immutable `program` plus `parameters`, and `MIPROv2Candidates.DemoCandidate.params` is now `parameters`.

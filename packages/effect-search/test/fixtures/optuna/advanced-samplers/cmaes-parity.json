@@ -3,12 +3,11 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
@@ -50,8 +49,8 @@
       "nextTrialNumber": 4
     },
     "expected": {
-      "x": -3.0,
-      "y": -0.5142791868521459
+      "x": 1.6317146324420735,
+      "y": 0.7665385058252019
     },
     "sampler": {
       "populationSize": 8,

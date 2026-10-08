@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from optuna.distributions import CategoricalDistribution
 from optuna.samplers._tpe.parzen_estimator import _ParzenEstimator, _ParzenEstimatorParameters
-from optuna.samplers._tpe.probability_distributions import _BatchedCategoricalDistributions
+from optuna.samplers._tpe.probability_distributions import _BatchedCategoricalDistributions, _MixtureOfProductDistribution
 from optuna.samplers._tpe.sampler import default_weights
 
 from ._common import metadata
@@ -21,7 +21,6 @@ def _parameters(
     distance_functions: dict[str, DistanceFunction] | None = None,
 ) -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,
@@ -62,15 +61,16 @@ def _build_estimator(
 def _pick_candidates(
     choices: list[Choice], probabilities: np.ndarray, rolls: list[float]
 ) -> list[Choice]:
-    cumulative = np.cumsum(probabilities)
-    if cumulative.size > 0:
-        cumulative[-1] = 1.0
+    class ScriptedQuantiles(np.random.RandomState):
+        def rand(self, size):
+            assert size == len(rolls)
+            return np.asarray(rolls)
 
-    picked_indices = [
-        int(min(np.sum(cumulative < roll), len(choices) - 1))
-        for roll in rolls
-    ]
-    return [choices[index] for index in picked_indices]
+    # Exercise Optuna's categorical kernel with the learned marginal probabilities.
+    mixture = _MixtureOfProductDistribution(np.asarray([1.]), [
+        _BatchedCategoricalDistributions(probabilities.reshape(1, -1)),
+    ])
+    return [choices[int(index)] for index in mixture.sample(ScriptedQuantiles(0), len(rolls))[:, 0]]
 
 
 def _fixture_from_case(generated_at: str, case: dict[str, Any]) -> dict[str, Any]:
@@ -87,7 +87,7 @@ def _fixture_from_case(generated_at: str, case: dict[str, Any]) -> dict[str, Any
 
     kernel_weights = mixture.weights.astype(np.float64)
     kernels = distribution.weights.astype(np.float64)
-    probabilities = np.sum(kernel_weights[:, np.newaxis] * kernels, axis=0)
+    probabilities = np.exp(estimator.log_pdf({"choice": np.arange(len(choices), dtype=float)}))
 
     payload: dict[str, Any] = {
         "choices": choices,

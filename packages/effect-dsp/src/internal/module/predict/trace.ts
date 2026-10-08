@@ -9,7 +9,7 @@ import { Array as Arr, Data, Effect, Number, Schema } from "effect"
 import { TraceError } from "../../../DspError.js"
 import { encode, type Payload } from "../../../Payload.js"
 import type { Signature } from "../../../Signature.js"
-import { append, Entry, noScore } from "../../../Trace.js"
+import { append, Entry, type Execution, noScore } from "../../../Trace.js"
 import type { ForwardExecution } from "./model.js"
 
 const TraceCarrier = Schema.Literals(["input", "output"])
@@ -48,6 +48,7 @@ export const tracePayloadFromEncoded = <A, I, DR, ER>(options: PayloadOptions<A,
 
 /** @internal */
 export class TraceOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+  readonly executionId: typeof Execution.Id.Type
   readonly moduleName: string
   readonly signature: Signature<I, O>
   readonly inputSchema: Signature<I, O>["inputSchema"]
@@ -78,6 +79,7 @@ export const appendTraceEntry = <
     )
 
     const entry = new Entry({
+      execution: options.executionId,
       moduleName: options.moduleName,
       signatureDescription: options.signature.description,
       input: traceInput,

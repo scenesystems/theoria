@@ -5,17 +5,28 @@
  * @category internal
  * @internal
  */
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import * as ModelSettings from "@scenesystems/effect-lm/ModelSettings"
 import type { Schema } from "effect"
-import { Array as Arr, Clock, Data, Effect, Ref } from "effect"
+import { Array as Arr, Boolean, Clock, Data, Effect, Match, Option, Struct } from "effect"
+import type { Ref } from "effect"
+import { ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
-import { NodeSignature } from "../../../Module.js"
-import type { PredictPolicy } from "../../../Module.js"
-import type { ModuleParameters } from "../../../ModuleParameters.js"
-import type { Signature } from "../../../Signature.js"
+import type { PredictOptions, PredictPolicy } from "../../../Module.js"
+import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
+import { type Signature, Text } from "../../../Signature.js"
+import { RolloutRef } from "../../cache/rollout.js"
+import { CurrentRole } from "../../modelRole.js"
+import { path, read } from "../../parameterBinding.js"
+import { buildPrompt } from "../../prompt/render.js"
+import { promptToTraceText } from "../../prompt/trace.js"
+import { executionId } from "../../trace/attempts.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
+import { cached } from "./cache.js"
 import { ForwardOptions } from "./model.js"
+import { ScopedSettings } from "./scope.js"
 import { runForward } from "./strategy.js"
-import { appendTraceEntry, TraceOptions } from "./trace.js"
+import { appendTraceEntry, PayloadOptions, TraceOptions, tracePayloadFromEncoded } from "./trace.js"
 
 /** @internal */
 export class RuntimeOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
@@ -23,8 +34,9 @@ export class RuntimeOptions<I extends Schema.Struct.Fields, O extends Schema.Str
   readonly signature: Signature<I, O>
   readonly inputSchema: Signature<I, O>["inputSchema"]
   readonly outputSchema: Signature<I, O>["outputSchema"]
-  readonly paramsRef: Ref.Ref<ModuleParameters>
+  readonly parametersRef: Ref.Ref<ModuleParameters>
   readonly policy: PredictPolicy
+  readonly invocation: PredictOptions
 }> {}
 
 /**
@@ -42,8 +54,8 @@ export const makeForward = <
       yield* registerRuntime(
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
-          params: options.paramsRef,
-          signature: new NodeSignature({
+          parameters: options.parametersRef,
+          signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions
           }),
@@ -51,22 +63,85 @@ export const makeForward = <
         })
       )
 
-      const params = yield* Ref.get(options.paramsRef)
+      const parameters = yield* read(options.parametersRef, options.moduleName)
+      const id = yield* executionId
       const startedAt = yield* Clock.currentTimeMillis
-      const execution = yield* runForward(
-        new ForwardOptions<I, O>({
-          moduleName: options.moduleName,
-          signature: options.signature,
-          params,
-          input,
-          outputSchema: options.outputSchema,
-          policy: options.policy
-        })
+      const forward = new ForwardOptions<I, O>({
+        executionId: id,
+        moduleName: options.moduleName,
+        signature: options.signature,
+        parameters,
+        input,
+        outputSchema: options.outputSchema,
+        policy: options.policy
+      })
+      const request = new ModelBinder.Request({
+        settings: ModelSettings.merge(
+          ModelSettings.merge(
+            settings(parameters),
+            Option.getOrElse(Option.fromUndefinedOr(options.invocation.settings), () => ModelSettings.empty)
+          ),
+          yield* ScopedSettings
+        ),
+        role: yield* Option.match(Option.fromUndefinedOr(options.invocation.role), {
+          onNone: () => Effect.service(CurrentRole),
+          onSome: (role) => Effect.succeed(role)
+        }),
+        rolloutId: yield* RolloutRef
+      })
+      const compute = runForward(forward)
+      const enabled = options.invocation.cache !== "never"
+      const selected = yield* Boolean.match(enabled, {
+        onFalse: () => Effect.succeed(compute),
+        onTrue: () =>
+          path(options.parametersRef, options.moduleName).pipe(
+            Effect.map((predictorPath) => cached(forward, request, predictorPath, compute))
+          )
+      })
+      const execution = yield* selected.pipe(
+        ModelBinder.bind(request),
+        // A structured reply that fails the output schema is the same signature parse
+        // failure as unparseable text; other provider failures keep their AiError.
+        Effect.catchTag("AiError", (error) =>
+          Match.value(error.reason).pipe(
+            Match.tag("StructuredOutputError", (reason) =>
+              Effect.fail(
+                new ParseOutputError({
+                  message: error.message,
+                  moduleName: options.moduleName,
+                  rawOutput: Option.some(reason.responseText),
+                  retryCount: Option.none(),
+                  fieldDiagnostics: Arr.empty()
+                })
+              )),
+            Match.orElse(() => Effect.fail(error))
+          )),
+        Effect.catchTag("ParseOutputError", (error) =>
+          Effect.gen(function*() {
+            return yield* new ParseOutputError(Struct.assign(error, {
+              message: error.message,
+              context: {
+                predictorPath: yield* path(options.parametersRef, options.moduleName),
+                input: yield* tracePayloadFromEncoded(
+                  new PayloadOptions({
+                    moduleName: options.moduleName,
+                    carrier: "input",
+                    schema: options.inputSchema,
+                    value: input
+                  })
+                ),
+                prompt: yield* buildPrompt(options.signature, parameters, input).pipe(
+                  Effect.flatMap(promptToTraceText)
+                )
+              }
+            }))
+          }))
       )
       const completedAt = yield* Clock.currentTimeMillis
 
       yield* appendTraceEntry(
         new TraceOptions<I, O>({
+          executionId: id,
           moduleName: options.moduleName,
           signature: options.signature,
           inputSchema: options.inputSchema,

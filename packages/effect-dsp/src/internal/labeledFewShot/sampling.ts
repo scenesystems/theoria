@@ -5,10 +5,11 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Match, Number as Num, Option, Order, Schema } from "effect"
+import { Array as Arr, Boolean, Chunk, Effect, Match, Number as Num, Option, Order, Schema } from "effect"
 import { Demonstration as Demo } from "../../Demonstration.js"
-import { Example } from "../../Example.js"
+import { Example, id } from "../../Example.js"
 
 class ScoredDemo extends Schema.Class<ScoredDemo>(
   "@scenesystems/effect-dsp/internal/labeledFewShot/sampling/ScoredDemo"
@@ -38,13 +39,31 @@ export const LabeledDemos = Schema.Array(Demo)
 /** @internal */
 export type LabeledDemos = typeof LabeledDemos.Type
 
+/** Samples labeled rows under the caller's CPython stream before decoding destinations. @internal */
+export const sampleLabeled = (trainset: LabeledExamples, k: number, sampling: PseudoRandom.CPython, sample = true) =>
+  Effect.gen(function*() {
+    const labeled = Arr.filter(trainset, (example) => Option.isSome(example.labels))
+    const selected = yield* Boolean.match(sample, {
+      onFalse: () => Effect.succeed(Arr.take(labeled, k)),
+      onTrue: () => sampling.sample(Chunk.fromIterable(labeled), Numeric.min(k, labeled.length))
+    })
+    return yield* Effect.forEach(selected, (example) =>
+      id(example).pipe(Effect.map((exampleId) =>
+        new Demo({
+          input: example.input,
+          output: Option.getOrThrow(example.labels),
+          exampleId: Option.some(exampleId)
+        })
+      )))
+  })
+
 /** @internal */
 export const labeledDemos = (trainset: LabeledExamples): LabeledDemos =>
   Arr.flatMap(
     trainset,
     (example) =>
       Option.map(
-        Option.fromNullishOr(example.output),
+        example.labels,
         (output) => new Demo({ input: example.input, output })
       ).pipe(Option.toArray)
   )

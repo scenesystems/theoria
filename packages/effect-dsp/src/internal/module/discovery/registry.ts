@@ -18,9 +18,10 @@ import {
   SynchronizedRef
 } from "effect"
 import { CompositionError } from "../../../DspError.js"
-import { Id, type Module, NodeSignature, Registration } from "../../../Module.js"
+import { Discovered, Id, type Module } from "../../../Module.js"
 import type { Node as ModuleGraphNode } from "../../../ModuleGraph.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
+import { Text } from "../../../Signature.js"
 import { canonicalModuleRegistrations, canonicalSubModuleIds } from "./normalization.js"
 
 /**
@@ -38,7 +39,7 @@ import { canonicalModuleRegistrations, canonicalSubModuleIds } from "./normaliza
  * @category refs
  */
 export const ModuleRegistryRef = Context.Reference<
-  Option.Option<SynchronizedRef.SynchronizedRef<HashMap.HashMap<Id, Registration>>>
+  Option.Option<SynchronizedRef.SynchronizedRef<HashMap.HashMap<Id, Discovered>>>
 >("@scenesystems/effect-dsp/internal/module/discovery/ModuleRegistryRef", {
   defaultValue: Option.none
 })
@@ -57,15 +58,15 @@ const decodeModuleId = (moduleName: string): Effect.Effect<Id, CompositionError>
   )
 
 const signaturesMatch = (
-  left: NodeSignature,
-  right: NodeSignature
+  left: Text,
+  right: Text
 ): boolean => Equal.equals(left, right)
 
 const moduleIdEquivalence: Equivalence.Equivalence<Id> = Equivalence.String
 
 const moduleIdListEquivalence = Arr.makeEquivalence(moduleIdEquivalence)
 
-const paramsIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
+const parametersIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
 
 const sameSubModuleIds = (
   left: ModuleGraphNode["subModuleIds"],
@@ -73,18 +74,18 @@ const sameSubModuleIds = (
 ): boolean => moduleIdListEquivalence(left, right)
 
 const sameRegistration = (
-  left: Registration,
-  right: Registration
+  left: Discovered,
+  right: Discovered
 ): boolean =>
   Boolean.every(Arr.make(
-    paramsIdentity(left.params, right.params),
+    parametersIdentity(left.parameters, right.parameters),
     signaturesMatch(left.signature, right.signature),
     sameSubModuleIds(left.subModuleIds, right.subModuleIds)
   ))
 
 const registerConflict = (
-  left: Registration,
-  right: Registration
+  left: Discovered,
+  right: Discovered
 ): CompositionError =>
   new CompositionError({
     message: Arr.join(Arr.make("Discovery registration conflict for module id '", left.id, "'"), ""),
@@ -92,9 +93,9 @@ const registerConflict = (
   })
 
 const mergeRegistration = (
-  registrations: HashMap.HashMap<Id, Registration>,
-  registration: Registration
-): Effect.Effect<HashMap.HashMap<Id, Registration>, CompositionError> =>
+  registrations: HashMap.HashMap<Id, Discovered>,
+  registration: Discovered
+): Effect.Effect<HashMap.HashMap<Id, Discovered>, CompositionError> =>
   Option.match(
     HashMap.get(registrations, registration.id),
     {
@@ -130,14 +131,14 @@ const moduleSubModuleIds = <
  * @category combinators
  */
 export const register = (
-  registration: Registration
+  registration: Discovered
 ): Effect.Effect<void, CompositionError> =>
   Effect.gen(function*() {
     const collector = yield* Effect.withFiber((fiber) =>
       Option.match(Context.get(fiber.context, ModuleRegistryRef), {
         onSome: Effect.succeed,
         onNone: () =>
-          SynchronizedRef.make(HashMap.empty<Id, Registration>()).pipe(
+          SynchronizedRef.make(HashMap.empty<Id, Discovered>()).pipe(
             Effect.tap((collector) =>
               Effect.sync(() => fiber.setContext(Context.add(fiber.context, ModuleRegistryRef, Option.some(collector))))
             )
@@ -152,7 +153,7 @@ export const register = (
   })
 
 /**
- * Carries runtime identity and live module metadata into discovery registration.
+ * Carries module identity and metadata into discovery.
  *
  * @since 0.1.0
  * @category models
@@ -160,10 +161,10 @@ export const register = (
 export class RuntimeRegistrationOptions extends Data.Class<{
   /** Untrusted identity decoded with the public `Module.Id` schema. */
   readonly moduleName: string
-  /** Live parameter ref retained in the registration. */
-  readonly params: Ref.Ref<ModuleParameters>
+  /** Parameter ref retained in the discovery record. */
+  readonly parameters: Ref.Ref<ModuleParameters>
   /** Signature description and instructions retained for graph projection. */
-  readonly signature: NodeSignature
+  readonly signature: Text
   /** Direct children; omission records no children. */
   readonly subModuleIds?: ModuleGraphNode["subModuleIds"]
 }> {}
@@ -176,7 +177,7 @@ export class RuntimeRegistrationOptions extends Data.Class<{
  * with an existing registration fails with `CompositionError` before any model
  * operation that follows this effect.
  *
- * @param options - Runtime identity, live parameters, prompt metadata, and children.
+ * @param options - Module identity, parameters, prompt metadata, and sub-modules.
  * @returns Completion after the registration is visible in the current fiber.
  *
  * @since 0.1.0
@@ -191,9 +192,9 @@ export const registerRuntime = (options: RuntimeRegistrationOptions): Effect.Eff
     )
 
     return yield* register(
-      new Registration({
+      new Discovered({
         id: moduleId,
-        params: options.params,
+        parameters: options.parameters,
         signature: options.signature,
         subModuleIds: canonicalSubModuleIds(subModuleIds)
       })
@@ -201,9 +202,9 @@ export const registerRuntime = (options: RuntimeRegistrationOptions): Effect.Eff
   })
 
 /**
- * Records a module and the identities of its direct child nodes.
+ * Records a module and the identities of its direct sub-modules.
  *
- * @param module - Module whose live parameter and prompt metadata are retained.
+ * @param module - Module whose parameter and prompt metadata are retained.
  * @returns Completion after validation and conflict checking.
  *
  * @since 0.1.0
@@ -218,8 +219,8 @@ export const registerModule = <
   registerRuntime(
     new RuntimeRegistrationOptions({
       moduleName: module.name,
-      params: module.params,
-      signature: new NodeSignature({
+      parameters: module.parameters,
+      signature: new Text({
         description: module.signature.description,
         instructions: module.signature.instructions
       }),
@@ -231,14 +232,14 @@ export const registerModule = <
  * Reads the current registry as new, identity-sorted registration values.
  *
  * @remarks
- * The contained parameter refs remain live and retain their original identity.
+ * The contained parameter refs retain their original identity.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const registrySnapshot = ModuleRegistryRef.pipe(
   Effect.flatMap(Option.match({
-    onNone: () => Effect.succeed(HashMap.empty<Id, Registration>()),
+    onNone: () => Effect.succeed(HashMap.empty<Id, Discovered>()),
     onSome: SynchronizedRef.get
   })),
   Effect.map(HashMap.values),

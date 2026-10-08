@@ -22,9 +22,9 @@ const moduleJson =
 const exportJson =
   "{\"id\":\"Study#run\",\"name\":\"run\",\"anchor\":\"api-run\",\"importKind\":\"value\",\"category\":\"operations\",\"since\":\"1.0.0\",\"summary\":\"Run a study.\",\"facets\":[]}"
 const searchJson =
-  "{\"schemaVersion\":1,\"entries\":[{\"id\":\"Study#run\",\"kind\":\"symbol\",\"package\":\"@scenesystems/effect-search\",\"packageSlug\":\"effect-search\",\"name\":\"run\",\"qualifiedName\":\"Study.run\",\"category\":null,\"summary\":\"Run a study.\",\"path\":\"/docs/effect-search/api/Study\",\"anchor\":\"api-run\"}]}"
+  "{\"entries\":[{\"id\":\"Study#run\",\"kind\":\"symbol\",\"package\":\"@scenesystems/effect-search\",\"packageSlug\":\"effect-search\",\"name\":\"run\",\"qualifiedName\":\"Study.run\",\"category\":null,\"summary\":\"Run a study.\",\"path\":\"/docs/effect-search/api/Study\",\"anchor\":\"api-run\"}]}"
 const guideJson =
-  `{"schemaVersion":1,"kind":"guide","path":"/docs/effect-search/start","package":${packageJson},"title":"Start","summary":"Getting started","sourceUrl":"https://example.com/start.md","blocks":[{"kind":"heading","depth":2,"id":"intro","text":"Introduction"},{"kind":"paragraph","parts":[{"kind":"text","text":"Use "},{"kind":"code","text":"run"},{"kind":"link","text":"API","href":"/docs/effect-search/api"},{"text":"x^2","display":false,"kind":"math"}]},{"kind":"code","language":"ts","source":"yield* run()"},{"text":"x = 2","display":true,"kind":"math"},{"kind":"list","ordered":true,"items":[[{"kind":"text","text":"First"}]]},{"kind":"quote","parts":[{"kind":"text","text":"A quote"}]},{"kind":"table","headers":[[{"kind":"text","text":"Value"}]],"rows":[[[{"kind":"code","text":"2"}]]]}],"anchors":[{"id":"intro","label":"Introduction","depth":2}]}`
+  `{"kind":"guide","path":"/docs/effect-search/start","package":${packageJson},"title":"Start","summary":"Getting started","sourceUrl":"https://example.com/start.md","blocks":[{"kind":"heading","depth":2,"id":"intro","text":"Introduction"},{"kind":"paragraph","parts":[{"kind":"text","text":"Use "},{"kind":"code","text":"run"},{"kind":"link","text":"API","href":"/docs/effect-search/api"},{"text":"x^2","display":false,"kind":"math"}]},{"kind":"code","language":"ts","source":"yield* run()"},{"text":"x = 2","display":true,"kind":"math"},{"kind":"list","ordered":true,"items":[[{"kind":"text","text":"First"}]]},{"kind":"quote","parts":[{"kind":"text","text":"A quote"}]},{"kind":"table","headers":[[{"kind":"text","text":"Value"}]],"rows":[[[{"kind":"code","text":"2"}]]]}],"anchors":[{"id":"intro","label":"Introduction","depth":2}]}`
 
 const roundTrip = Effect.fnUntraced(function*<A>(codec: Schema.Codec<A, string>, wire: string) {
   const value = yield* Schema.decodeEffect(codec)(wire)
@@ -36,16 +36,16 @@ describe("documentation wire contracts", () => {
     Effect.gen(function*() {
       yield* roundTrip(
         ApiPageJson,
-        `{"schemaVersion":2,"kind":"api-module","path":"/docs/search","canonical":true,"canonicalPath":"/docs/search","aliases":[],"package":${packageJson},"module":${moduleJson},"categories":[{"name":"operations","exportIds":["Study#run"]}],"exports":[${exportJson}]}`
+        `{"kind":"api-module","path":"/docs/search","canonical":true,"canonicalPath":"/docs/search","aliases":[],"package":${packageJson},"module":${moduleJson},"categories":[{"name":"operations","exportIds":["Study#run"]}],"exports":[${exportJson}]}`
       )
       yield* roundTrip(
         DocsApiModuleIndexJson,
-        `{"schemaVersion":2,"kind":"api-module-index","path":"/docs/search","canonical":true,"canonicalPath":"/docs/search","aliases":[],"package":${packageJson},"module":${moduleJson},"categories":[],"exports":[{"id":"Study#run","name":"run","anchor":"api-run","importKind":"value","category":"operations","since":"1.0.0","summary":"Run","asset":"/docs-data/revision/run.json"}]}`
+        `{"kind":"api-module-index","path":"/docs/search","canonical":true,"canonicalPath":"/docs/search","aliases":[],"package":${packageJson},"module":${moduleJson},"categories":[],"exports":[{"id":"Study#run","name":"run","anchor":"api-run","importKind":"value","category":"operations","since":"1.0.0","summary":"Run","asset":"/docs-data/revision/run.json"}]}`
       )
-      yield* roundTrip(DocsApiExportPageJson, `{"schemaVersion":1,"kind":"api-export","export":${exportJson}}`)
+      yield* roundTrip(DocsApiExportPageJson, `{"kind":"api-export","export":${exportJson}}`)
       yield* roundTrip(
         DocsManifestJson,
-        "{\"schemaVersion\":3,\"revision\":\"revision\",\"searchIndexAsset\":\"/docs-data/revision/search.json\",\"packages\":[]}"
+        "{\"revision\":\"revision\",\"searchIndexAsset\":\"/docs-data/revision/search.json\",\"packages\":[]}"
       )
       yield* roundTrip(DocsSearchIndexJson, searchJson)
       yield* roundTrip(GuidePageJson, guideJson)
@@ -58,10 +58,10 @@ describe("documentation wire contracts", () => {
       expect(decoded.entries[0]?.anchor).toEqual(Option.some("api-run"))
     }))
 
-  it.effect("rejects malformed JSON, unsupported versions, invalid paths and heading depths", () =>
+  it.effect("rejects malformed JSON, non-array entries, invalid paths and heading depths", () =>
     Effect.gen(function*() {
       expect(yield* Schema.decodeEffect(DocsSearchIndexJson)("{").pipe(Effect.flip)).toBeInstanceOf(Schema.SchemaError)
-      expect(yield* Schema.decodeEffect(DocsSearchIndexJson)("{\"schemaVersion\":2,\"entries\":[]}").pipe(Effect.flip))
+      expect(yield* Schema.decodeEffect(DocsSearchIndexJson)("{\"entries\":{}}").pipe(Effect.flip))
         .toBeInstanceOf(Schema.SchemaError)
       expect(yield* Schema.decodeEffect(DocsAssetPath)("/elsewhere/file.json").pipe(Effect.flip)).toBeInstanceOf(
         Schema.SchemaError

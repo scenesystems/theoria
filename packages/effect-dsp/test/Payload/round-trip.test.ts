@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Result } from "@scenesystems/effect-dsp/Metric"
+import { Score } from "@scenesystems/effect-dsp/Metric"
 import { decode, encode, Payload } from "@scenesystems/effect-dsp/Payload"
 import { Arbitrary, Array as Arr, Context, Effect, Number, Option, Ref, Schema, SchemaGetter, String } from "effect"
 
@@ -35,7 +35,7 @@ describe("schema-bound payloads", () => {
 
   it.effect("rejects lossy numeric JSON and malformed persisted documents", () =>
     Effect.gen(function*() {
-      const schema = Schema.Struct({ score: Schema.NullOr(Result.fields.score) })
+      const schema = Schema.Struct({ score: Schema.NullOr(Score.fields.value) })
       const infinity = yield* Effect.fromOption(Number.parse("Infinity"))
       const failure = yield* encode(schema, { score: infinity }).pipe(Effect.flip)
       const malformed = yield* Schema.decodeEffect(Payload)("{\"unterminated\":").pipe(Effect.flip)

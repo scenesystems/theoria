@@ -1,6 +1,5 @@
 import { Schema } from "effect"
 
-import { Name } from "../../../src/Acquisition.js"
 import { Direction } from "../../../src/Direction.js"
 import { Choice } from "../../../src/Distribution.js"
 import { CandidateRollPair } from "../../../src/internal/tpe/dimensions/trace.js"
@@ -11,11 +10,10 @@ const FixtureMetadata = Schema.Struct({
   generatedAt: Schema.String,
   upstream: Schema.Struct({
     name: Schema.Literal("optuna"),
-    version: Schema.String
+    version: Schema.Literal("4.9.0")
   }),
   generator: Schema.Struct({
-    script: Schema.String,
-    version: Schema.String
+    script: Schema.String
   })
 })
 
@@ -200,10 +198,7 @@ export const ContinuousKdeFixture = Schema.Struct({
 export type ContinuousKdeFixture = Schema.Schema.Type<typeof ContinuousKdeFixture>
 
 const NoiseBandwidthExpected = Schema.Struct({
-  baseSigmas: Schema.Array(Schema.Finite),
-  normalizedNoise: Schema.Finite,
-  bandwidthScale: Schema.Finite,
-  adjustedSigmas: Schema.Array(Schema.Finite)
+  baseSigmas: Schema.Array(Schema.Finite)
 })
 
 const NoiseBandwidthCase = Schema.Struct({
@@ -211,7 +206,6 @@ const NoiseBandwidthCase = Schema.Struct({
   observations: Schema.Array(Schema.Finite),
   low: Schema.Finite,
   high: Schema.Finite,
-  alpha: Schema.Finite,
   expected: NoiseBandwidthExpected
 })
 
@@ -231,15 +225,6 @@ const MultivariateGaussianDensityCase = Schema.Struct({
   mean: Schema.Array(Schema.Finite),
   sigmas: Schema.Array(Schema.Finite),
   expectedLogDensity: Schema.Finite
-})
-
-const MultivariateGaussianBandwidthCase = Schema.Struct({
-  id: Schema.String,
-  sampleCount: Schema.Finite,
-  dimensions: Schema.Finite,
-  stddev: Schema.Finite,
-  expectedFactor: Schema.Finite,
-  expectedBandwidth: Schema.Finite
 })
 
 const MultivariateGaussianSamplingCase = Schema.Struct({
@@ -265,7 +250,6 @@ export const MultivariateGaussianFixture = Schema.Struct({
   metadata: FixtureMetadata,
   payload: Schema.Struct({
     densityCases: Schema.Array(MultivariateGaussianDensityCase),
-    bandwidthCases: Schema.Array(MultivariateGaussianBandwidthCase),
     samplingCases: Schema.Array(MultivariateGaussianSamplingCase),
     mixtureCase: MultivariateGaussianMixtureCase
   })
@@ -283,8 +267,6 @@ const TruncatedNormalCase = Schema.Struct({
   }),
   sampleQuantiles: Schema.Array(Schema.Finite),
   sampleExpected: Schema.Array(Schema.Finite),
-  cdfProbes: Schema.Array(Schema.Finite),
-  cdfExpected: Schema.Array(Schema.Finite),
   logPdfProbes: Schema.Array(Schema.Finite),
   logPdfExpected: Schema.Array(Schema.Finite)
 })
@@ -338,7 +320,7 @@ const MixedSpaceTrial = Schema.Struct({
 const MixedSpaceCategoricalDimensionTrace = Schema.Struct({
   kind: Schema.Literal("categorical"),
   name: Schema.String,
-  candidateRolls: Schema.Array(Schema.Finite),
+  candidateRolls: Schema.Array(CandidateRollPair),
   candidates: Schema.Array(Choice),
   logL: Schema.Array(Schema.Finite),
   logG: Schema.Array(Schema.Finite),
@@ -425,9 +407,7 @@ export type MixedSpaceJointTraceFixture = Schema.Schema.Type<typeof MixedSpaceJo
 const MotpeSplitTrial = Schema.Struct({
   trialNumber: Schema.Finite,
   values: ObjectivePoint,
-  feasible: Schema.Boolean,
-  rank: Schema.Finite,
-  hsspScore: Schema.Finite
+  rank: Schema.Finite
 })
 
 export const MotpeSplitFixture = Schema.Struct({
@@ -502,8 +482,11 @@ const ConstrainedDensityCase = Schema.Struct({
   id: Schema.String,
   observations: Schema.Array(Schema.Array(Schema.Finite)),
   probes: Schema.Array(Schema.Array(Schema.Finite)),
-  expectedRatioProducts: Schema.Array(Schema.Finite),
-  expectedOrder: Schema.Array(Schema.Finite)
+  bounds: Schema.Array(Schema.Struct({ low: Schema.Finite, high: Schema.Finite })),
+  expectedLogDensities: Schema.Array(Schema.Struct({
+    feasible: Schema.Array(Schema.Finite),
+    infeasible: Schema.Array(Schema.Finite)
+  }))
 })
 
 const ConstrainedSplitTrial = Schema.Struct({
@@ -525,7 +508,7 @@ export const ConstrainedTpeFixture = Schema.Struct({
   metadata: FixtureMetadata,
   payload: Schema.Struct({
     densityCases: Schema.Array(ConstrainedDensityCase),
-    splitCase: ConstrainedSplitCase
+    splitCases: Schema.Array(ConstrainedSplitCase)
   })
 })
 
@@ -666,11 +649,7 @@ export const AdvancedGpBoFixture = Schema.Struct({
     context: AdvancedSamplerContext,
     sampler: Schema.Struct({
       seed: Schema.Finite,
-      nStartupTrials: Schema.Finite,
-      nCandidates: Schema.Finite,
-      lengthScale: Schema.Finite,
-      noise: Schema.Finite,
-      acquisition: Name
+      nStartupTrials: Schema.Finite
     }),
     expected: Schema.Struct({
       x: Schema.Finite,
@@ -680,6 +659,182 @@ export const AdvancedGpBoFixture = Schema.Struct({
 })
 
 export type AdvancedGpBoFixture = Schema.Schema.Type<typeof AdvancedGpBoFixture>
+
+const ReportPoint = Schema.Struct({ step: Schema.Finite, value: Schema.Finite })
+
+export const TrialStatesConstantLiarFixture = Schema.Struct({
+  fixture: Schema.Literal("trial-states.constant-liar"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    direction: Direction,
+    choices: Schema.Array(Schema.String),
+    nStartupTrials: Schema.Finite,
+    multivariate: Schema.Boolean,
+    completed: Schema.Array(Schema.Struct({ trialNumber: Schema.Finite, x: Schema.String, value: Schema.Finite })),
+    running: Schema.Struct({ trialNumber: Schema.Finite, x: Schema.String }),
+    seeds: Schema.Array(Schema.Finite),
+    expected: Schema.Struct({
+      defaultConstantLiar: Schema.Boolean,
+      withoutRunning: Schema.Array(Schema.String),
+      runningDefault: Schema.Array(Schema.String),
+      runningConstantLiar: Schema.Array(Schema.String)
+    })
+  })
+})
+
+export type TrialStatesConstantLiarFixture = Schema.Schema.Type<typeof TrialStatesConstantLiarFixture>
+
+export const TrialStatesPrunedConstraintsFixture = Schema.Struct({
+  fixture: Schema.Literal("trial-states.pruned-constraints"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    cases: Schema.Array(Schema.Struct({
+      id: Schema.String,
+      direction: Direction,
+      constraintParams: Schema.Array(Schema.String),
+      nBelow: Schema.Finite,
+      trials: Schema.Array(Schema.Struct({
+        trialNumber: Schema.Finite,
+        state: Schema.Literals(["complete", "pruned"]),
+        params: Schema.Record(Schema.String, Schema.Finite),
+        value: Schema.optional(Schema.Finite),
+        reports: Schema.Array(ReportPoint),
+        constraints: Schema.Array(Schema.Finite)
+      })),
+      expectedBelow: Schema.Array(Schema.Finite),
+      expectedAbove: Schema.Array(Schema.Finite)
+    }))
+  })
+})
+
+export type TrialStatesPrunedConstraintsFixture = Schema.Schema.Type<typeof TrialStatesPrunedConstraintsFixture>
+
+export const TrialStatesThresholdFixture = Schema.Struct({
+  fixture: Schema.Literal("trial-states.threshold-last-step"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    cases: Schema.Array(Schema.Struct({
+      id: Schema.String,
+      direction: Direction,
+      limit: Schema.Finite,
+      warmupSteps: Schema.Finite,
+      reports: Schema.Array(ReportPoint),
+      expectedShouldPrune: Schema.Array(Schema.Boolean),
+      expectedLastStep: Schema.Finite
+    }))
+  })
+})
+
+export type TrialStatesThresholdFixture = Schema.Schema.Type<typeof TrialStatesThresholdFixture>
+
+const MotpeHsspPointsCase = Schema.Struct({
+  id: Schema.String,
+  directions: Schema.Array(Direction),
+  nBelow: Schema.Finite,
+  points: Schema.Array(ObjectivePoint),
+  expectedBelow: Schema.Array(Schema.Finite)
+})
+
+export const MotpeHsspTiesFixture = Schema.Struct({
+  fixture: Schema.Literal("motpe-hssp.ties"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    cases: Schema.Array(MotpeHsspPointsCase.mapFields((fields) => ({
+      ...fields,
+      expectedAbove: Schema.Array(Schema.Finite)
+    })))
+  })
+})
+
+export type MotpeHsspTiesFixture = Schema.Schema.Type<typeof MotpeHsspTiesFixture>
+
+export const MotpeHsspManyObjectiveFixture = Schema.Struct({
+  fixture: Schema.Literal("motpe-hssp.many-objective"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({ cases: Schema.Array(MotpeHsspPointsCase) })
+})
+
+export type MotpeHsspManyObjectiveFixture = Schema.Schema.Type<typeof MotpeHsspManyObjectiveFixture>
+
+const ConstrainedObjectiveTrial = Schema.Struct({
+  trialNumber: Schema.Finite,
+  values: ObjectivePoint,
+  constraints: Schema.Array(Schema.Finite)
+})
+
+export const MotpeHsspFeasibilityFixture = Schema.Struct({
+  fixture: Schema.Literal("motpe-hssp.feasibility-fronts"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    cases: Schema.Array(Schema.Struct({
+      id: Schema.String,
+      directions: Schema.Array(Direction),
+      nBelow: Schema.Finite,
+      trials: Schema.Array(ConstrainedObjectiveTrial),
+      expectedBelow: Schema.Array(Schema.Finite),
+      expectedAbove: Schema.Array(Schema.Finite)
+    }))
+  })
+})
+
+export type MotpeHsspFeasibilityFixture = Schema.Schema.Type<typeof MotpeHsspFeasibilityFixture>
+
+export const MotpeHsspBelowWeightsFixture = Schema.Struct({
+  fixture: Schema.Literal("motpe-hssp.below-weights"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    cases: Schema.Array(Schema.Struct({
+      id: Schema.String,
+      directions: Schema.Array(Direction),
+      trials: Schema.Array(ConstrainedObjectiveTrial),
+      expectedWeights: Schema.Array(Schema.Finite)
+    }))
+  })
+})
+
+export type MotpeHsspBelowWeightsFixture = Schema.Schema.Type<typeof MotpeHsspBelowWeightsFixture>
+
+const SelectionGap = Schema.OptionFromNullOr(Schema.Finite)
+
+export const TpeNumericSteppedFloatFixture = Schema.Struct({
+  fixture: Schema.Literal("tpe-numeric.stepped-float"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    space: Schema.Struct({ low: Schema.Finite, high: Schema.Finite, step: Schema.Finite }),
+    sampler: Schema.Struct({ nStartupTrials: Schema.Finite, multivariate: Schema.Boolean }),
+    history: Schema.Array(Schema.Struct({ trialNumber: Schema.Finite, x: Schema.Finite, value: Schema.Finite })),
+    nearTie: Schema.Finite,
+    runs: Schema.Array(Schema.Struct({
+      nEiCandidates: Schema.Finite,
+      expected: Schema.Array(Schema.Struct({ seed: Schema.Finite, selected: Schema.Finite, gap: SelectionGap }))
+    }))
+  })
+})
+
+export type TpeNumericSteppedFloatFixture = Schema.Schema.Type<typeof TpeNumericSteppedFloatFixture>
+
+export const TpeNumericMixedDefaultFixture = Schema.Struct({
+  fixture: Schema.Literal("tpe-numeric.mixed-default"),
+  metadata: FixtureMetadata,
+  payload: Schema.Struct({
+    sampler: Schema.Struct({
+      nStartupTrials: Schema.Finite,
+      nEiCandidates: Schema.Finite,
+      multivariate: Schema.Boolean
+    }),
+    categoryCost: Schema.Record(Schema.String, Schema.Finite),
+    nearTie: Schema.Finite,
+    runs: Schema.Array(Schema.Struct({
+      space: Schema.Literals(["float-int", "step-log-categorical"]),
+      seed: Schema.Finite,
+      trace: Schema.Array(Schema.Struct({ number: Schema.Finite, params: PrimitiveConfig, value: Schema.Finite })),
+      gaps: Schema.Array(Schema.Array(SelectionGap)),
+      strictThroughTrial: Schema.Finite
+    }))
+  })
+})
+
+export type TpeNumericMixedDefaultFixture = Schema.Schema.Type<typeof TpeNumericMixedDefaultFixture>
 
 export const FixtureName = Schema.Literals([
   "gamma.default-gamma",
@@ -726,19 +881,19 @@ export const FixtureName = Schema.Literals([
   "motpe-study.2obj",
   "constrained-tpe.parity",
   "advanced-samplers.cmaes-parity",
-  "advanced-samplers.gpbo-parity"
+  "advanced-samplers.gpbo-parity",
+  "trial-states.constant-liar",
+  "trial-states.pruned-constraints",
+  "trial-states.threshold-last-step",
+  "motpe-hssp.ties",
+  "motpe-hssp.feasibility-fronts",
+  "motpe-hssp.many-objective",
+  "motpe-hssp.below-weights",
+  "tpe-numeric.stepped-float",
+  "tpe-numeric.mixed-default"
 ])
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureName>
-
-const FixtureManifestGenerator = Schema.Struct({
-  script: Schema.String,
-  generatorVersion: Schema.String,
-  upstream: Schema.Literal("optuna"),
-  upstreamVersion: Schema.String,
-  pythonVersion: Schema.String,
-  generatedAt: Schema.String
-})
 
 export const FixtureManifestEntry = Schema.Struct({
   name: FixtureName,
@@ -748,7 +903,12 @@ export const FixtureManifestEntry = Schema.Struct({
 export type FixtureManifestEntry = Schema.Schema.Type<typeof FixtureManifestEntry>
 
 export const FixtureManifest = Schema.Struct({
-  generator: FixtureManifestGenerator,
+  generator: Schema.String,
+  upstream: Schema.Struct({
+    optuna: Schema.Literal("4.9.0"),
+    python: Schema.String,
+    platform: Schema.String
+  }),
   fixtures: Schema.Array(FixtureManifestEntry)
 })
 
@@ -776,7 +936,16 @@ export const KnownFixture = Schema.Union([
   MotpeStudyFixture,
   ConstrainedTpeFixture,
   AdvancedCmaEsFixture,
-  AdvancedGpBoFixture
+  AdvancedGpBoFixture,
+  TrialStatesConstantLiarFixture,
+  TrialStatesPrunedConstraintsFixture,
+  TrialStatesThresholdFixture,
+  MotpeHsspTiesFixture,
+  MotpeHsspFeasibilityFixture,
+  MotpeHsspManyObjectiveFixture,
+  MotpeHsspBelowWeightsFixture,
+  TpeNumericSteppedFloatFixture,
+  TpeNumericMixedDefaultFixture
 ])
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixture>

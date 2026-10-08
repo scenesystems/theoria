@@ -1,207 +1,206 @@
 {
   "fixture": "linalg.vector-parity",
   "metadata": {
-    "generatedAt": "2026-03-23T00:00:00Z",
+    "generatedAt": "2026-10-06T10:08:01Z",
     "generator": {
-      "script": "scripts/generate-scipy-fixtures.py",
-      "version": "1.0.0"
+      "script": "scripts/generate-scipy-fixtures.py"
     },
     "upstream": {
       "name": "scipy",
-      "version": "1.15.2"
+      "version": "1.17.1"
     }
   },
   "payload": {
     "cases": [
       {
-        "expected": 0.0,
         "id": "dot-unit",
+        "operation": "dot",
         "input": {
           "a": [1, 0, 0],
           "b": [0, 1, 0]
         },
-        "operation": "dot"
+        "expected": 0
       },
       {
-        "expected": 32.0,
         "id": "dot-parallel",
+        "operation": "dot",
         "input": {
           "a": [1, 2, 3],
           "b": [4, 5, 6]
         },
-        "operation": "dot"
+        "expected": 32
       },
       {
-        "expected": 0.0,
         "id": "dot-orthogonal",
+        "operation": "dot",
         "input": {
           "a": [1, 0],
           "b": [0, 1]
         },
-        "operation": "dot"
+        "expected": 0
       },
       {
-        "expected": -32.0,
         "id": "dot-negative",
+        "operation": "dot",
         "input": {
           "a": [-1, -2, -3],
           "b": [4, 5, 6]
         },
-        "operation": "dot"
+        "expected": -32
       },
       {
-        "expected": 21.0,
         "id": "dot-single",
+        "operation": "dot",
         "input": {
-          "a": [7.0],
-          "b": [3.0]
+          "a": [7],
+          "b": [3]
         },
-        "operation": "dot"
+        "expected": 21
       },
       {
-        "expected": 97.4,
         "id": "dot-large-5d",
+        "operation": "dot",
         "input": {
           "a": [1.5, 2.3, 3.7, 4.1, 5.9],
           "b": [6.2, 7.8, 8.4, 9.1, 0.3]
         },
-        "operation": "dot"
+        "expected": 97.39999999999999
       },
       {
-        "expected": 5.0,
         "id": "norm-l2-unit",
+        "operation": "norm",
         "input": {
           "kind": "L2",
           "values": [3, 4]
         },
-        "operation": "norm"
+        "expected": 5
       },
       {
-        "expected": 3.7416573867739413,
         "id": "norm-l2-3d",
+        "operation": "norm",
         "input": {
           "kind": "L2",
           "values": [1, 2, 3]
         },
-        "operation": "norm"
+        "expected": 3.7416573867739413
       },
       {
-        "expected": 6.0,
         "id": "norm-l1-basic",
+        "operation": "norm",
         "input": {
           "kind": "L1",
           "values": [1, -2, 3]
         },
-        "operation": "norm"
+        "expected": 6
       },
       {
-        "expected": 5.5,
         "id": "norm-l1-single",
+        "operation": "norm",
         "input": {
           "kind": "L1",
           "values": [5.5]
         },
-        "operation": "norm"
+        "expected": 5.5
       },
       {
-        "expected": 5.0,
         "id": "norm-linf-basic",
+        "operation": "norm",
         "input": {
           "kind": "Linf",
           "values": [1, -5, 3]
         },
-        "operation": "norm"
+        "expected": 5
       },
       {
-        "expected": 3.0,
         "id": "norm-linf-equal",
+        "operation": "norm",
         "input": {
           "kind": "Linf",
           "values": [3, 3, 3]
         },
-        "operation": "norm"
+        "expected": 3
       },
       {
-        "expected": 1.4142135623730952e-150,
         "id": "norm-l2-tiny",
+        "operation": "norm",
         "input": {
           "kind": "L2",
           "values": [1e-150, 1e-150]
         },
-        "operation": "norm"
+        "expected": 1.4142135623730952e-150
       },
       {
-        "expected": 1.414213562373095e150,
         "id": "norm-l2-large",
+        "operation": "norm",
         "input": {
           "kind": "L2",
           "values": [1e150, 1e150]
         },
-        "operation": "norm"
+        "expected": 1.414213562373095e150
       },
       {
-        "expected": [3.0, 7.0],
         "id": "matvec-identity-2x2",
+        "operation": "matvec",
         "input": {
-          "cols": 2,
           "data": [1, 0, 0, 1],
           "rows": 2,
+          "cols": 2,
           "x": [3, 7]
         },
-        "operation": "matvec"
+        "expected": [3, 7]
       },
       {
-        "expected": [8.0, 15.0],
         "id": "matvec-scale-2x2",
+        "operation": "matvec",
         "input": {
-          "cols": 2,
           "data": [2, 0, 0, 3],
           "rows": 2,
+          "cols": 2,
           "x": [4, 5]
         },
-        "operation": "matvec"
+        "expected": [8, 15]
       },
       {
-        "expected": [0.0, 1.0],
         "id": "matvec-rotation-like",
+        "operation": "matvec",
         "input": {
-          "cols": 2,
           "data": [0, -1, 1, 0],
           "rows": 2,
+          "cols": 2,
           "x": [1, 0]
         },
-        "operation": "matvec"
+        "expected": [0, 1]
       },
       {
-        "expected": [3.0, 7.0, 11.0],
         "id": "matvec-3x2",
+        "operation": "matvec",
         "input": {
-          "cols": 2,
           "data": [1, 2, 3, 4, 5, 6],
           "rows": 3,
+          "cols": 2,
           "x": [1, 1]
         },
-        "operation": "matvec"
+        "expected": [3, 7, 11]
       },
       {
-        "expected": 1.4142135623730951,
         "id": "frobenius-identity-2x2",
+        "operation": "frobenius",
         "input": {
-          "cols": 2,
           "data": [1, 0, 0, 1],
-          "rows": 2
+          "rows": 2,
+          "cols": 2
         },
-        "operation": "frobenius"
+        "expected": 1.4142135623730951
       },
       {
-        "expected": 16.881943016134134,
         "id": "frobenius-3x3",
+        "operation": "frobenius",
         "input": {
-          "cols": 3,
           "data": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-          "rows": 3
+          "rows": 3,
+          "cols": 3
         },
-        "operation": "frobenius"
+        "expected": 16.881943016134134
       }
     ]
   }

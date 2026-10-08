@@ -3,12 +3,11 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
@@ -16,34 +15,24 @@
       "bestValue": -0.25,
       "configTrace": [
         {
-          "demos": "few",
-          "instruction": "rewrite",
-          "scoring": "recall"
-        },
-        {
           "demos": "none",
-          "instruction": "socratic",
-          "scoring": "strict"
+          "instruction": "baseline",
+          "scoring": "balanced"
         },
         {
           "demos": "few",
           "instruction": "socratic",
-          "scoring": "recall"
+          "scoring": "balanced"
         },
         {
-          "demos": "curated",
-          "instruction": "socratic",
-          "scoring": "recall"
-        },
-        {
-          "demos": "none",
-          "instruction": "counterexample",
-          "scoring": "recall"
+          "demos": "few",
+          "instruction": "baseline",
+          "scoring": "balanced"
         },
         {
           "demos": "none",
           "instruction": "baseline",
-          "scoring": "recall"
+          "scoring": "balanced"
         },
         {
           "demos": "curated",
@@ -52,57 +41,67 @@
         },
         {
           "demos": "curated",
-          "instruction": "baseline",
+          "instruction": "socratic",
           "scoring": "recall"
         },
         {
-          "demos": "few",
-          "instruction": "rewrite",
+          "demos": "curated",
+          "instruction": "counterexample",
           "scoring": "recall"
         },
         {
-          "demos": "none",
+          "demos": "curated",
           "instruction": "rewrite",
           "scoring": "balanced"
         },
         {
-          "demos": "few",
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "strict"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "none",
+          "instruction": "rewrite",
+          "scoring": "strict"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
           "instruction": "rewrite",
           "scoring": "recall"
         },
         {
           "demos": "few",
           "instruction": "rewrite",
-          "scoring": "recall"
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
         },
         {
           "demos": "curated",
           "instruction": "socratic",
-          "scoring": "balanced"
-        },
-        {
-          "demos": "few",
-          "instruction": "counterexample",
-          "scoring": "strict"
-        },
-        {
-          "demos": "none",
-          "instruction": "rewrite",
-          "scoring": "recall"
-        },
-        {
-          "demos": "few",
-          "instruction": "rewrite",
-          "scoring": "recall"
-        },
-        {
-          "demos": "curated",
-          "instruction": "baseline",
-          "scoring": "balanced"
-        },
-        {
-          "demos": "curated",
-          "instruction": "rewrite",
           "scoring": "balanced"
         }
       ]

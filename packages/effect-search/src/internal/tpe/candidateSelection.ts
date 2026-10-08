@@ -3,13 +3,18 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Number as Num, Tuple } from "effect"
+import { Array as Arr, Context, Effect, Match, Number as Num, Tuple } from "effect"
 
 import * as Rng from "../../internal/rng.js"
 import { argmax } from "../../internal/tpe/expectedImprovement.js"
 import type { InvalidSamplerConfig } from "../../SearchError.js"
 import { makeCandidateRollPair } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
+
+/** Passive diagnostic observer; cannot replace candidate scores or selection. */
+export const SelectionObserver = Context.Reference<
+  (candidates: ReadonlyArray<unknown>, scores: ReadonlyArray<number>, bestIndex: number) => Effect.Effect<void>
+>("@scenesystems/effect-search/internal/tpe/SelectionObserver", { defaultValue: () => () => Effect.void })
 
 const indices = (count: number) =>
   Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
@@ -38,7 +43,12 @@ export const chooseBestCandidate = <A>(
 
   const bestIndex = argmax(scores)
 
-  return Effect.fromOption(Arr.get(candidates, bestIndex), () => invalidConfig(reason))
+  return Effect.gen(function*() {
+    const candidate = yield* Effect.fromOption(Arr.get(candidates, bestIndex), () => invalidConfig(reason))
+    const observe = yield* SelectionObserver
+    yield* observe(candidates, scores, bestIndex)
+    return candidate
+  })
 }
 
 /**
@@ -58,9 +68,11 @@ export const drawRolls = (
 
 /**
  * Draws `count` pairs of random floats (kernel roll + value roll) for
- * multivariate candidate generation. The kernel roll selects which
+ * numeric candidate generation. The kernel roll selects which
  * mixture component to sample from, while the value roll determines
- * the sample position within that component.
+ * the sample position within that component. As in Optuna's
+ * `_MixtureOfProductDistribution.sample`, all component rolls are drawn
+ * (`rng.choice`) before all value rolls (`rng.uniform`).
  *
  * @see {@link CandidateRollPair} for the pair structure
  * @see {@link drawRolls} for the univariate variant
@@ -71,7 +83,6 @@ export const drawRollPairs = (
   rng: Rng.Rng,
   count: number
 ) =>
-  Effect.forEach(indices(count), () =>
-    Effect.all(Tuple.make(Rng.nextFloat(rng), Rng.nextFloat(rng))).pipe(
-      Effect.map(([kernelRoll, valueRoll]) => makeCandidateRollPair(kernelRoll, valueRoll))
-    ))
+  Effect.all(Tuple.make(drawRolls(rng, count), drawRolls(rng, count))).pipe(
+    Effect.map(([kernelRolls, valueRolls]) => Arr.zipWith(kernelRolls, valueRolls, makeCandidateRollPair))
+  )
