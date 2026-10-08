@@ -210,18 +210,17 @@ const Lines = ({ drawing, preference, projection, prose }: {
  * last (`markersBetween`). The drawing carries
  * the act being read, which its discs and ghosts answer. How each disc is
  * drawn is told from this frame, so every disc of the frame is told alike.
- * The drawing is laid out at the width it was drawn for and shown at the
- * sheet's `fit`: scaled as one piece from its top-left corner (a composited
- * transform, so its discs and text keep their identity and the next search
- * carries on from where they are seen), whole while the column holds it. It
- * names the trial it is drawn from (`data-place-stage-trial`), so what the
- * stage shows can be read against the trace that chose it.
+ * The drawing is laid out at the width it was drawn for and scaled to the
+ * frame's current CSS width as one piece from its top-left corner. The
+ * composited transform preserves its discs and text, and follows a resize
+ * before the observer's atom update reaches React. The next search carries
+ * on from the measured fit. It names the trial it is drawn from
+ * (`data-place-stage-trial`), so the trace can identify what the stage shows.
  */
-const fitStyle = (fit: number): CSSProperties =>
-  Bool.match(Num.isLessThan(fit, 1), {
-    onTrue: () => ({ transform: `scale(${fit})`, transformOrigin: "0 0" }),
-    onFalse: () => ({})
-  })
+const fitStyle = (width: number): CSSProperties => ({
+  transform: `scale(min(1, calc(100cqw / ${width}px)))`,
+  transformOrigin: "0 0"
+})
 
 /** The walk is drawn once the search has settled; while it runs, the discs are still on their way. */
 const Walk = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
@@ -255,7 +254,11 @@ const Drawing = ({ drawn, fit, frame, shown }: {
       data-place-stage-fit={String(fit)}
       data-place-stage-trial={String(frame.trial)}
       data-place-stage-width={String(projection.stageWidth)}
-      style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px`, ...fitStyle(fit) }}
+      style={{
+        height: `${projection.stageHeight}px`,
+        width: `${projection.stageWidth}px`,
+        ...fitStyle(projection.stageWidth)
+      }}
     >
       <Walk frame={frame} />
       <AnimatePresence initial={false} key={shown}>
@@ -349,7 +352,7 @@ const Paper = ({
     data-place-drawn={drawn}
     data-place-stage="paper"
     data-place-stage-height={String(sheet.height)}
-    style={{ height: `${sheet.height}px`, width: `${sheet.width}px` }}
+    style={{ height: `${sheet.height}px`, width: `${sheet.width}px`, maxWidth: "100%" }}
   >
     <ScrollArea.Viewport className="h-full w-full" style={viewportStyle(drawn)}>
       <ScrollArea.Content style={{ width: `${sheet.width}px` }}>
@@ -499,6 +502,7 @@ export const PlaceStage = () => {
     <Stack className="gap-3">
       <Layer data-place-stage="column">
         <ArtifactStage
+          bodyStyle={{ containerType: "inline-size" }}
           frame={placeStageFrame}
           frameStyle={frameStyle}
           viewportClassName="justify-center"
