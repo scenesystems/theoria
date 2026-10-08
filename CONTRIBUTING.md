@@ -1,6 +1,6 @@
 # Contributing
 
-This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Please report concerns to [security@scenesystems.io](mailto:security@scenesystems.io).
+This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md), which includes the contact for conduct concerns. Report vulnerabilities through the [security policy](./SECURITY.md).
 
 ## Development
 
@@ -29,10 +29,12 @@ weaken checks or bypass failing hooks.
 - Update the owning documentation when public behavior or setup changes. Link to
   canonical information rather than duplicating it.
 
-For documentation examples, run `bun run docs` and inspect affected guides in the
-docs application. README guides support `$x^2$` for inline math and `$$` on separate
-lines around display math; escape a prose dollar sign as `\$`. This syntax does
-not apply to TypeDoc API comments.
+For documentation examples, run `bun run docs` and inspect affected guides using
+the [docs application workflow](apps/theoria/README.md#edit-documentation).
+Mark independently compilable TypeScript fences with `ts typecheck` so the
+README checker includes them. README guides support `$x^2$` for inline math and
+`$$` on separate lines around display math; escape a prose dollar sign as `\$`.
+This syntax does not apply to TypeDoc API comments.
 
 Run Python fixture generators with `uv run` to use their declared dependencies.
 

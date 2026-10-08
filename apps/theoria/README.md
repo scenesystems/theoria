@@ -1,29 +1,34 @@
 # Theoria app
 
 The [Theoria website](https://theoria.scenesystems.io/) introduces the packages
-in this repository. The home page runs the Imagined Place demo, a small
-composition built on the packages themselves, and `/docs` serves the generated
+in this repository. The home page runs the
+[Imagined Place demo](./docs/imagined-place-landing-demo.md), a composition built
+on the packages themselves, and `/docs` serves the generated
 API reference and guides for every published package.
 
 ## Run it locally
 
-From the repository root:
+Install dependencies from the repository root with `bun install`, then start
+the API server:
 
 ```sh
 bun run app:theoria
 ```
 
-The app listens on `http://127.0.0.1:3876` by default. Set `PORT` to use a
-different port. No provider keys or other secrets are needed: the demo runs
-entirely on deterministic local computation.
+In another terminal, run `bun run dev:web` from `apps/theoria` and open
+`http://localhost:5175`. Vite serves the frontend and proxies API requests to
+the Bun server on port `3876`. The Bun server alone serves the API and any
+existing web build; it does not start Vite.
+
+Set `PORT` for the API server and the matching `THEORIA_PORT` for Vite to use
+another backend port. No provider keys are needed for the local demo.
 
 Production configuration is documented separately in the
 [deployment guide](./DEPLOYMENT.md).
 
 ## Development workflow
 
-The repository includes a tmux runbook for working on the server and Vite
-frontend together:
+From an active local tmux session, the repository can run both servers together:
 
 ```sh
 bun run app:theoria:tmux
@@ -34,6 +39,22 @@ bun run app:theoria:tmux:stop
 
 `THEORIA_PORT` changes the app port and `THEORIA_TMUX_SESSION` selects the tmux
 session. The frontend development server uses port `5175`.
+
+In an Amp orb, run `amp orb services ensure` from the repository root instead.
+The checked-in service configuration starts both servers and returns the docs
+portal URL.
+
+## Edit documentation
+
+Run `bun run docs` from the repository root after changing package READMEs or
+public TSDoc. It typechecks README examples and regenerates guides, API pages,
+navigation, and search data. Reload the affected `/docs` pages in Vite to review
+them; Markdown changes are not watched automatically.
+
+The [generator](../../scripts/api-reference/) converts Markdown and TypeDoc into
+the [shared documentation model](../../packages/docs-model/src/docs-data.ts),
+which the [docs views](./app/web/view/docs/) render. Edit the source README or
+TSDoc rather than generated files under `public/docs-data`.
 
 ## How it is organized
 

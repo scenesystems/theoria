@@ -33,11 +33,12 @@ export const checked = dotValidated({
 }).pipe(Effect.result)
 ```
 
-Import from a concern subpath such as `@scenesystems/effect-math/LinearAlgebra` to keep imports focused, or import concern namespaces from the package root. There are no `contracts` or `experimental` compatibility subpaths.
+Import from a subpath such as `@scenesystems/effect-math/LinearAlgebra`, or
+import namespaces from the package root.
 
 ## Domains
 
-The public model is a set of owner-named concerns. Each link is both the source of the package subpath and an in-site API destination in generated documentation.
+Choose a numerical domain below; each link opens its API reference.
 
 | Concern                                   | Consumer role                                                                                                                                                                         |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -96,26 +97,11 @@ $$
 
 Thus a fair coin has entropy $\ln 2$, rather than one bit. These formulas describe the mathematical quantities; floating-point operations remain subject to the numerical behavior documented by each operation.
 
-## Naming and vocabulary
-
-Effect imports retain their public module names: `Number.sum`, `Array.map`, `Boolean.match`, `String.concat`, `BigDecimal.multiply`, and `BigInt.gcd`. Concern imports retain their mathematical names. When operations overlap, qualify them with their owning namespace rather than inventing an alias:
-
-```ts typecheck
-import { Complex, Numeric } from "@scenesystems/effect-math"
-
-export const realRoot = Numeric.sqrt(2)
-export const complexRoot = Complex.sqrt(Complex.make(-1, 0))
-```
-
-Internal modules follow the same rule: `Arithmetic`, `Integration`, `Ridder`, and `Normal` name a subject or algorithm, without bridge or implementation suffixes. A pure implementation keeps its operation's spelling, including distribution suffixes such as `Logpdf` and `Logpmf`. Algorithm-specific names such as `gammaLanczos` identify an actual mathematical distinction. Conventional scalar symbols and coefficients remain mathematical notation, not abbreviations for module imports.
-
-These conventions also apply to tests, examples, scripts, and documentation. The operation forms below describe behavior rather than import provenance.
-
 ## Operation forms
 
 An operation appears under its base name and, when its behavior needs them, with `Validated` and `WithPolicies` suffixes.
 
-The base operation assumes its documented preconditions and returns a plain value. Where IEEE 754 defines a result, such as `-Infinity` for `log(0)`, scalar operations return that result. `logStrict` preserves the established deterministic binary64 series, while `log` uses a range-reduced rational approximation through Effect's native `Number` module; both retain IEEE 754 exceptional-value behavior. Exponential range boundaries use `BigDecimal` to avoid premature overflow and underflow. Use `logValidated` when invalid logarithm input should enter the typed error channel.
+The base operation assumes its documented preconditions and returns a plain value. Where IEEE 754 defines a result, such as `-Infinity` for `log(0)`, scalar operations return that result. Use a validated operation when invalid input should enter the typed error channel; see [`Numeric`](./src/Numeric.ts) for numerical behavior and operation-specific alternatives.
 
 The validated variant takes `unknown`, decodes it against the operation's input schema with excess properties rejected, checks structural preconditions such as matching lengths, and runs the operation. Errors have concise module-local names such as `DecodeError`, `ParameterError`, and `ShapeMismatchError`; their established wire tags remain stable. Use validated operations at API boundaries, on deserialized data, and anywhere bad input should remain in the typed error channel.
 
@@ -183,8 +169,6 @@ The [examples directory](./examples/) contains runnable programs showing base, v
 ## Reference fixtures
 
 Committed SciPy/NumPy fixtures provide independent numerical expectations. From this package directory, run `bun run fixtures:check` to validate them or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
-
-The Effect entrypoint discovers reference families, runs Python processes in scopes with bounded concurrency, decodes their JSON responses through the fixture schemas, and writes the fixture files and manifest. Python owns SciPy/NumPy reference computation, result conversion, and JSON input/output. The manifest records the actual SciPy, NumPy, and Python versions used.
 
 Set `SCIPY_FIXTURE_OUTPUT_DIRECTORY` to generate into a separate directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the default reproducible timestamp `2026-03-23T00:00:00Z`. Generator failures and invalid responses fail the command before any fixture files are written. Filesystem write failures can leave partial output, so use a separate output directory when reviewing regenerated references.
 

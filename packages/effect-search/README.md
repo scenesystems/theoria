@@ -6,7 +6,8 @@ A `SearchSpace` describes the valid configurations and infers their TypeScript t
 
 The samplers compute with [`@scenesystems/effect-math`](../effect-math/README.md). Cached objective inputs and search artifacts get stable content identities from [`@scenesystems/digest`](../digest/README.md). [`@scenesystems/effect-dsp`](../effect-dsp/README.md) builds its prompt optimizers on this package.
 
-Reusable trial schemas, history, stop controls, event streams, generic schema-parameterized storage, and artifact persistence live in [`@scenesystems/effect-study`](../effect-study/README.md). `effect-search` depends on that lower-level package and specializes it with optimization schemas, checkpoints, and replay policy; `effect-study` does not depend on `effect-search`. Use `effect-study` directly for fixed-input evaluation or non-numeric observations. Sampling, ranking, pruning, and optimization recovery remain `effect-search` responsibilities.
+For fixed-input evaluation or non-numeric observations without search, use
+[`@scenesystems/effect-study`](../effect-study/README.md) directly.
 
 ## Installation
 
@@ -118,7 +119,7 @@ Joint categorical TPE supports at most 65,536 combinations across its dimensions
 
 A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The optimization as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
 
-Effect 4 changed the seeded random sequence used by the samplers, so the same numeric seed does not reproduce the Effect 3 suggestion sequence. Start a new run after upgrading rather than expecting an Effect 3 snapshot or RNG trace to replay under Effect 4; snapshot resumption requires a checkpoint produced by the compatible implementation. The checked-in numerical fixtures themselves were not changed as part of this migration.
+Seeded sequences and checkpoints are implementation-dependent. Check the [changelog](./CHANGELOG.md) before resuming a study across upgrades; start a new run when the checkpoint or random sequence is incompatible.
 
 TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or a custom `Acquisition.Acquisition` created with `Acquisition.make`. Use `Acquisition.isAcquisition` when narrowing unknown extension values.
 
@@ -256,34 +257,6 @@ export const program = Effect.scoped(
 )
 ```
 
-## Public surface
-
-Every module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-search/Optimization`.
-
-| Module                                                  | Scope                                                                           |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [`Acquisition`](./src/Acquisition.ts)                   | Built-in and custom acquisition scoring strategies                              |
-| [`Artifact`](./src/Artifact.ts)                         | Search artifact provenance, payloads, and envelopes                             |
-| [`Cache`](./src/Cache.ts)                               | Schema-keyed cache descriptors, results, observers, and backend layers          |
-| [`Direction`](./src/Direction.ts)                       | Objective comparison polarity                                                   |
-| [`Distribution`](./src/Distribution.ts)                 | Sampling distributions and schema annotations                                   |
-| [`Objective`](./src/Objective.ts)                       | Objective specifications, scalar/vector values, and normalization               |
-| [`ObjectiveCache`](./src/ObjectiveCache.ts)             | Objective caching and memory, filesystem, and SQL layers                        |
-| [`Optimization`](./src/Optimization.ts)                 | Execution, streaming, ask/tell coordination, resumption, and results            |
-| [`OptimizationEvent`](./src/OptimizationEvent.ts)       | Optimization lifecycle schema, constructors, guards, and matching               |
-| [`OptimizationSnapshot`](./src/OptimizationSnapshot.ts) | Snapshot schema, compatibility validation, and recovery                         |
-| [`OptimizationStorage`](./src/OptimizationStorage.ts)   | Optimization schemas, checkpoints, and replay over generic study storage        |
-| [`Pareto`](./src/Pareto.ts)                             | Dominance, fronts, weights, and two-dimensional hypervolume                     |
-| [`Progress`](./src/Progress.ts)                         | Terminal event formatting, sinks, and stream tapping                            |
-| [`Pruning`](./src/Pruning.ts)                           | Intermediate reports, objective runtime controls, and pruning policies          |
-| [`Sampler`](./src/Sampler.ts)                           | Suggestion strategies, options, extension contract, and checkpoints             |
-| [`Scheduler`](./src/Scheduler.ts)                       | HyperBand and BOHB plans and summaries                                          |
-| [`SearchError`](./src/SearchError.ts)                   | Typed expected failures for spaces, optimization, samplers, storage, and trials |
-| [`SearchSpace`](./src/SearchSpace.ts)                   | Dimensions, conditional branches, composition, and inferred configuration types |
-| [`Trial`](./src/Trial.ts)                               | Search trial states, records, guards, and matching                              |
-
-Paths under `internal` are not exported.
-
 ## Errors and boundaries
 
 Failures surface in the Effect error channel as `Schema.TaggedError` values, so `Effect.catchTag` and `Effect.catchTags` work on them directly. `InvalidSearchSpace` and `InvalidOptimizationConfig` reject definitions before any trial runs. `InvalidSamplerConfig`, `SamplerSearchSpaceUnsupported`, and `SamplerObjectiveUnsupported` report a sampler that cannot serve the space or the objective shape. `TrialError` wraps an objective failure with its trial number, `NoSuccessfulTrials` means a completed optimization has no best trial to report, and `SamplerExhausted` means a finite sampler has nothing left to suggest.
@@ -291,6 +264,9 @@ Failures surface in the Effect error channel as `Schema.TaggedError` values, so 
 The package owns the search loop and its state. It does not own the objective's resources, retries beyond the schedule you pass, or the durability of the directory or database behind storage and caches. Reproducibility of the objective itself remains your responsibility.
 
 ## Examples
+
+See the [public API](./src/index.ts) for all modules. Import namespaces from
+the root or matching subpaths, such as `@scenesystems/effect-search/Optimization`.
 
 The [examples directory](./examples/) contains one runnable program per capability. Start with the [quick start](./examples/01-quick-start.ts), then follow the topic you need: [conditional spaces](./examples/07-conditional-spaces.ts) and [space composition](./examples/18-space-composition.ts); [multi-objective optimization](./examples/04-multi-objective.ts), [constrained optimization](./examples/15-constrained-optimization.ts), and [HyperBand and BOHB](./examples/14-hyperband-bohb.ts); [snapshot resume](./examples/10-snapshot-resume.ts), [storage resume](./examples/11-storage-resume.ts), and [trial caching](./examples/12-trial-cache.ts); [ask and tell](./examples/25-ask-tell.ts), [streaming events](./examples/03-streaming-events.ts), and [parallel evaluation](./examples/21-parallel-evaluation.ts); [sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts).
 

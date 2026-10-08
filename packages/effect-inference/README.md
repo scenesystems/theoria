@@ -1,6 +1,8 @@
 # @scenesystems/effect-inference
 
-Effect-native model intent, route resolution, provider configuration, response evidence, and native provider usage observation for `effect/ai`.
+Configure language models and embeddings for `effect/ai`, resolve model routes,
+and retain provider response and usage evidence. Applications can use the
+configured providers or supply their own runtime resolver.
 
 ## Installation
 
@@ -8,35 +10,8 @@ Effect-native model intent, route resolution, provider configuration, response e
 bun add @scenesystems/effect-inference effect
 ```
 
-## Architecture
-
-The package keeps four truths separate:
-
-1. `RuntimeRequest` records caller intent (`Model`, optional `Route`, and `Capabilities.Requirements`).
-2. `Runtime.Resolution` records the chosen route, conservative capabilities, and executable model layers before a request runs.
-3. `RuntimeEvidence.Response` records only post-response observations.
-4. `RuntimeEvidence.make` joins a resolution and response without treating route decisions as provider evidence.
-
-All public modules are root namespaces and matching flat PascalCase subpaths.
-
-| Module                                             | Responsibility                                                                       |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `Model`                                            | Caller-owned model identity                                                          |
-| `Route`                                            | Route identity, selection policy, runtime flavor, and resolved provenance            |
-| `Capabilities`                                     | Conservative capability truth and caller requirements                                |
-| `RuntimeRequest`                                   | Serializable caller intent and checked decoding                                      |
-| `Runtime`                                          | Resolution service, `Resolution`, `ModelLayers`, `resolve`, `layer`, and `layerWith` |
-| `RuntimeEvidence`                                  | Response, usage, provider metadata, evidence assembly, and checked decoding          |
-| `TextProvider`                                     | Config-driven OpenAI, Anthropic, and OpenRouter language models                      |
-| `OpenAiCompatible`                                 | Static compatible routes, transport plans, model layers, and resolution              |
-| `HuggingFace`                                      | Config-driven Hugging Face resolution                                                |
-| `HuggingFaceEmbeddingModel`                        | Native feature extraction for endpoints and routed providers                         |
-| `HuggingFaceEndpoint`                              | Dedicated endpoint routes and model layers                                           |
-| `HuggingFaceRouted`                                | Provider-router routes and model layers                                              |
-| `InferenceError`                                   | Canonical schema-backed package failure union                                        |
-| `Usage`                                            | Native language-model hook observation through `Usage.ConstructorParams`             |
-| `AnthropicUsage`, `OpenAiUsage`, `OpenRouterUsage` | Native provider client observation                                                   |
-| `Testing`                                          | Deterministic model layers and runtime fixtures                                      |
+Requires Effect `^4.0.0`. Import namespaces from the root or matching subpaths,
+such as `@scenesystems/effect-inference/Runtime`.
 
 ## Runtime resolution
 
@@ -58,7 +33,10 @@ export const resolution = Runtime.resolve({
 
 `Capabilities.Requirements` treats omitted and false booleans as no constraint. Structured output is graded `none < best-effort < strict`; `minimumContextTokens` requires a declared context limit.
 
-`Runtime.Runtime` is the Context tag; `Runtime.Service` describes its `resolve` capability. Use `Runtime.layerWith` to install a caller-owned resolver.
+Resolution selects a route and executable model layers; it does not call the
+model. Use [`Runtime.layerWith`](./src/Runtime.ts) to install your own resolver.
+The request records what the caller wants, the resolution records the route
+chosen, and response evidence records what the provider actually reports.
 
 ## Configured text providers
 
@@ -79,13 +57,12 @@ export const program = LanguageModel.generateText({
 
 `HuggingFace.resolveConfig` merges explicit `HuggingFace.Config` values over `HUGGINGFACE_*` configuration and resolves either a routed marketplace or dedicated endpoint. `HuggingFace.languageModel` and `embeddingModel` select admitted layers.
 
-`HuggingFaceEmbeddingModel` owns native feature extraction for both route modes:
-
-- `Options.route` selects direct endpoint execution or routed provider discovery.
-- `layer` requires a caller-provided platform `HttpClient`; `layerFetch` supplies `FetchHttpClient.layer`.
-- Successful discovery is cached for five minutes per layer and concurrent misses are coalesced. Discovery and inference retry only HTTP 503, at most twice.
-- `embed` returns an `EmbedResponse` with `vector`; `embedMany` returns ordered `embeddings` and usage metadata. Use `embedMany` for batching. Independent `embed` calls execute in their caller's fiber so interruption cancels inference. Discovery uses a layer-owned `ScopedCache`, retaining shared work only while a caller needs it.
-- This avoids the installed Effect 4.0.0 request-resolver cancellation defect for `embed`. Direct use of the model's low-level `resolver` retains upstream behavior.
+[`HuggingFaceEmbeddingModel`](./src/HuggingFaceEmbeddingModel.ts) provides
+feature extraction for both route modes. `layer` requires your platform
+`HttpClient`; `layerFetch` supplies the Fetch implementation. Use `embed` for a
+single vector and `embedMany` for an ordered batch. Prefer these methods over
+the low-level resolver: `embed` preserves caller interruption, while the
+resolver retains Effect 4.0.0's cancellation limitation.
 
 ```ts typecheck
 import { EmbeddingModel } from "effect/ai"
@@ -108,7 +85,9 @@ export const embedding = Effect.flatMap(EmbeddingModel.EmbeddingModel, (model) =
 ).pipe(Effect.provide(modelLayer))
 ```
 
-Routed embeddings preserve Hub mapping order for `auto`, require an exact mapping for explicit providers, reject chat-only policies, retain injected transport behavior, and validate one finite equal-width vector per input.
+Routed embeddings preserve Hub mapping order for `auto` and require an exact
+mapping for an explicit provider. Discovery and inference retry HTTP 503 at
+most twice. See the linked reference for discovery caching and response validation.
 
 ## Runtime evidence
 
@@ -147,7 +126,8 @@ Observers execute in the invoking fiber before native response interpretation. S
 
 Canonical usage follows Effect v4's nested `inputTokens` and `outputTokens` structure. Provider-reported totals remain distinct from cache and reasoning details. Derived counters remain absent when their components are missing or inconsistent; raw reports retain provider-specific totals and costs. Anthropic observations preserve their source tag and cumulative state when serialized. Use one observation integration per invocation to avoid recording both raw-client and canonical-finish usage.
 
-Native Google support has been removed. Gemini remains available through OpenRouter or an OpenAI-compatible service, using the matching usage observer.
+For Gemini, use OpenRouter or an OpenAI-compatible service with the matching
+usage observer.
 
 ## Testing
 
@@ -156,6 +136,9 @@ Native Google support has been removed. Gemini remains available through OpenRou
 ## Errors and security
 
 `InferenceError.InferenceError` is the schema and type for `InvalidRuntimeConfig`, `CapabilityMismatch`, `UnsupportedRoute`, and `RuntimeNotImplemented`. Provider transport failures remain in the native `effect/ai/AiError` channel, with semantic failures under `error.reason`. API keys are never stored in requests, resolutions, or evidence.
+
+See the [public API](./src/index.ts) for provider configuration and observation
+contracts, and the [changelog](./CHANGELOG.md) when upgrading.
 
 ## License
 

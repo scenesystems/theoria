@@ -8,17 +8,13 @@ Effect-native digital signatures, X25519 key agreement, X-Wing hybrid encapsulat
 bun add @scenesystems/sign effect
 ```
 
-Effect `^4.0.0` is a required peer. Public concerns are namespaces with matching, case-sensitive subpaths. Both forms expose the same declarations:
+Requires Effect `^4.0.0`. Import namespaces from the root or matching,
+case-sensitive subpaths, such as `@scenesystems/sign/Ed25519`.
 
-```ts typecheck
-import { Ed25519 } from "@scenesystems/sign"
-import * as Rsa from "@scenesystems/sign/Rsa"
-
-export const reconstruct = Ed25519.keyPairFromSeed
-export const importPublicKey = Rsa.publicKeyFromJwk
-```
-
-Choose the suite explicitly. `Ed25519`, `Secp256k1`, `MlDsa`, and `SlhDsa` own signing and verification; `P256` and `Rsa` are verification-only. `X25519` owns agreement, `XWing` owns encapsulation, and `Jwt` owns token policy. `KeyPair` and `Signature` own the shared data representations. `Verification` owns the strict-verification failure contract and resource limit. `Entropy` is the cryptographic random capability; `Bytes` prepares UTF-8 messages and compares byte sequences. Use `Hex`, `Base64`, and `Base64Url` from `effect/encoding` for wire encodings; lift their decoding Results with `Effect.fromResult`.
+Choose the suite explicitly: Ed25519, secp256k1, ML-DSA, and SLH-DSA support
+signing and verification; P256 and RSA support verification only. Use X25519
+for agreement, X-Wing for hybrid encapsulation, and `Jwt` for RS256 token policy.
+Use `Hex`, `Base64`, and `Base64Url` from `effect/encoding` for wire encodings.
 
 ## Sign and verify with an authenticated key
 
@@ -35,7 +31,13 @@ export const program = Effect.gen(function* () {
 }).pipe(Effect.provide(Entropy.layer))
 ```
 
-Every verifier takes a public key explicitly. Verification proves that bytes match a key, not that the key belongs to an identity. A `Signature.Signature` carries algorithm, signature bytes, and the supplied public key, but is not a trusted identity or self-verifying envelope. Ed25519 signing checks the key pair and snapshots the inputs. Entropy-backed Schnorr, ML-DSA-44/87, and SLH-DSA signers snapshot message and key inputs on every execution before requesting entropy; their result carries the captured public key. Other signers store the supplied public key without proving that it matches the secret key. Bind algorithm, context, and message framing in your protocol.
+Every verifier takes a public key explicitly. Verification proves that bytes
+match a key, not that the key belongs to an identity. A `Signature.Signature`
+carries algorithm, signature bytes, and the supplied public key; it is not a
+trusted identity or self-verifying envelope. Ed25519 signing checks the key
+pair, but other signers may retain a supplied public key without proving it
+matches the secret. Bind algorithm, context, and message framing in your
+protocol. See the suite references for input admission and snapshot rules.
 
 ### Restore an Ed25519 identity
 
@@ -57,15 +59,11 @@ Invalid seed material fails with `Ed25519.InvalidSeed`, which retains no materia
 
 ## Entropy is a dependency, not a hidden default
 
-`Entropy.bytes(length)` requests an explicit number of fresh bytes. `Entropy.layer` uses the runtime CSPRNG through Noble, not Effect's reproducible `Random` service. It accepts integer lengths from 0 through 65,536. Rejected lengths and unavailable CSPRNGs fail with `Entropy.GenerationFailed`.
+Provide [`Entropy.layer`](./src/Entropy.ts) at the application boundary for key generation, randomized signing, and encapsulation. It uses the runtime CSPRNG through Noble, not Effect's seedable `Random` service. Key generators are lazy Effect values: yield them directly, without `()`. Each execution draws fresh entropy.
 
-`GenerationFailed.length` preserves finite requests as numbers, including rejected negative, fractional, and oversized lengths. Non-finite requests use the strings `"NaN"`, `"Infinity"`, or `"-Infinity"`, keeping diagnostics JSON-safe without turning invalid requests into schema defects.
+`Entropy.bytes(length)` supplies explicit bytes for operations such as ML-DSA-65 hedged signing. Invalid requests and unavailable CSPRNGs fail with `Entropy.GenerationFailed`; the [reference](./src/Entropy.ts) describes limits and diagnostics.
 
-All key generation requires `Entropy.Entropy`, as do Schnorr, ML-DSA-44/87 and SLH-DSA randomized signing, and X-Wing encapsulation. Zero-argument key generators are lazy Effect values: yield them directly, without `()`. Reusing an Effect draws fresh entropy on every execution. Provide `Entropy.layer` near the application entrypoint. Services that generate identities can consume it through `Layer.provide`.
-
-Ed25519 and ECDSA signing, ML-DSA-65 deterministic signing, verification, agreement, and decapsulation do not require this service. ML-DSA-65 hedged signing takes entropy bytes directly, so the caller chooses where to obtain them.
-
-Tests may substitute deterministic byte providers with `Effect.provideService(Entropy.Entropy, ...)`; **never use those providers for production secrets**. Explicit entropy governs key and signature output. Noble may separately use native randomness for scalar/inversion blinding, which this service does not disable or replace.
+Tests may substitute deterministic providers with `Effect.provideService`. **Never use test providers for production secrets.** This service controls generated key and signature material, not Noble's internal blinding randomness.
 
 ## Agreement and encapsulation produce raw secrets
 
@@ -84,7 +82,7 @@ export const agree = Effect.gen(function* () {
 
 `X25519.SharedSecret` contains the raw 32-byte agreement output. X25519 rejects all-zero shared output from low-order peers. It does not authenticate the peer or bind the transcript.
 
-`XWing.encapsulate(recipientPublicKey)` returns `XWing.Encapsulation`: a 1,120-byte ciphertext to transmit and the sender's 32-byte raw shared secret, which must remain local. `XWing.decapsulate(ciphertext, recipientSecretKey)` recovers the recipient's secret. This implements `draft-connolly-cfrg-xwing-kem-06`, not a finalized RFC. X-Wing uses a 1,216-byte public key and 32-byte secret seed, combining X25519 and ML-KEM-768. Encapsulation snapshots the recipient key on every execution before requesting 64 fresh entropy bytes. A well-sized modified ciphertext can derive another secret rather than fail; encapsulation does not authenticate the sender or recipient.
+[`XWing`](./src/XWing.ts) combines X25519 and ML-KEM-768 under `draft-connolly-cfrg-xwing-kem-06`, not a finalized RFC. `encapsulate` returns a ciphertext to transmit and a shared secret to keep local; `decapsulate` recovers the recipient's secret. A modified ciphertext can derive another secret rather than fail. Neither operation authenticates the sender or recipient.
 
 Apply a protocol-bound KDF before using either output as a symmetric key. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation; [`@scenesystems/seal`](../seal/README.md) encrypts under derived keys.
 
@@ -101,14 +99,14 @@ Apply a protocol-bound KDF before using either output as a symmetric key. [`@sce
 
 Both errors retain no input material, algorithm, key, message, context, or backend diagnostic. Inputs are admitted and copied on every execution; mutation between executions is validated again. `Verification.maxMessageBytes` is 8,192, inclusive. **This resource bound is Theoria policy, not an algorithm or wire-format limit.** Cryptographic primitives execute synchronously and cannot be preempted by an Effect timeout.
 
-`Bytes.fromString(text)` is a lazy Effect using Effect's UTF-8 stream encoder; yield it to obtain fresh bytes. It replaces malformed UTF-16 with U+FFFD; use digest's strict `Utf8.encode` when malformed text must fail. `Bytes.collect(byteStream)` buffers at most 8,192 bytes for signing or verification, checks each chunk before traversal, snapshots admitted input, and preserves upstream errors, requirements, and cancellation. This is bounded buffering, not incremental signing or prehashing. No signature mode changes.
+[`Bytes.fromString`](./src/Bytes.ts) encodes UTF-8, replacing malformed UTF-16 with U+FFFD. Use digest's `Utf8.encode` when malformed text must fail. `Bytes.collect` buffers a byte stream within the 8,192-byte message limit; it does not perform incremental signing or prehashing.
 
-- **Ed25519:** strict RFC 8032, ZIP-215 disabled. Public keys and signature R must be canonical and non-small-order; S must be below the subgroup order. Keys are 32 bytes, signatures 64.
-- **P-256:** SHA-256 exactly once, 65-byte uncompressed SEC1 key, 64-byte IEEE P1363 signature with low S. DER, compressed keys, and high S fail admission.
-- **ML-DSA-65:** explicit FIPS 204 context of 0–255 bytes, 1,952-byte public key, 3,309-byte signature with canonical hint encoding. Contexts are not interchangeable.
-- **RSA:** fixed RSASSA-PKCS1-v1_5 with SHA-256, modulus-width signature, representative below the modulus, and complete RFC 8017 padding/DER DigestInfo comparison including NULL parameters. BER and missing-NULL alternatives do not verify.
+- [`Ed25519`](./src/Ed25519.ts): strict RFC 8032, with ZIP-215 disabled.
+- [`P256`](./src/P256.ts): SHA-256, uncompressed SEC1 keys, and low-S IEEE P1363 signatures, not DER.
+- [`MlDsa`](./src/MlDsa.ts): FIPS 204 ML-DSA-65 with an explicit context; contexts are not interchangeable.
+- [`Rsa`](./src/Rsa.ts): RSASSA-PKCS1-v1_5 with SHA-256 (RS256), not PSS. Import an authenticated JWK with `publicKeyFromJwk`.
 
-`Rsa.publicKeyFromJwk(unknown)` admits canonical unpadded Base64urlUInt n/e into `Rsa.PublicKey`. Its modulus must be odd and 2048–4096 bits; its exponent odd and 3–2³²−1. Optional alg/use/key_ops must permit RS256 verification. Extra fields, including private material, are discarded. It validates neither prime factorization nor provenance. Rejection is the material-free `Rsa.InvalidPublicKey`. There is no RSA signing, encryption, PSS, or network lookup.
+Each linked suite reference specifies admitted encodings, lengths, and key constraints. Importing a key validates its representation, not its provenance.
 
 The RSA scheme composes Noble public arithmetic with SHA-256 from `@scenesystems/digest`. **This Theoria composition is not covered by Noble's audits.** Independent OpenSSL fixtures and all 259 cases of a pinned Wycheproof corpus provide conformance evidence, not an audit.
 
@@ -155,21 +153,11 @@ export const authenticate = (token: Redacted.Redacted<string>, trustedJwks: unkn
   Jwt.verifyRs256(token, trustedJwks, policy, Identity)
 ```
 
-The caller authenticates the JWKS for the configured issuer. `Jwt` performs no HTTP, caching, or token-directed lookup. Exactly one key must match kid, even if duplicates are equal; the JWKS is bounded to 100 keys. Protected headers admit only alg: RS256, kid, and optional typ: JWT. Compact input is bounded to 8,876 characters, and the signed input also obeys the RSA message bound. Base64url must be canonical; malformed UTF-8 and BOMs are rejected. JSON duplicate names follow ECMAScript last-member semantics permitted by RFC 7519.
-
-Issuer, audience, iat, and exp are required; nbf is optional and enforced. Comparisons are case-sensitive, expiration exclusive, issuance/not-before inclusive, maximum lifetime positive and bounded, with no clock skew. Verification reads Effect's Clock on execution. No claims escape before signature and policy verification. Application Schema requirements and interruption/finalization semantics are preserved. `Jwt.Rejected` reports a stage without retaining material; `Verification.Unavailable` remains distinct.
+Authenticate the JWKS for the configured issuer before calling `verifyRs256`; the package performs no network lookup. Verification enforces issuer, audience, issuance, expiry, and maximum lifetime using Effect's Clock, with no clock skew. Application claims are decoded only after signature and policy checks pass. `Jwt.Rejected` retains no token material; backend unavailability remains distinct. JWKS input is limited to 100 keys and compact tokens to 8,876 characters. See [`Jwt`](./src/Jwt.ts) for the admitted header and claims profile.
 
 ## Data and failure boundaries
 
-Schema classes unify constructors, schemas, and types. `new KeyPair.KeyPair(...)` takes typed constructor input and validates it; invalid construction can throw. Use `Schema.decodeUnknownEffect` for untrusted input and an explicit failure channel. `Signature.Signature`, `X25519.SharedSecret`, and `XWing.Encapsulation` check discriminators and byte carriers, not suite-specific lengths or cryptographic validity. Their encoded byte fields remain Uint8Arrays, not JSON strings. `Rsa.PublicKey` uses bigints. Compose a wire codec explicitly when crossing JSON boundaries; v4's derived JSON codec encodes bytes as base64 rather than number arrays.
-
-Classes do not make nested mutable bytes structurally equal, copy them, or redact secrets. Key and signature algorithms are canonical literal schemas under `KeyPair.Algorithm` and `Signature.Algorithm`. Suite-specific failures live with their concern; shared generation failures live in `KeyPair`, signing failures in `Signature`. Wire tags are retained, but local names and paths are intentionally redesigned.
-
-## Migrating from 0.4
-
-This is a breaking pre-1.0 minor redesign, without aliases. Replace root flat functions with concern namespaces. Replace generic dispatch with explicit suite operations and independently authenticated verification keys. Replace the flat `KeyPair` class with `KeyPair.KeyPair`, `KemCiphertext` with `XWing.Encapsulation`, `generateEntropy()` with `Entropy.bytes(length)` plus an explicit layer, `utf8ToBytes` with `Bytes.fromString`, `equalBytes` with `Bytes.equal`, and `toHex` with `Hex.encode` from `effect/encoding`.
-
-Public subpaths are the exact PascalCase module names; `internal/`, legacy `algorithms/`, and `schemas/` paths are not exported. Distribution manifests are produced by the existing build-utils pack workflow from the explicit package export map.
+Use `Schema.decodeUnknownEffect` for untrusted data. Decoding a [`KeyPair`](./src/KeyPair.ts) or [`Signature`](./src/Signature.ts) model checks its representation, not cryptographic validity. Models do not redact or make mutable key bytes immutable. Select a wire codec explicitly for JSON transport; suite operations own cryptographic admission and verification.
 
 ## Verification and examples
 

@@ -1,9 +1,9 @@
 # @scenesystems/effect-dsp
 
-Effect-native typed language-model programs, evaluation, tracing, persistence,
-and optimization. Signatures retain Effect schemas, modules retain generic
-Effect error and service channels, and optimizers mutate learnable instructions
-and demonstrations without owning provider configuration.
+Build typed language-model programs, evaluate their answers, and optimize
+their instructions and demonstrations in Effect. You supply the model; DSP
+handles schema-checked inputs and outputs while preserving your program's
+error and service requirements.
 
 ## Installation
 
@@ -11,8 +11,10 @@ and demonstrations without owning provider configuration.
 bun add @scenesystems/effect-dsp effect
 ```
 
-Bring any `LanguageModel` layer for Effect v4's `effect/ai/LanguageModel`. Provider setup can come from
-`@scenesystems/effect-inference`, but DSP production code does not depend on it.
+Requires Effect `^4.0.0`. Supply a layer for `effect/ai/LanguageModel` to run
+the examples. For provider setup, see
+[`effect-inference`](../effect-inference/README.md#configured-text-providers);
+for local tests, use the mock layer below.
 
 ## Typed programs
 
@@ -35,12 +37,6 @@ export const program = Effect.gen(function* () {
 preserve schema-decoded input/output types and generic Effect channels. Stable
 module names identify parameters in traces, discovery graphs, saved state, and
 optimizer candidates.
-
-`ModuleParameters` owns parameter construction, immutable updates, projections,
-and scalar dimensions. `ModuleGraph` owns serializable `ModuleGraph`, `Node`, `Edge`,
-`Lineage`, and `Projection` values. `Demonstration.Codec` is compiled from a
-signature's encoded schemas, so destination validation, trace replay, and
-equivalence never rerun domain transformations.
 
 ## Evaluation and optimization
 
@@ -74,38 +70,21 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-Algorithms are independent modules rather than members of an umbrella registry:
+Start with [`LabeledFewShot`](./src/LabeledFewShot.ts) for supplied examples
+or [`BootstrapFewShot`](./src/BootstrapFewShot.ts) for generated demonstrations.
+[`BootstrapRS`](./src/BootstrapRS.ts) searches demonstration sets;
+[`MIPROv2`](./src/MIPROv2.ts) searches instructions and demonstrations;
+[`GEPA`](./src/GEPA.ts) uses reflective feedback.
 
-- `LabeledFewShot.run`
-- `BootstrapFewShot.run`, `runWithEvents`, and `stream`
-- `BootstrapRS.run`
-- `MIPROv2.run`, `runWithEvents`, and `stream`
-- `GEPA.run`, `runWithEvents`, and `stream`
-- `Ensemble.make`
+Optimizers update the module's parameters. Bootstrap algorithms restore the
+initial parameter graph on failure or interruption. Use an algorithm's
+`runWithEvents` or `stream` when it exposes progress; the linked references
+describe budgets, checkpoint behavior, and failure channels.
 
-`MIPROv2Candidates` owns destination-bound candidate construction and validation;
-`MIPROv2Search` owns direct search over those candidates. `EvaluationObjective`
-projects evaluation reports into effect-search objectives.
-
-Each event-producing algorithm also owns its event schema, constructors,
-formatters, stream taps, and summaries. MIPROv2 preserves effect-search
-optimization failures. Candidate validation happens before provider calls or
-parameter writes; failed matching checkpoints evict only the failed candidate
-and retain historical best state. Bootstrap algorithms restore the complete
-initial parameter graph on failure or interruption.
-
-Search primitives are not mirrored. Import optimization, samplers, Pareto
-operations, and deterministic seed operations directly from effect-search.
-DSP's `Artifact` concern composes generic provenance and envelopes from
-effect-study:
-
-```ts typecheck
-import { Optimization, Pareto, Sampler } from "@scenesystems/effect-search"
-
-export const sampler = Sampler.tpe(new Sampler.TpeOptions({ seed: 17 }))
-export const frontier = Pareto.nonDominatedIndices
-export const optimize = Optimization.run
-```
+For custom objectives and samplers, use
+[`effect-search`](../effect-search/README.md) directly.
+[`EvaluationObjective`](./src/EvaluationObjective.ts) converts evaluation
+reports into search objectives.
 
 ## Traces, payloads, and cache
 
@@ -114,23 +93,15 @@ scopes inherited by child fibers. Calls retain native `Response.Usage`; missing
 counters stay unknown and total tokens are never synthesized. Put
 `Effect.exit(program)` inside a trace scope when failure evidence must survive.
 
-`Payload.encode` and `Payload.decode` serialize data through its owning schema and
-verify encoded-schema equivalence after JSON round trip. Trace inputs/outputs and
-demonstration documents therefore retain nested encoded values losslessly.
+[`Payload`](./src/Payload.ts) encodes trace and demonstration data through
+their schemas. Use the owning codec so domain transformations and encoded
+values survive persistence correctly.
 
-`Cache.Cache`, `Cache.Key`, `Cache.key`, `Cache.layer`, and `Cache.layerMemory`
-provide language-model result memoization over effect-search cache backends.
-Provide an effect-search `Cache` layer to `Cache.layer` for filesystem or SQL
-storage. Resolutions contain `value` and `resolution`; failed computations are
-not cached, and rollout partitions remain isolated.
-
-`Cache.Request` and `Cache.KeyRequest` require `inputSchema` and `paramsSchema`.
-Use the module signature's input codec and the parameter owner's codec (for
-example, `ModuleParameters`). Cache identity follows their encoded wire values,
-not incidental runtime fields. Codecs are service-free, like the existing cache
-key/output codecs. Preserve the encoded preimage to preserve existing keys;
-change the module/runtime fingerprint when changing identity semantics. Do not
-use `Schema.Unknown` to bypass representation selection.
+[`Cache`](./src/Cache.ts) memoizes successful language-model results.
+Use `Cache.layerMemory` for local memoization, or supply an effect-search cache
+backend to `Cache.layer`. Request identity comes from the input and parameter
+codecs' encoded values plus module/runtime fingerprints; change the fingerprints
+when their meaning changes. Failed computations are not cached.
 
 ## Errors and testing
 
@@ -153,15 +124,16 @@ export const layer = MockLanguageModel.layer(
 Use `MockLanguageModel.fromFunction` for effectful prompt-dependent behavior,
 `sequence` for ordered responses, and `fail` for checked provider failure tests.
 
-## Public modules
+See the [public API](./src/index.ts) for all modules, including parameter
+persistence and ensembles. Import namespaces from the root or matching
+PascalCase subpaths, such as `@scenesystems/effect-dsp/Signature`.
 
-Every production concern is available from the package root and from a matching
-PascalCase subpath: `Signature`, `Module`, `ModuleParameters`, `ModuleGraph`,
-`Demonstration`, `Example`, `Metric`, `Evaluate`, `EvaluationObjective`, `Artifact`, `Trace`, `Cache`, `Payload`,
-`DspError`, `OptimizerEvent`, `LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`,
-`MIPROv2`, `MIPROv2Candidates`, `MIPROv2Search`, `GEPA`, and `Ensemble`.
-`MockLanguageModel` is available through the root namespace and matching testing
-subpath. Private `internal/*` paths are blocked.
+## Attribution
+
+The programming model draws on [DSPy](https://github.com/stanfordnlp/dspy) and
+[Khattab et al., 2023](https://arxiv.org/abs/2310.03714). MIPROv2 follows
+[Opsahl-Ong et al., 2024](https://arxiv.org/abs/2406.11695); GEPA follows
+[Agrawal et al., 2025](https://arxiv.org/abs/2507.19457).
 
 ## License
 

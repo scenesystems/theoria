@@ -7,7 +7,7 @@ Preparation is an `Effect`: it segments text, measures runs, optionally applies 
 ## Installation
 
 ```sh
-npm install @scenesystems/effect-text effect
+bun add @scenesystems/effect-text effect
 ```
 
 Effect `^4.0.0` is a required peer dependency. Calibration additionally uses
@@ -40,8 +40,6 @@ export const program = Effect.gen(function* () {
 `Text.summary` returns only `lineCount`, `height`, and `maxLineWidth`. `Text.lines` materializes visual-order lines. `Text.layout` returns both `lines` and `summary` from one walk.
 
 ## Inputs, handles, and projections
-
-The principal data types are `Text.Font`, `Text.Input`, `Text.Whitespace`, `Text.Request`, `Text.Cursor`, `Text.Line`, `Text.Lines`, `Text.Summary`, and `Text.Layout`.
 
 - `Text.Input` contains `text`, `font`, `whiteSpace`, and an optional `hyphenationLocale`.
 - `whiteSpace: "normal"` collapses whitespace; `"pre-wrap"` preserves spaces, tabs, and hard breaks.
@@ -130,7 +128,10 @@ rather than retaining widths measured against stale fonts.
 
 ## Canvas measurement and profiles
 
-`CanvasTextMeasurer.layer` supplies the principal `TextMeasurer` from a caller-owned canvas-like 2D context. Access is serialized, approved context state is restored after success, failure, or interruption, and optional emoji correction applies a configurable minimum advance once per extended-pictographic, paired regional-indicator flag, or keycap grapheme. Bare keycap bases and lone regional indicators are not corrected.
+[`CanvasTextMeasurer.layer`](./src/CanvasTextMeasurer.ts) measures with a
+caller-owned canvas-like 2D context. It serializes access and restores the
+context state after success, failure, or interruption. Its options also control
+emoji advance correction.
 
 `CanvasProfile.monospace` and `CanvasProfile.systemUi` pair font selection with a `Text.Profile`; `CanvasProfile.get()` selects one by id and defaults to monospace.
 
@@ -159,16 +160,10 @@ export const layoutOnCanvas = (context: CanvasTextMeasurer.Context, text: string
 }
 ```
 
-The context capability is structural, so an actual browser
-`CanvasRenderingContext2D` can be passed directly; no wrapper or Effect Data
-class is required. Widths from canvas are CSS pixels. The application owns font
-loading and cache invalidation. `new PreparationKey.PreparationKey(...)` creates
-a structural application-cache key from `prepare`, `engineProfile`,
-`supportProfileId`, and `fontReadinessRevision`; its constructor captures nested
-inputs with Effect Data semantics. `PreparationKey.toInput` recovers its
-`Text.Input`. `PreparationKey.Revision` validates non-negative integer revisions,
-which begin at `PreparationKey.initialRevision` and advance with
-`PreparationKey.nextRevision`.
+Pass a browser `CanvasRenderingContext2D` directly. Canvas widths are CSS
+pixels; the application owns font loading and cache invalidation.
+[`PreparationKey`](./src/PreparationKey.ts) provides structural cache keys
+that include the input, profile, and font-readiness revision.
 
 ## Hyphenation
 
@@ -216,23 +211,6 @@ export const program = Text.prepareWithSegments({
 
 See [the calibration example](./examples/05-calibration-search.ts) for a seeded search and [the live fixtures](./examples/live/calibrationFixtures.ts) for complete case, profile, service, and search models.
 
-## Public modules
-
-Every public module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-text/Text`.
-
-| Module                                              | Scope                                                               |
-| --------------------------------------------------- | ------------------------------------------------------------------- |
-| [`Text`](./src/Text.ts)                             | Inputs, handles, pure projections, preparation services, and layers |
-| [`TextMeasurer`](./src/TextMeasurer.ts)             | Measurement service, typed failure, and deterministic estimator     |
-| [`MeasurementCache`](./src/MeasurementCache.ts)     | Scoped measurement memoization                                      |
-| [`Hyphenation`](./src/Hyphenation.ts)               | Dictionary sources, provider, caches, and locale fallback           |
-| [`CanvasTextMeasurer`](./src/CanvasTextMeasurer.ts) | Serialized canvas-host measurement                                  |
-| [`CanvasProfile`](./src/CanvasProfile.ts)           | Monospace and system-UI canvas profiles                             |
-| [`PreparationKey`](./src/PreparationKey.ts)         | Structural application cache keys and font-readiness revisions      |
-| [`Calibration`](./src/Calibration.ts)               | Evaluation, pure scoring, and profile optimization                  |
-
-Paths under `internal` are not exported.
-
 ## Errors and limitations
 
 `Text.prepare` and `Text.prepareWithSegments` fail with `TextMeasurer.Failed` when measurement does not return a finite non-negative advance. `Text.prepareUnknown` can additionally fail with `Text.DecodeError`. Layout projections have no error channel once preparation succeeds.
@@ -251,6 +229,9 @@ Validate canvas output against every target browser and font. The package guaran
 ## Examples
 
 The [examples directory](./examples/) contains runnable programs for the [quick start](./examples/01-quick-start.ts), [cursors and streams](./examples/02-cursor-and-stream.ts), [explicit services](./examples/03-explicit-services.ts), [canvas measurement](./examples/04-canvas-measurement.ts), [calibration](./examples/05-calibration-search.ts), [synthetic canvas regression artifacts](./examples/06-synthetic-regression-artifacts.ts), and [dictionary hyphenation](./examples/07-dictionary-hyphenation.ts).
+
+See the [public API](./src/index.ts) for all modules. Each is available as a
+root namespace and a subpath such as `@scenesystems/effect-text/Text`.
 
 Run `bun run packages/effect-text/benchmarks/run.ts` from the repository root to
 measure the public projections and warm-cache preparation. The report is written
