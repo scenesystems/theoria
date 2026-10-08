@@ -3,8 +3,63 @@ import * as Anthropic from "@effect/ai-anthropic/AnthropicLanguageModel"
 import * as OpenAi from "@effect/ai-openai/OpenAiLanguageModel"
 import * as OpenRouter from "@effect/ai-openrouter/OpenRouterLanguageModel"
 import { empty, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
-import { Array as Arr, Effect, Match, Option, Predicate, Record } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Predicate, Record, Stream } from "effect"
+import * as AiError from "effect/ai/AiError"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import type { Provider } from "../TextProvider.js"
+
+/** First supplied field the provider API cannot send. @internal */
+export const unsupported = (provider: Provider, settings: ModelSettings): Option.Option<string> =>
+  Match.value(provider).pipe(
+    Match.when("openai", () =>
+      Option.fromNullishOr(settings.stop).pipe(
+        Option.as("stop"),
+        Option.orElse(() => Option.as(Option.fromNullishOr(settings.seed), "seed"))
+      )),
+    Match.when("anthropic", () => Option.as(Option.fromNullishOr(settings.seed), "seed")),
+    Match.when("openrouter", () => Option.none()),
+    Match.exhaustive
+  )
+
+/**
+ * Language model whose every operation fails with InvalidRequestError before
+ * any transport is constructed.
+ * @internal
+ */
+export const rejected = (module: string, parameter: string, constraint: string) => {
+  const error = (method: string) =>
+    AiError.make({
+      module,
+      method,
+      reason: new AiError.InvalidRequestError({ parameter, constraint, description: constraint })
+    })
+  return Layer.effect(
+    LanguageModel.LanguageModel,
+    LanguageModel.make({
+      generateText: (options) =>
+        Effect.fail(error(
+          Match.value(options.responseFormat.type).pipe(
+            Match.when("json", () => "generateObject"),
+            Match.orElse(() => "generateText")
+          )
+        )),
+      streamText: () => Stream.fail(error("streamText"))
+    })
+  )
+}
+
+/** Rejects settings unsupported by the provider, otherwise selects the supported layer. @internal */
+export const checked = <A>(
+  module: string,
+  provider: Provider,
+  settings: ModelSettings,
+  supported: () => A,
+  reject: (layer: Layer.Layer<LanguageModel.LanguageModel>) => A
+): A =>
+  Option.match(unsupported(provider, settings), {
+    onNone: supported,
+    onSome: (field) => reject(rejected(module, field, `${provider} API does not support ${field}`))
+  })
 
 const common = (settings: ModelSettings) => ({
   ...Option.match(Option.fromNullishOr(settings.temperature), {

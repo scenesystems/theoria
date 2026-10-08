@@ -1,11 +1,67 @@
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
-import { ConfigProvider, Effect, Option, Redacted } from "effect"
+import {
+  Array as Arr,
+  ConfigProvider,
+  Data,
+  Effect,
+  Match,
+  Option,
+  Redacted,
+  Ref,
+  Schema,
+  Stream,
+  String
+} from "effect"
 import type { Layer } from "effect"
-import type { LanguageModel } from "effect/ai"
+import { AiError, LanguageModel } from "effect/ai"
+import { HttpClient, type HttpClientRequest, HttpClientResponse, HttpServerResponse } from "effect/http"
 
 import type { InvalidRuntimeConfig } from "@scenesystems/effect-inference/InferenceError"
 import * as TextProvider from "@scenesystems/effect-inference/TextProvider"
+
+const capturedTransport = Effect.gen(function*() {
+  const requests = yield* Ref.make(Arr.empty<HttpClientRequest.HttpClientRequest>())
+  const client = HttpClient.make((request) =>
+    Ref.update(requests, Arr.append(request)).pipe(Effect.as(
+      HttpClientResponse.fromWeb(request, HttpServerResponse.toWeb(HttpServerResponse.text("test", { status: 400 })))
+    ))
+  )
+  return { requests, client }
+})
+
+const serializedBody = (request: HttpClientRequest.HttpClientRequest) =>
+  Match.value(request.body).pipe(
+    Match.tag("Uint8Array", (body) =>
+      Stream.fromIterable([body.body]).pipe(
+        Stream.decodeText,
+        Stream.runFold(() => "", String.concat),
+        Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown))))
+      )),
+    Match.orElse(() => Effect.sync(() => expect.fail("expected a serialized JSON request body")))
+  )
+
+const isolated = (provider: TextProvider.Provider, defaults: ModelSettings) =>
+  new TextProvider.Options({
+    provider,
+    model: "test-model",
+    defaults,
+    apiKey: Redacted.make("test"),
+    configProvider: ConfigProvider.fromUnknown({}).pipe(ConfigProvider.constantCase)
+  })
+
+class UnsupportedDefault extends Data.Class<{
+  readonly provider: TextProvider.Provider
+  readonly defaults: ModelSettings
+  readonly parameter: string
+}> {}
+
+class SupportedDefaults extends Data.Class<{
+  readonly provider: TextProvider.Provider
+  readonly defaults: ModelSettings
+  readonly fields: ReadonlyArray<string>
+  readonly expected: ReadonlyArray<Option.Option<unknown>>
+}> {}
 
 describe("TextProvider", () => {
   it.effect("decodes model defaults and lets explicit settings replace configured defaults", () =>
@@ -133,4 +189,84 @@ describe("TextProvider", () => {
         "SourceError: Missing provider API key. Set DSP_PROVIDER_API_KEY or ANTHROPIC_API_KEY."
       )
     }))
+
+  it.effect("fails every direct-layer operation before transport when configured defaults are unsupported", () =>
+    Effect.forEach([
+      new UnsupportedDefault({ provider: "openai", defaults: new ModelSettings({ stop: ["END"] }), parameter: "stop" }),
+      new UnsupportedDefault({ provider: "openai", defaults: new ModelSettings({ seed: 7 }), parameter: "seed" }),
+      new UnsupportedDefault({ provider: "openai", defaults: new ModelSettings({ stop: [] }), parameter: "stop" }),
+      new UnsupportedDefault({ provider: "anthropic", defaults: new ModelSettings({ seed: 0 }), parameter: "seed" })
+    ], (testCase) =>
+      Effect.gen(function*() {
+        const { requests, client } = yield* capturedTransport
+        const options = isolated(testCase.provider, testCase.defaults)
+        const runtime = yield* TextProvider.resolve(options)
+        expect(runtime.defaults).toEqual(testCase.defaults)
+        const constraint = `${testCase.provider} API does not support ${testCase.parameter}`
+        const expected = (method: string) =>
+          AiError.make({
+            module: "@scenesystems/effect-inference/TextProvider",
+            method,
+            reason: new AiError.InvalidRequestError({
+              parameter: testCase.parameter,
+              constraint,
+              description: constraint
+            })
+          })
+        const failures = yield* Effect.forEach(
+          [runtime.languageModel, TextProvider.layerConfig(options)],
+          (layer) =>
+            Effect.all([
+              LanguageModel.generateText({ prompt: "hello" }).pipe(Effect.flip),
+              LanguageModel.generateObject({ prompt: "hello", schema: Schema.Struct({ answer: Schema.String }) }).pipe(
+                Effect.flip
+              ),
+              LanguageModel.streamText({ prompt: "hello" }).pipe(Stream.runDrain, Effect.flip)
+            ]).pipe(Effect.provide(layer))
+        ).pipe(Effect.provideService(HttpClient.HttpClient, client))
+        expect(failures).toEqual(Arr.replicate([
+          expected("generateText"),
+          expected("generateObject"),
+          expected("streamText")
+        ], 2))
+        expect(yield* Ref.get(requests)).toEqual([])
+      })))
+
+  it.effect("serializes every supported configured default through the direct provider layer", () =>
+    Effect.forEach([
+      new SupportedDefaults({
+        provider: "openai",
+        defaults: new ModelSettings({ temperature: 0.3, maxTokens: 11, topP: 0.9 }),
+        fields: ["temperature", "max_output_tokens", "top_p", "stop", "seed"],
+        expected: [Option.some(0.3), Option.some(11), Option.some(0.9), Option.none(), Option.none()]
+      }),
+      new SupportedDefaults({
+        provider: "anthropic",
+        defaults: new ModelSettings({ temperature: 0.3, maxTokens: 11, topP: 0.9, stop: ["END"] }),
+        fields: ["temperature", "max_tokens", "top_p", "stop_sequences", "seed"],
+        expected: [Option.some(0.3), Option.some(11), Option.some(0.9), Option.some(["END"]), Option.none()]
+      }),
+      new SupportedDefaults({
+        provider: "openrouter",
+        defaults: new ModelSettings({ temperature: 0.3, maxTokens: 11, topP: 0.9, stop: ["END"], seed: 7 }),
+        fields: ["temperature", "max_tokens", "top_p", "stop", "seed"],
+        expected: [Option.some(0.3), Option.some(11), Option.some(0.9), Option.some(["END"]), Option.some(7)]
+      })
+    ], (testCase) =>
+      Effect.gen(function*() {
+        const { requests, client } = yield* capturedTransport
+        const options = isolated(testCase.provider, testCase.defaults)
+        const runtime = yield* TextProvider.resolve(options)
+        yield* Effect.forEach(
+          [runtime.languageModel, TextProvider.layerConfig(options)],
+          (layer) => LanguageModel.generateText({ prompt: "hello" }).pipe(Effect.result, Effect.provide(layer))
+        ).pipe(Effect.provideService(HttpClient.HttpClient, client))
+        const bodies = yield* Effect.forEach(yield* Ref.get(requests), serializedBody)
+        expect(Arr.map(bodies, (body) => [
+          Option.fromNullishOr(body.model),
+          ...Arr.map(testCase.fields, (field) => Option.fromNullishOr(body[field]))
+        ])).toEqual(
+          Arr.replicate([Option.some("test-model"), ...testCase.expected], 2)
+        )
+      })))
 })

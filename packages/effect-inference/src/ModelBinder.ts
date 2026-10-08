@@ -17,45 +17,11 @@ import * as Binding from "@scenesystems/effect-lm/ModelBinder"
 import * as ModelIdentity from "@scenesystems/effect-lm/ModelIdentity"
 import { Current as CurrentSettings, merge, type ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import type { Role } from "@scenesystems/effect-lm/Role"
-import { Effect, HashMap, Layer, Match, Option, Stream } from "effect"
-import * as AiError from "effect/ai/AiError"
-import * as LanguageModel from "effect/ai/LanguageModel"
+import { Effect, HashMap, Layer, Match, Option } from "effect"
 import * as Settings from "./internal/modelSettings.js"
-import type { Provider, Runtime } from "./TextProvider.js"
+import type { Runtime } from "./TextProvider.js"
 
-const unsupported = (provider: Provider, settings: ModelSettings): Option.Option<string> =>
-  Match.value(provider).pipe(
-    Match.when("openai", () =>
-      Option.fromNullishOr(settings.stop).pipe(
-        Option.as("stop"),
-        Option.orElse(() => Option.as(Option.fromNullishOr(settings.seed), "seed"))
-      )),
-    Match.when("anthropic", () => Option.as(Option.fromNullishOr(settings.seed), "seed")),
-    Match.when("openrouter", () => Option.none()),
-    Match.exhaustive
-  )
-
-const rejected = (parameter: string, constraint: string) => {
-  const error = (method: string) =>
-    AiError.make({
-      module: "@scenesystems/effect-inference/ModelBinder",
-      method,
-      reason: new AiError.InvalidRequestError({ parameter, constraint, description: constraint })
-    })
-  return Layer.effect(
-    LanguageModel.LanguageModel,
-    LanguageModel.make({
-      generateText: (options) =>
-        Effect.fail(error(
-          Match.value(options.responseFormat.type).pipe(
-            Match.when("json", () => "generateObject"),
-            Match.orElse(() => "generateText")
-          )
-        )),
-      streamText: () => Stream.fail(error("streamText"))
-    })
-  )
-}
+const binderModule = "@scenesystems/effect-inference/ModelBinder"
 
 const configured =
   (runtime: Runtime, settings: ModelSettings) => <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
@@ -92,18 +58,21 @@ export const layer = (runtimes: HashMap.HashMap<Role, Runtime>) =>
     new Binding.Binder({
       bind: (request) => <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
         Option.match(HashMap.get(runtimes, request.role).pipe(Option.orElse(() => HashMap.get(runtimes, "task"))), {
-          onNone: () => Effect.provide(effect, rejected("role", `No runtime for ${request.role} or task`)),
+          onNone: () =>
+            Effect.provide(effect, Settings.rejected(binderModule, "role", `No runtime for ${request.role} or task`)),
           onSome: (runtime) =>
             Effect.gen(function*() {
               const resolved = merge(
                 merge(runtime.defaults, yield* Settings.ambient(runtime.provider)),
                 request.settings
               )
-              return yield* Option.match(unsupported(runtime.provider, resolved), {
-                onNone: () => configured(runtime, resolved)(effect),
-                onSome: (field) =>
-                  Effect.provide(effect, rejected(field, `${runtime.provider} API does not support ${field}`))
-              })
+              return yield* Settings.checked(
+                binderModule,
+                runtime.provider,
+                resolved,
+                () => configured(runtime, resolved)(effect),
+                (rejected) => Effect.provide(effect, rejected)
+              )
             })
         })
     })

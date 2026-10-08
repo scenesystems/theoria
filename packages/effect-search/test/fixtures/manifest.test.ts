@@ -2,6 +2,6 @@ import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import { FixtureRegistryLive, validateFixtureManifest } from "../helpers/fixtures/index.js"
 
-// Keep malformed evidence RED even when a consuming parity assertion is expected to fail.
-it.effect("decodes every Optuna 4.9 fixture outside expected-failure tests", () =>
+// Validate evidence independently of the behavioral replay tests.
+it.effect("schema-validates every Optuna 4.9 fixture before behavioral replay", () =>
   validateFixtureManifest.pipe(Effect.provide(FixtureRegistryLive)))

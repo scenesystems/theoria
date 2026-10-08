@@ -8,18 +8,18 @@ alwaysApply: true
 
 Effect-native scientific computing monorepo.
 
-| Package              | Directory                    | npm                              | Deps                                                                                |
-| -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
-| effect-study         | `packages/effect-study/`     | `@scenesystems/effect-study`     | effect, @scenesystems/digest                                                        |
-| effect-lm            | `packages/effect-lm/`        | `@scenesystems/effect-lm`        | effect                                                                              |
-| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/effect-study, @scenesystems/effect-math, @scenesystems/digest |
-| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @scenesystems/effect-study, effect                     |
-| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search, @scenesystems/effect-study                     |
-| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                                              |
-| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | effect, @effect/ai-anthropic, @effect/ai-openai, @effect/ai-openrouter              |
-| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                                               |
-| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                                              |
-| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, @scenesystems/digest, effect     |
+| Package              | Directory                    | npm                              | Deps                                                                                                                                      |
+| -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| effect-study         | `packages/effect-study/`     | `@scenesystems/effect-study`     | effect, @scenesystems/digest                                                                                                              |
+| effect-lm            | `packages/effect-lm/`        | `@scenesystems/effect-lm`        | effect                                                                                                                                    |
+| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/effect-study, @scenesystems/effect-math, @scenesystems/digest                                                       |
+| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | effect, @scenesystems/effect-lm, @scenesystems/effect-search, @scenesystems/effect-study, @scenesystems/effect-math, @scenesystems/digest |
+| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search, @scenesystems/effect-study                                                                           |
+| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                                                                                                    |
+| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | effect, @scenesystems/effect-lm, @effect/ai-anthropic, @effect/ai-openai, @effect/ai-openrouter, @huggingface/inference                   |
+| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                                                                                                     |
+| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                                                                                                    |
+| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, @scenesystems/digest, effect                                                           |
 
 Each library chooses entrypoints according to its public concerns; there is no repository-wide single-entrypoint exemption or requirement. Effect is a required peer dependency. Use Schema as the source of truth for encodable data, while abstract generic, callback, Layer, and service relationships may use Effect-native TypeScript types and `Data.Class`. Packages are published under the `@scenesystems/` scope for cross-ecosystem use. Cryptographic implementations build on the [Noble](https://paulmillr.com/noble/) ecosystem; dependency audits do not cover Theoria's compositions.
 
@@ -144,26 +144,28 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - Every shared abstraction has a semantic owner and lives with that concern. Do not create an ownerless `shared` or `contracts` home by default.
 - `effect-study` owns generic evaluation, lifecycle, trial history, event factories, and schema-parameterized persistence and artifact delivery. `effect-search` owns optimization strategies, objective values, samplers, pruning, and their event/snapshot codecs; it composes study capabilities rather than re-exporting them under compatibility aliases.
 - Adding algorithms must not require modifying unrelated internals.
-- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`; encryption nonces belong to `Cipher.Cipher` from `@scenesystems/seal`. Provide their separate `Entropy.layer` and `Cipher.layer` capabilities at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
+- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. The exception is reference parity with a pinned upstream stream: where a claim depends on CPython `random` or NumPy legacy `RandomState` draws, use the `PseudoRandom.CPython` / `PseudoRandom.NumPyLegacy` streams from `@scenesystems/effect-math` with explicit seeds and serializable state, verified by their recorded upstream fixtures. This permits no native randomness, no further generator copies, and no new native-API exceptions. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`; encryption nonces belong to `Cipher.Cipher` from `@scenesystems/seal`. Provide their separate `Entropy.layer` and `Cipher.layer` capabilities at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
 - Public entrypoints are chosen per library from current consumer concerns rather than inherited package history. Effect remains required; use Schema for values that cross encoded boundaries and Effect-native types for abstract service and generic relationships.
 
 ---
 
 ## Structure
 
-| Directory                 | Purpose                                                                     |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `packages/effect-study/`  | Reusable evaluation, trial history, stopping, event streams, and artifacts  |
-| `packages/effect-search/` | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE                   |
-| `packages/effect-dsp/`    | Declarative signal programming — DSPy paradigm for Effect                   |
-| `packages/effect-text/`   | Text preparation, measurement seams, greedy multiline layout                |
-| `packages/effect-math/`   | Mathematical and statistical foundations                                    |
-| `packages/digest/`        | Content hashing, JCS canonicalization (`@scenesystems/digest`)              |
-| `packages/seal/`          | Authenticated encryption (`@scenesystems/seal`)                             |
-| `packages/sign/`          | Digital signatures, key agreement, key encapsulation (`@scenesystems/sign`) |
-| `.agents/skills/`         | Portable Effect-native skills                                               |
-| `.changeset/`             | Independent versioning per package                                          |
-| `packages/*/AGENTS.md`    | Package-specific governance                                                 |
+| Directory                    | Purpose                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `packages/effect-study/`     | Reusable evaluation, trial history, stopping, event streams, and artifacts  |
+| `packages/effect-search/`    | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE                   |
+| `packages/effect-dsp/`       | Declarative signal programming — DSPy paradigm for Effect                   |
+| `packages/effect-text/`      | Text preparation, measurement seams, greedy multiline layout                |
+| `packages/effect-math/`      | Mathematical and statistical foundations                                    |
+| `packages/effect-lm/`        | Provider-independent model settings, roles, identity, and scoped binding    |
+| `packages/effect-inference/` | Model intent, route resolution, hosted providers, and usage evidence        |
+| `packages/digest/`           | Content hashing, JCS canonicalization (`@scenesystems/digest`)              |
+| `packages/seal/`             | Authenticated encryption (`@scenesystems/seal`)                             |
+| `packages/sign/`             | Digital signatures, key agreement, key encapsulation (`@scenesystems/sign`) |
+| `.agents/skills/`            | Portable Effect-native skills                                               |
+| `.changeset/`                | Independent versioning per package                                          |
+| `packages/*/AGENTS.md`       | Package-specific governance                                                 |
 
 ---
 

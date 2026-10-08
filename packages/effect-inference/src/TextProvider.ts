@@ -1,6 +1,13 @@
 /**
  * Config-driven hosted OpenAI, Anthropic, and OpenRouter language models.
  *
+ * Configured defaults follow the same provider contract as ModelBinder:
+ * OpenAI sends temperature, maxTokens, and topP; Anthropic also sends stop;
+ * OpenRouter sends all five fields. A configured default the provider cannot
+ * send (OpenAI stop or seed, Anthropic seed) makes every operation of the
+ * provider layer fail with InvalidRequestError before HTTP instead of being
+ * silently dropped.
+ *
  * @since 0.5.0
  * @module
  */
@@ -62,6 +69,8 @@ export class Config extends Schema.Class<Config>("@scenesystems/effect-inference
 /** Hosted-provider runtime derived from one validated configuration.
  * Model identity, defaults, request intent and the executable layer share that
  * configuration. A supplied HttpClient service overrides the default fetch transport.
+ * Defaults the provider cannot send make every layer operation fail with
+ * InvalidRequestError before HTTP.
  * @since 0.5.0
  * @category models
  */
@@ -243,6 +252,15 @@ const transport = Layer.unwrap(
 )
 
 const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel> =>
+  Settings.checked(
+    "@scenesystems/effect-inference/TextProvider",
+    config.provider,
+    config.defaults,
+    () => supportedLayer(config),
+    (rejected) => rejected
+  )
+
+const supportedLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel> =>
   Match.value(config.provider).pipe(
     Match.when("openai", () =>
       Layer.provide(

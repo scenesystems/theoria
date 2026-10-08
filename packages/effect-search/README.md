@@ -127,7 +127,7 @@ TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or 
 `Optimization.minimize` and `Optimization.maximize` run a single-objective optimization to completion. `Optimization.run` takes an explicit `direction` or a `directions` array and accepts a `scheduler`. All three share the same options:
 
 - Stopping: `trials`, `maxDuration`, `maxCost`, `targetValue`, or `noImprovementWindow`, combined by `stopMode`.
-- Concurrency: `concurrency` runs trials in parallel while the sampler keeps suggesting from imputed pending results.
+- Concurrency: `concurrency` runs trials in parallel. Pending reservations remain separate from completed observations; TPE includes them above only with `constantLiar: true`.
 - Robustness: `trialTimeout`, a `retrySchedule`, and a `pruningPolicy`.
 - Warm starts: `priorTrials` and `priorWeight` seed the history; `evaluationsPerTrial` averages noisy objectives.
 

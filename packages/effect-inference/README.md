@@ -28,6 +28,7 @@ All public modules are root namespaces and matching flat PascalCase subpaths.
 | `Runtime`                                          | Resolution service, `Resolution`, `ModelLayers`, `resolve`, `layer`, and `layerWith` |
 | `RuntimeEvidence`                                  | Response, usage, provider metadata, evidence assembly, and checked decoding          |
 | `TextProvider`                                     | Config-driven OpenAI, Anthropic, and OpenRouter language models                      |
+| `ModelBinder`                                      | Per-role hosted runtimes and request-scoped generation settings                      |
 | `OpenAiCompatible`                                 | Static compatible routes, transport plans, model layers, and resolution              |
 | `HuggingFace`                                      | Config-driven Hugging Face resolution                                                |
 | `HuggingFaceEmbeddingModel`                        | Native feature extraction for endpoints and routed providers                         |
@@ -73,7 +74,31 @@ export const program = LanguageModel.generateText({
 }).pipe(Effect.provide(TextProvider.layerConfig()))
 ```
 
-`DSP_PROVIDER` selects `openai`, `anthropic`, or `openrouter` and defaults to `openai`. Provider-specific `OPENAI_*`, `ANTHROPIC_*`, and `OPENROUTER_*` values override generic `DSP_PROVIDER_*` values; explicit `TextProvider.Options` override both. Credentials remain `Redacted`. `TextProvider.fromConfig` acquires validated config, `resolve` returns provider identity, request intent, and a language-model layer, and `layerConfig` exposes the configured layer directly.
+`DSP_PROVIDER` selects `openai`, `anthropic`, or `openrouter` and defaults to `openai`. Provider-specific `OPENAI_*`, `ANTHROPIC_*`, and `OPENROUTER_*` values override generic `DSP_PROVIDER_*` values; explicit `TextProvider.Options` override both. Credentials remain `Redacted`. `TextProvider.fromConfig` acquires validated config, `resolve` returns a `TextProvider.Runtime` whose provider identity, defaults, request intent, and language-model layer all derive from that one config, and `layerConfig` exposes the configured layer directly. A supplied `HttpClient` service replaces only the transport.
+
+Generation defaults come from `TextProvider.Options.defaults` or, when omitted, from `DSP_MODEL_SETTINGS` as JSON-encoded `ModelSettings` from `@scenesystems/effect-lm` (for example `{"temperature":0,"maxTokens":256}`). Each provider sends only the fields its API supports: OpenAI Responses sends `temperature`, `maxTokens`, and `topP`; Anthropic Messages also sends `stop`; OpenRouter sends all five fields, including `seed`. Absent fields keep provider defaults. A configured default the provider cannot send (OpenAI `stop` or `seed`, Anthropic `seed`) makes every operation of the direct layer fail with `AiError.InvalidRequestError` before any HTTP request, rather than being silently dropped.
+
+## Model binding by role
+
+`ModelBinder.layer` installs an `@scenesystems/effect-lm` binder from a `HashMap` of semantic roles (`task`, `teacher`, `proposer`, `evaluator`, `critic`) to `TextProvider.Runtime`s. Each bound request uses its role's runtime, falling back to `task`, and resolves settings as runtime defaults, then ambient provider configuration, then the request's own settings; the result is visible through `ModelSettings.Current`, and the runtime's `ModelIdentity` is declared for durable caching. Unsupported resolved settings, or a role with neither its own runtime nor `task`, fail model operations with `InvalidRequestError` before transport. The binder leaves the wrapped effect's error and service channels unchanged.
+
+```ts typecheck
+import { Effect, HashMap } from "effect"
+import { ModelSettings, type Role } from "@scenesystems/effect-lm"
+import { ModelBinder, TextProvider } from "@scenesystems/effect-inference"
+
+export const binderLayer = Effect.gen(function* () {
+  const task = yield* TextProvider.resolve(
+    new TextProvider.Options({ provider: "openrouter", defaults: new ModelSettings.ModelSettings({ temperature: 0 }) })
+  )
+  const critic = yield* TextProvider.resolve(new TextProvider.Options({ provider: "anthropic" }))
+  const roles: ReadonlyArray<readonly [Role.Role, TextProvider.Runtime]> = [
+    ["task", task],
+    ["critic", critic]
+  ]
+  return ModelBinder.layer(HashMap.fromIterable(roles))
+})
+```
 
 ## Hugging Face
 
