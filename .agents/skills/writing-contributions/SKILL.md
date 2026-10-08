@@ -11,6 +11,10 @@ when they aid navigation; remove empty sections and unnecessary checklists.
 
 ## Pull requests
 
+Consult `.github/pull_request_template.md` when drafting, including through CLI
+or API paths that may not load it automatically. Use its prompts without copying
+author instructions into the published prose.
+
 Read the complete current diff and synthesize a description for its reviewer.
 Name the concrete change in the title. Explain the problem and resulting behavior,
 with the reason for the approach where it helps review. Describe the result rather
