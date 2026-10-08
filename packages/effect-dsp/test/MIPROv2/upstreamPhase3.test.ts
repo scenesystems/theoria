@@ -234,21 +234,21 @@ const assertPolicy = (reference: typeof Reference.Type, rows: ReadonlyArray<type
 }
 
 Arr.forEach([
-  "mipro-trial-budget-001",
-  "miprov2-medium-001",
-  "miprov2-heavy-001",
-  "miprov2-explicit-001",
-  "mipro-best-fullval-001",
-  "miprov2-no-labels-001",
-  "miprov2-zero-shot-001",
-  "miprov2-auto-minibatch-001"
+  "mipro-trial-budget",
+  "miprov2-medium",
+  "miprov2-heavy",
+  "miprov2-explicit",
+  "mipro-best-fullval",
+  "miprov2-no-labels",
+  "miprov2-zero-shot",
+  "miprov2-auto-minibatch"
 ], (id) => {
   it.effect(`${id}: strict upstream prefix and full-run checkpoint policy`, () =>
     Effect.gen(function*() {
       const reference = yield* Schema.decodeUnknownEffect(Reference)((yield* fixture(id, "upstream-execution")).payload)
       const { outcome, observed } = yield* compile(
         reference,
-        id === "miprov2-explicit-001" || id === "mipro-best-fullval-001"
+        id === "miprov2-explicit" || id === "mipro-best-fullval"
       )
       const result = yield* Effect.fromResult(outcome)
       assertPolicy(reference, observed)
@@ -298,7 +298,7 @@ it.effect(
   () =>
     Effect.gen(function*() {
       const reference = yield* Schema.decodeUnknownEffect(Reference)(
-        (yield* fixture("miprov2-exhausted-full-eval-001", "upstream-execution")).payload
+        (yield* fixture("miprov2-exhausted-full-eval", "upstream-execution")).payload
       )
       const { outcome, observed } = yield* compile(reference, false)
       expect(Result.isFailure(outcome)).toBe(true)

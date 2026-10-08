@@ -30,7 +30,7 @@ def generate():
                              "error": type(error).__name__, "message": str(error)})
     assert runs[0]["score"] == 0.5
     assert "error" in runs[2]
-    return [{"id": "eval-failure-inclusive-001",
+    return [{"id": "eval-failure-inclusive",
              "description": "Evaluate includes a failed row in its denominator and enforces max_errors.",
              "payload": {"splits": splits([], val), "runs": runs,
                          "history": history(model), "state": state(program)}}]

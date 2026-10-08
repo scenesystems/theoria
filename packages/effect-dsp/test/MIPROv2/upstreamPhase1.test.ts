@@ -33,7 +33,7 @@ const Reference = Schema.Struct({
 
 it.effect("matches pinned MIPRO demo identities, order and teacher cost for labeled, no-label and zero-shot catalogs", () =>
   Effect.forEach(
-    ["mipro-trial-budget-001", "miprov2-explicit-001", "miprov2-no-labels-001", "miprov2-zero-shot-001"],
+    ["mipro-trial-budget", "miprov2-explicit", "miprov2-no-labels", "miprov2-zero-shot"],
     (id) =>
       Effect.gen(function*() {
         const reference = yield* Schema.decodeUnknownEffect(Reference)(

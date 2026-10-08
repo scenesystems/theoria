@@ -45,14 +45,14 @@
       "sha256": "44176b639216d0f83e17d701d62a58de4ad1e6a49f3ec4e7abc87878279b2f8f"
     },
     {
-      "name": "cpython-random-001",
-      "file": "cpython-random-001.json",
-      "sha256": "ee9f67c955525d6c1758d518a344e166bf606c0f9d5b97dc1f602977fc97918f"
+      "name": "cpython-random",
+      "file": "cpython-random.json",
+      "sha256": "451bcd532749058e799c876a41f37c253c0cd8cbc3b4a1e8db06ba6d62b6693e"
     },
     {
-      "name": "cpython-sum-001",
-      "file": "cpython-sum-001.json",
-      "sha256": "02974f45016f664b4ddd7f88558ac11a064dfd519dbb4fe26db2edc0e22a471d"
+      "name": "cpython-sum",
+      "file": "cpython-sum.json",
+      "sha256": "0a1898b76b2e5f1849d88efb42304d455f89f1fbfaae249f9990e8449f66d15b"
     },
     {
       "name": "distribution.algebra-parity",
@@ -80,9 +80,9 @@
       "sha256": "f84ce12ee22c3b9615c65fbad58b440411759383d5711b642a0cb316565fbe80"
     },
     {
-      "name": "numpy-random-001",
-      "file": "numpy-random-001.json",
-      "sha256": "169b29e03c250001e654585d53b840a80a9321943a23f5acd78a7fa3ea37162b"
+      "name": "numpy-random",
+      "file": "numpy-random.json",
+      "sha256": "0d8cc79bc74f537a30fd9f86ecc0f05221041fd46357a91578aacb96409e2dcf"
     },
     {
       "name": "optimization.solver-parity",

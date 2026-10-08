@@ -133,7 +133,7 @@ const prepare = (reference: typeof Reference.Type) =>
     return { options, mock, calls, proposals }
   })
 
-Arr.forEach(["gepa-merge-accepted-001", "gepa-merge-rejected-001"], (id) => {
+Arr.forEach(["gepa-merge-accepted", "gepa-merge-rejected"], (id) => {
   it.effect(`${id}: exact engine trace, aggregate selection and resume through the merge boundary`, () =>
     Effect.gen(function*() {
       const reference = yield* Schema.decodeUnknownEffect(Reference)((yield* fixture(id, "upstream-execution")).payload)
@@ -208,7 +208,7 @@ Arr.forEach(["gepa-merge-accepted-001", "gepa-merge-rejected-001"], (id) => {
 it.effect("all and custom component selection scope feedback and updates to the selected paths", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Reference)(
-      (yield* fixture("gepa-merge-accepted-001", "upstream-execution")).payload
+      (yield* fixture("gepa-merge-accepted", "upstream-execution")).payload
     )
     yield* Effect.forEach([true, false], (all) =>
       Effect.gen(function*() {

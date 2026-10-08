@@ -29,7 +29,7 @@ const Reference = Schema.Struct({
 it.effect("coverage pruning retains an irredundant cover, not all nondominated vectors", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Reference)(
-      (yield* fixture("gepa-selection-001", "upstream-kernel")).payload
+      (yield* fixture("gepa-selection", "upstream-kernel")).payload
     )
     Arr.forEach(reference.cases, (test) => {
       const snapshot = deriveParetoKernelSnapshot(test.scores)
@@ -51,7 +51,7 @@ it.effect("coverage pruning retains an irredundant cover, not all nondominated v
 it.effect("parent choice precedes epoch shuffle, including padding and resumed batch state", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Reference)(
-      (yield* fixture("gepa-selection-001", "upstream-kernel")).payload
+      (yield* fixture("gepa-selection", "upstream-kernel")).payload
     )
     yield* Effect.forEach(reference.cases, (test) =>
       Effect.gen(function*() {

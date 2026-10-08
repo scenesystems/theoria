@@ -41,7 +41,7 @@ def mipro_percentage():
     graded_devset = [dspy.Example(question=f"g{i}", grade=grade).with_inputs("question")
                      for i, grade in enumerate(grades)]
     graded = _evaluate(graded_devset, lambda example, prediction, trace=None: example.grade)
-    return {"id": "mipro-percentage-rounding-001",
+    return {"id": "mipro-percentage-rounding",
             "description": "dspy.Evaluate percentage: 100 * builtin-sum(metric) / n, then round half-even to 2 places.",
             "payload": {
                 "binary": {"examples": len(binary), "correct": 23, "score": exact.score,
@@ -63,7 +63,7 @@ def mipro_checkpoint():
         param_score_dict = {key: [(score, key, {}) for score in scores[key]] for key in order}
         _, mean, key, _ = get_program_with_highest_avg_score(param_score_dict, set())
         selected["".join(order)] = {"key": key, "mean": mean}
-    return {"id": "mipro-checkpoint-tie-001",
+    return {"id": "mipro-checkpoint-tie",
             "evidence": "upstream-kernel",
             "description": "get_program_with_highest_avg_score: equal real means tie to the first inserted combination.",
             "payload": {"metricValues": values, "scores": scores, "selected": selected}}
@@ -94,7 +94,7 @@ def gepa_kernels():
     # A choice stub returns the frequency-expanded catalogue that GEPA samples from.
     catalogue = select_program_candidate_from_pareto_front(fronts, pruning_aggregates,
                                                            types.SimpleNamespace(choice=lambda values: values))
-    return {"id": "gepa-sum-kernels-001",
+    return {"id": "gepa-sum-kernels",
             "evidence": "upstream-kernel",
             "description": "GEPA aggregates, strict mutation gate, merge gate and Pareto pruning over builtin-sum ties.",
             "payload": {
@@ -147,7 +147,7 @@ def gepa_mutation_run():
                       reflection_minibatch_size=3, skip_perfect_score=False, use_merge=False, seed=0,
                       max_metric_calls=9, callbacks=[Recorder()])
     assert iterations and not accepted, (iterations, accepted)
-    return {"id": "gepa-mutation-tie-001",
+    return {"id": "gepa-mutation-tie",
             "description": "Real GEPA engine: a child whose minibatch sum ties its parent under builtin sum is rejected.",
             "payload": {"seed": 0, "maxMetricCalls": 9, "table": table, "rows": rows, "calls": calls,
                         "minibatches": minibatches, "rejected": rejected, "iterations": iterations,
@@ -201,7 +201,7 @@ def gepa_merge_run():
                       adapter=Adapter(), reflection_minibatch_size=3, skip_perfect_score=False, use_merge=True,
                       seed=0, max_metric_calls=34, callbacks=[Recorder()])
     assert len(merges) == 1 and accepted_merges and not rejected_merges, (merges, accepted_merges, rejected_merges)
-    return {"id": "gepa-merge-tie-001",
+    return {"id": "gepa-merge-tie",
             "description": "Real GEPA engine: a merge whose subsample builtin sum ties the best parent is accepted.",
             "payload": {"seed": 0, "maxMetricCalls": 34, "train": train, "val": val, "validationScores": vectors,
                         "calls": calls, "merges": merges, "acceptedMerges": accepted_merges,
@@ -223,7 +223,7 @@ def evaluate_mean():
     scored = [score for _, _, score in evaluated.results]
     composed = _evaluate([dspy.Example(question="composed").with_inputs("question")],
                          lambda example, prediction, trace=None: sum(grades) / len(grades))
-    return {"id": "eval-compensated-mean-001",
+    return {"id": "eval-compensated-mean",
             "description": "Evaluate raw-score mean and a user-composed arithmetic-mean metric use builtin float sum.",
             "payload": {"grades": grades, "scores": scored,
                         "mean": sum(scored) / len(scored), "percent": evaluated.score,

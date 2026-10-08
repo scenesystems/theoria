@@ -79,10 +79,10 @@ const told = (result: { readonly optimizationResult: { readonly trials: Iterable
       }))(trial).pipe(Effect.map((decoded) => decoded.state.value))
   )
 
-it.effect("mipro-percentage-rounding-001: 23/160 tells dspy.Evaluate's 100*k/n rounding, not mean*100", () =>
+it.effect("mipro-percentage-rounding: 23/160 tells dspy.Evaluate's 100*k/n rounding, not mean*100", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Percentage)(
-      (yield* fixture("mipro-percentage-rounding-001", "upstream-execution")).payload
+      (yield* fixture("mipro-percentage-rounding", "upstream-execution")).payload
     )
     const module = yield* qa
     const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
@@ -112,10 +112,10 @@ it.effect("mipro-percentage-rounding-001: 23/160 tells dspy.Evaluate's 100*k/n r
     expect(result.diagnostics.bestScore).toBe(reference.binary.fraction)
   }))
 
-it.effect("mipro-percentage-rounding-001: graded metrics use builtin float sum before 100*sum/n", () =>
+it.effect("mipro-percentage-rounding: graded metrics use builtin float sum before 100*sum/n", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Percentage)(
-      (yield* fixture("mipro-percentage-rounding-001", "upstream-execution")).payload
+      (yield* fixture("mipro-percentage-rounding", "upstream-execution")).payload
     )
     const module = yield* qa
     const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
@@ -146,10 +146,10 @@ it.effect("mipro-percentage-rounding-001: graded metrics use builtin float sum b
     expect(result.diagnostics.baselineObjective).toBe(reference.graded.fraction)
   }))
 
-it.effect("mipro-checkpoint-tie-001: minibatch means [50, 60] and [55] tie and checkpoint the first combination", () =>
+it.effect("mipro-checkpoint-tie: minibatch means [50, 60] and [55] tie and checkpoint the first combination", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Checkpoint)(
-      (yield* fixture("mipro-checkpoint-tie-001", "upstream-kernel")).payload
+      (yield* fixture("mipro-checkpoint-tie", "upstream-kernel")).payload
     )
     const module = yield* qa
     const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))

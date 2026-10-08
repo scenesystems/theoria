@@ -405,7 +405,7 @@
   },
   "fixtures": [
     {
-      "id": "optuna-mipro-categorical-001",
+      "id": "optuna-mipro-categorical",
       "file": "categorical.json",
       "evidence": "upstream-kernel",
       "sha256": "b820a9476de57091ca55d016580badc4e9fac24a8486489e5e6e0646faaeca1f",

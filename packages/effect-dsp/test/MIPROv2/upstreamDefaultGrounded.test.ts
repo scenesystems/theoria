@@ -15,7 +15,7 @@ import * as Signature from "../../src/Signature.js"
 import * as Fixtures from "../kit/Fixtures.js"
 import { assertNoMutation } from "../kit/Mutation.js"
 
-const id = "miprov2-default-grounded-001"
+const id = "miprov2-default-grounded"
 const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
 const StateDemo = Schema.Struct({ question: Schema.String, answer: Schema.String })
 const PredictorState = Schema.Struct({

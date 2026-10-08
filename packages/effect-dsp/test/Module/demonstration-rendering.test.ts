@@ -30,7 +30,7 @@ const Reference = Schema.Struct({
 
 const reference = Effect.gen(function*() {
   return yield* Schema.decodeUnknownEffect(Reference)(
-    (yield* fixture("chat-adapter-demo-projection-001", "upstream-execution")).payload
+    (yield* fixture("chat-adapter-demo-projection", "upstream-execution")).payload
   )
 })
 
@@ -75,7 +75,7 @@ const questions = (turns: ReadonlyArray<Turn>, values: ReadonlyArray<string>) =>
 const unknownValues = (rows: ReadonlyArray<Record.ReadonlyRecord<string, string>>, fields: ReadonlyArray<string>) =>
   Arr.flatMap(rows, (row) => Record.values(Record.filter(row, (_, key) => key !== "id" && !Arr.contains(fields, key))))
 
-it.effect("chat-adapter-demo-projection-001: raw recorded demos render only signature fields and skip no-output rows", () =>
+it.effect("chat-adapter-demo-projection: raw recorded demos render only signature fields and skip no-output rows", () =>
   Effect.gen(function*() {
     const upstream = yield* reference
     const module = yield* Module.predict("qa", yield* signature)
@@ -122,7 +122,7 @@ it.effect("chat-adapter-demo-projection-001: raw recorded demos render only sign
     expect((yield* capturedMessages(restored, { question: "q-next" })).messages).toEqual(messages)
   }))
 
-it.effect("chat-adapter-demo-projection-001: LabeledFewShot keeps every sampled row, the provider sees only renderable demos", () =>
+it.effect("chat-adapter-demo-projection: LabeledFewShot keeps every sampled row, the provider sees only renderable demos", () =>
   Effect.gen(function*() {
     const upstream = yield* reference
     const module = yield* Module.predict("qa", yield* signature)

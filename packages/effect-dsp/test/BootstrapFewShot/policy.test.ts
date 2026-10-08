@@ -95,7 +95,7 @@ const upstreamQuestion = (call: typeof Call.Type) =>
 const recordedId = (calls: Ref.Ref<Array<string>>) => (example: Example) =>
   Effect.fromOption(example.id).pipe(Effect.tap((id) => Ref.update(calls, Arr.append(id))))
 
-it.effect("bootstrapfewshot-rounds-001: exhausts each example's rounds before visiting the next example", () =>
+it.effect("bootstrapfewshot-rounds: exhausts each example's rounds before visiting the next example", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       ...Common,
@@ -104,7 +104,7 @@ it.effect("bootstrapfewshot-rounds-001: exhausts each example's rounds before vi
       maxLabeledDemos: Schema.Int,
       maxRounds: Schema.Int,
       state: State
-    }))((yield* fixture("bootstrapfewshot-rounds-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrapfewshot-rounds", "upstream-execution")).payload)
     const { module, mock } = yield* setup(reference.history)
     const calls = yield* Ref.make(Arr.empty<{ readonly id: string; readonly attempt: number }>())
     const result = yield* assertNoMutation(
@@ -156,13 +156,13 @@ it.effect("bootstrapfewshot-rounds-001: exhausts each example's rounds before vi
     expect(result.report.demoSources).toEqual({ qa: { bootstrapped: ["a", "b"], labeled: [] } })
   }))
 
-it.effect("bootstrapfewshot-teacher-demos-001: the default teacher keeps student demos without labeled prewarming", () =>
+it.effect("bootstrapfewshot-teacher-demos: the default teacher keeps student demos without labeled prewarming", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       ...Common,
       studentDemos: Schema.Array(Schema.Struct({ question: Schema.String, answer: Schema.String })),
       state: State
-    }))((yield* fixture("bootstrapfewshot-teacher-demos-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrapfewshot-teacher-demos", "upstream-execution")).payload)
     const { module, mock } = yield* setup(reference.history, text)
     const before = yield* Effect.fromOption(Record.get(yield* ParameterSet.snapshot(module), "qa"))
     yield* Module.install(module, {
@@ -208,13 +208,13 @@ it.effect("bootstrapfewshot-teacher-demos-001: the default teacher keeps student
     expect(demoRows(demos.demos)).toEqual(referenceDemoRows(reference.state.demos))
   }))
 
-it.effect("bootstrapfewshot-threshold-zero-001: an explicit zero threshold rejects a zero score", () =>
+it.effect("bootstrapfewshot-threshold-zero: an explicit zero threshold rejects a zero score", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       ...Common,
       metricThreshold: Schema.Finite,
       state: State
-    }))((yield* fixture("bootstrapfewshot-threshold-zero-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrapfewshot-threshold-zero", "upstream-execution")).payload)
     const { module, mock } = yield* setup(reference.history)
     const calls = yield* Ref.make(Arr.empty<string>())
     const result = yield* assertNoMutation(
@@ -245,13 +245,13 @@ it.effect("bootstrapfewshot-threshold-zero-001: an explicit zero threshold rejec
     expect(result.report.rejectedCount).toBe(1)
   }))
 
-it.effect("bootstrapfewshot-max-errors-default-001: absent maxErrors uses DSPy's settings default", () =>
+it.effect("bootstrapfewshot-max-errors-default: absent maxErrors uses DSPy's settings default", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       ...Common,
       settingsMaxErrors: Schema.Int,
       error: Schema.Literal("ValueError")
-    }))((yield* fixture("bootstrapfewshot-max-errors-default-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrapfewshot-max-errors-default", "upstream-execution")).payload)
     const { module, mock } = yield* setup(reference.history)
     const calls = yield* Ref.make(Arr.empty<string>())
     const failure = yield* assertNoMutation(

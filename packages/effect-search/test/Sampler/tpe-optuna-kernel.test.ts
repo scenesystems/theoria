@@ -48,7 +48,7 @@ const load = Effect.gen(function*() {
   const index = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({
     upstream: Schema.Struct({ optuna: Schema.Literal("4.9.0"), python: Schema.String, platform: Schema.String }),
     fixtures: Schema.NonEmptyArray(Schema.Struct({
-      id: Schema.Literal("optuna-mipro-categorical-001"),
+      id: Schema.Literal("optuna-mipro-categorical"),
       evidence: Schema.Literal("upstream-kernel"),
       sha256: Schema.String
     }))
@@ -162,7 +162,7 @@ it.effect("resumes both TPE and startup NumPy streams through encoded checkpoint
       }))
   }))
 
-it.effect("optuna-mipro-categorical-001: fixed-history joint distribution matches Optuna 4.9", () =>
+it.effect("optuna-mipro-categorical: fixed-history joint distribution matches Optuna 4.9", () =>
   Effect.gen(function*() {
     const reference = yield* load
     const space = yield* SearchSpace.make(Record.map(reference.space, SearchSpace.categorical))

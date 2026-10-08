@@ -119,7 +119,7 @@ const assertCalls = (
       Effect.map(upstreamQuestion(upstream), (question) => expect(call.prompt).toContain(question)))
   })
 
-it.effect("bootstrapfewshot-teacher-settings-001: teacher settings, role and retry rollout reach every teacher call", () =>
+it.effect("bootstrapfewshot-teacher-settings: teacher settings, role and retry rollout reach every teacher call", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       runtime: Runtime,
@@ -133,7 +133,7 @@ it.effect("bootstrapfewshot-teacher-settings-001: teacher settings, role and ret
       history: Schema.NonEmptyArray(Call),
       studentHistory: Schema.Array(Call),
       state: State
-    }))((yield* fixture("bootstrapfewshot-teacher-settings-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrapfewshot-teacher-settings", "upstream-execution")).payload)
     // Round 0 calls the teacher_settings LM itself; retries call its rollout copy. The student never runs.
     expect(Arr.map(reference.history, (call) => call.client)).toEqual(
       Arr.map(
@@ -192,25 +192,25 @@ it.effect("bootstrapfewshot-teacher-settings-001: teacher settings, role and ret
     expect(demoRows(second.demos)).toEqual(reference.state.second.demos)
   }))
 
-it.effect("bootstrap-teacher-trace-calls-001: deep-copied teacher calls back bootstrap-teacher-trace-001", () =>
+it.effect("bootstrap-teacher-trace-calls: deep-copied teacher calls back bootstrap-teacher-trace", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       runtime: Runtime,
-      captures: Schema.Literal("bootstrap-teacher-trace-001"),
+      captures: Schema.Literal("bootstrap-teacher-trace"),
       splits: Schema.Struct({ train: Schema.Array(Row) }),
       metricCalls: Schema.Array(Schema.Struct({ id: Schema.String })),
       history: Schema.NonEmptyArray(Call),
       originalTeacherHistory: Schema.Array(Call),
       studentHistory: Schema.Array(Call),
       state: State
-    }))((yield* fixture("bootstrap-teacher-trace-calls-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrap-teacher-trace-calls", "upstream-execution")).payload)
     const original = yield* Schema.decodeUnknownEffect(Schema.Struct({
       splits: Schema.Struct({ train: Schema.Array(Row) }),
       metricCalls: Schema.Array(Schema.Struct({ id: Schema.String })),
       history: Schema.Array(Call),
       studentHistory: Schema.Array(Call),
       state: State
-    }))((yield* fixture("bootstrap-teacher-trace-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrap-teacher-trace", "upstream-execution")).payload)
     // Same configuration and outcome; the original payload's empty history was the uncopied LM's.
     expect(reference.splits).toEqual(original.splits)
     expect(reference.state).toEqual(original.state)

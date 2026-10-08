@@ -15,9 +15,9 @@ def generate():
         winner = dspy.majority(dspy.Prediction.from_completions([{"answer": a} for a in answers]))
         cases.append({"name": name, "question": "choose", "programAnswers": answers,
                       "expectedAnswer": winner.answer})
-    return [{"id": "predict-trace-001", "description": "ChainOfThought execution and selected predictor trace.",
+    return [{"id": "predict-trace", "description": "ChainOfThought execution and selected predictor trace.",
              "payload": {"prediction": prediction.toDict(), "trace": trace,
                          "history": history(model), "state": state(program)}},
-            {"id": "majority-001", "evidence": "upstream-kernel",
+            {"id": "majority", "evidence": "upstream-kernel",
              "description": "Upstream majority reduction including a first-seen tie.",
              "payload": {"cases": cases}}]

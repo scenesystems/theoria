@@ -20,10 +20,10 @@ const Cases = Schema.Struct({
   )
 })
 
-it.effect("gepa-instruction-extractor-001: first-to-last fences, language tags, incomplete and empty replies", () =>
+it.effect("gepa-instruction-extractor: first-to-last fences, language tags, incomplete and empty replies", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Cases)(
-      (yield* fixture("gepa-instruction-extractor-001", "upstream-kernel")).payload
+      (yield* fixture("gepa-instruction-extractor", "upstream-kernel")).payload
     )
     expect(Arr.map(reference.cases, ({ name, response }) => ({ name, instruction: extractInstruction(response) })))
       .toEqual(Arr.map(reference.cases, ({ name, instruction }) => ({ name, instruction })))

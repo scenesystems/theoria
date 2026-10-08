@@ -10,7 +10,7 @@ const AnswerSchema = Schema.Struct({ answer: Schema.String })
 describe("internal/parse DSPy contract parity", () => {
   it.effect("matches DSPy section extraction + parsed field contract", () =>
     Effect.gen(function*() {
-      const reference = yield* fixture("chat-adapter-001", "upstream-kernel")
+      const reference = yield* fixture("chat-adapter", "upstream-kernel")
       const payload = yield* Schema.decodeUnknownEffect(Schema.Struct({
         completion: Schema.String,
         parsed: AnswerSchema

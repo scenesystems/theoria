@@ -11,7 +11,7 @@ import * as LanguageModel from "effect/ai/LanguageModel"
 import { fixture } from "../kit/Fixtures.js"
 import { assertNoMutation } from "../kit/Mutation.js"
 
-it.effect("bootstrap-repeated-call-001: lossless collection and one retained trace member per example", () =>
+it.effect("bootstrap-repeated-call: lossless collection and one retained trace member per example", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       examples: Schema.Array(Schema.Struct({
@@ -20,7 +20,7 @@ it.effect("bootstrap-repeated-call-001: lossless collection and one retained tra
         retainedCount: Schema.Int,
         retainedFromTrace: Schema.Boolean
       }))
-    }))((yield* fixture("bootstrap-repeated-call-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrap-repeated-call", "upstream-execution")).payload)
     const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
     const predictor = yield* Module.predict("predictor", signature)
     const module = yield* Module.compose(

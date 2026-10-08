@@ -67,7 +67,7 @@ def every_lm_call_with_client():
 
 
 def teacher_trace_calls():
-    """Re-execute bootstrap-teacher-trace-001's configuration with every LM call captured.
+    """Re-execute bootstrap-teacher-trace's configuration with every LM call captured.
 
     The original payload records history(model) of the LM bound to the caller's teacher; compile
     deep-copies that teacher (and its LM), so the original history is empty. This capture records
@@ -90,10 +90,10 @@ def teacher_trace_calls():
     recorded = labelled_calls(calls, [("teacher-original", model), ("student", student_model)])
     assert recorded and all(call["client"] == "copy" for call in recorded)
     assert history(model) == [] and history(student_model) == []
-    return {"id": "bootstrap-teacher-trace-calls-001", "environment": environment(),
-            "description": "Deep-copied teacher LM calls for bootstrap-teacher-trace-001's configuration; "
+    return {"id": "bootstrap-teacher-trace-calls", "environment": environment(),
+            "description": "Deep-copied teacher LM calls for bootstrap-teacher-trace's configuration; "
                            "original teacher and student histories stay empty.",
-            "payload": {"runtime": runtime(), "captures": "bootstrap-teacher-trace-001",
+            "payload": {"runtime": runtime(), "captures": "bootstrap-teacher-trace",
                         "splits": splits(train), "metricCalls": metric_calls,
                         "history": recorded,
                         "originalTeacherHistory": history(model), "studentHistory": history(student_model),
@@ -125,7 +125,7 @@ def teacher_settings():
     assert history(student_model) == []
     assert {call["client"] for call in recorded} == {"teacher-settings", "copy"}
     assert all(p.lm is None for p in teacher_program.predictors())
-    return {"id": "bootstrapfewshot-teacher-settings-001", "environment": environment(),
+    return {"id": "bootstrapfewshot-teacher-settings", "environment": environment(),
             "description": "teacher_settings LM serves the deep-copied teacher; retry rounds use its rollout copy "
                            "at temperature 1.0 and the student LM records no calls.",
             "payload": {"runtime": runtime(), "splits": splits(train),
@@ -232,7 +232,7 @@ def default_grounded():
                        for trial in study.trials],
         "evaluations": evaluations, "bestFullValidationScore": compiled.score / 100, "state": state(compiled),
     }
-    return {"id": "miprov2-default-grounded-001", "environment": environment(),
+    return {"id": "miprov2-default-grounded", "environment": environment(),
             "description": "Full MIPROv2.compile with all grounding, auto and budget defaults joining bootstrap, "
                            "grounded proposals and TPE trials (num_threads=1 for evaluation order).",
             "payload": payload,

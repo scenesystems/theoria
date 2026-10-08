@@ -153,7 +153,7 @@ describe("GEPA production acceptance gates", () => {
     }))
 })
 
-// Merge scenario: the gepa-merge-accepted-001 datasets and parent table, with the merged
+// Merge scenario: the gepa-merge-accepted datasets and parent table, with the merged
 // program's validation row replaced. Its sampled merge rows are val-1, val-2, val-5, val-6, val-0,
 // where the parents sum to .8 + .8 + .05 + .05 + .8 = 2.5 (left/seed) and .1 + .1 + .9 + .9 + .1 = 2.1 (seed/right).
 const Row = Schema.Struct({ id: Schema.String, split: Schema.String, index: Schema.Int })
@@ -169,7 +169,7 @@ const MergeCall = Schema.Struct({ id: Schema.String, candidate: Schema.String })
 const runMerge = (merged: ReadonlyArray<number>) =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(MergeReference)(
-      (yield* fixture("gepa-merge-accepted-001", "upstream-execution")).payload
+      (yield* fixture("gepa-merge-accepted", "upstream-execution")).payload
     )
     const validationScores = Record.set(reference.validationScores, "left/right", merged)
     const signature = yield* Signature.make("Task", Question.fields, Answer.fields)

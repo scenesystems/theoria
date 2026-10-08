@@ -5,12 +5,12 @@ import * as Numeric from "../../src/Numeric.js"
 import { CPythonSumFixture } from "../helpers/fixtures/cpythonSumSchemas.js"
 import { loadFixture } from "../helpers/fixtures/registry.js"
 
-const reference = loadFixture("cpython-sum-001").pipe(
+const reference = loadFixture("cpython-sum").pipe(
   Effect.flatMap(Schema.decodeUnknownEffect(CPythonSumFixture)),
   Effect.provide(BunServices.layer)
 )
 
-it.effect("cpython-sum-001: builtin float sum, compensation and IEEE edges match CPython 3.12 bit for bit", () =>
+it.effect("cpython-sum: builtin float sum, compensation and IEEE edges match CPython 3.12 bit for bit", () =>
   Effect.gen(function*() {
     const fixture = yield* reference
     yield* Effect.forEach(fixture.payload.cases, (entry) =>

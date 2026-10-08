@@ -70,9 +70,9 @@ def run(name, *, program_aware=True, data_aware=True, tip_aware=True,
 
 def generate():
     for name, options in [
-        ("miprov2-grounded-proposer-001", {}),
-        ("miprov2-proposer-no-demos-001", {"demos": False, "program_aware": False, "data_aware": False, "tip_aware": False}),
-        ("miprov2-proposer-summary-skips-001", {"complete": True, "program_aware": False, "fewshot_aware": False, "seed": 0}),
+        ("miprov2-grounded-proposer", {}),
+        ("miprov2-proposer-no-demos", {"demos": False, "program_aware": False, "data_aware": False, "tip_aware": False}),
+        ("miprov2-proposer-summary-skips", {"complete": True, "program_aware": False, "fewshot_aware": False, "seed": 0}),
     ]:
         item = run(name, **options)
         sets = item["payload"]["demoSets"]

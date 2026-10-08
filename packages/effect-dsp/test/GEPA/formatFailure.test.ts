@@ -63,7 +63,7 @@ const Reference = Schema.Struct({
 
 const reference = Effect.gen(function*() {
   return yield* Schema.decodeUnknownEffect(Reference)(
-    (yield* fixture("gepa-format-failure-001", "upstream-execution")).payload
+    (yield* fixture("gepa-format-failure", "upstream-execution")).payload
   )
 })
 
@@ -206,20 +206,20 @@ const predictWith = (outputStrategy: Option.Option<"structured" | "text">) =>
     return module
   })
 
-it.effect("gepa-format-failure-001: default auto Predict resolves structured and still reflects on its failures", () =>
+it.effect("gepa-format-failure: default auto Predict resolves structured and still reflects on its failures", () =>
   Effect.gen(function*() {
     const module = yield* predictWith(Option.none())
     expect((yield* Ref.get(module.parameters)).outputStrategy).toBe("auto")
     yield* expectUpstreamFormatFeedback(module, "predict", "qa")
   }))
 
-it.effect("gepa-format-failure-001: explicit structured and text Predict give the same failed-parse samples", () =>
+it.effect("gepa-format-failure: explicit structured and text Predict give the same failed-parse samples", () =>
   Effect.gen(function*() {
     yield* expectUpstreamFormatFeedback(yield* predictWith(Option.some("structured")), "predict", "qa")
     yield* expectUpstreamFormatFeedback(yield* predictWith(Option.some("text")), "predict", "qa")
   }))
 
-it.effect("gepa-format-failure-001: an exhausted ReAct agent reflects on its terminal raw response", () =>
+it.effect("gepa-format-failure: an exhausted ReAct agent reflects on its terminal raw response", () =>
   Effect.gen(function*() {
     const tools = Toolkit.make(Lookup)
     const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({ Lookup: () => Effect.succeed("fact") })))

@@ -15,7 +15,7 @@ const Reference = Schema.Struct({
   mean: Schema.Finite,
   composedScore: Schema.Finite
 })
-const reference = fixture("eval-compensated-mean-001", "upstream-execution").pipe(
+const reference = fixture("eval-compensated-mean", "upstream-execution").pipe(
   Effect.flatMap((value) => Schema.decodeUnknownEffect(Reference)(value.payload))
 )
 const setup = Effect.gen(function*() {
@@ -27,7 +27,7 @@ const setup = Effect.gen(function*() {
 })
 const valueMetric = (value: number) => Metric.fromSync(() => value)
 
-it.effect("eval-compensated-mean-001: overall and per-metric means use the recorded builtin score sum", () =>
+it.effect("eval-compensated-mean: overall and per-metric means use the recorded builtin score sum", () =>
   Effect.gen(function*() {
     const expected = yield* reference
     const { module, mock } = yield* setup
@@ -56,7 +56,7 @@ it.effect("eval-compensated-mean-001: overall and per-metric means use the recor
     expect(report.average).toBe(expected.mean)
   }))
 
-it.effect("eval-compensated-mean-001: composed metrics and per-example means retain the same builtin sum", () =>
+it.effect("eval-compensated-mean: composed metrics and per-example means retain the same builtin sum", () =>
   Effect.gen(function*() {
     const expected = yield* reference
     const { module, mock } = yield* setup

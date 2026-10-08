@@ -81,21 +81,21 @@ const Bootstrap = Schema.Struct({
 it.effect("schema-validates all discriminator payloads before behavioral replay", () =>
   Effect.gen(function*() {
     yield* Schema.decodeUnknownEffect(Eval)(
-      (yield* fixture("eval-failure-inclusive-001", "upstream-execution")).payload
+      (yield* fixture("eval-failure-inclusive", "upstream-execution")).payload
     )
-    yield* Schema.decodeUnknownEffect(Budget)((yield* fixture("mipro-trial-budget-001", "upstream-execution")).payload)
+    yield* Schema.decodeUnknownEffect(Budget)((yield* fixture("mipro-trial-budget", "upstream-execution")).payload)
     yield* Schema.decodeUnknownEffect(Checkpoint)(
-      (yield* fixture("mipro-best-fullval-001", "upstream-execution")).payload
+      (yield* fixture("mipro-best-fullval", "upstream-execution")).payload
     )
-    yield* Schema.decodeUnknownEffect(Gepa)((yield* fixture("gepa-aggregate-best-001", "upstream-execution")).payload)
+    yield* Schema.decodeUnknownEffect(Gepa)((yield* fixture("gepa-aggregate-best", "upstream-execution")).payload)
     yield* Schema.decodeUnknownEffect(Bootstrap)(
-      (yield* fixture("bootstrap-teacher-trace-001", "upstream-execution")).payload
+      (yield* fixture("bootstrap-teacher-trace", "upstream-execution")).payload
     )
   }))
 
 const evaluation = Effect.gen(function*() {
   const reference = yield* Schema.decodeUnknownEffect(Eval)(
-    (yield* fixture("eval-failure-inclusive-001", "upstream-execution")).payload
+    (yield* fixture("eval-failure-inclusive", "upstream-execution")).payload
   )
   const qa = yield* Signature.make("answer", { question: Schema.String }, { id: Schema.String, answer: Schema.String })
   const module = yield* Module.predict("qa", qa)
@@ -116,16 +116,16 @@ it.effect("evaluation discriminator executes one success and one metric failure"
     expect(report.successCount).toBe(1)
     expect(report.failureCount).toBe(1)
   }))
-it.effect("eval-failure-inclusive-001: failures remain in the denominator (Wave 1)", () =>
+it.effect("eval-failure-inclusive: failures remain in the denominator (Wave 1)", () =>
   Effect.gen(function*() {
     const { report, expected } = yield* evaluation
     expect(report.overallScores.exact).toBe(expected)
   }))
 
-it.effect("mipro-trial-budget-001: auto light uses upstream trial count (Wave 3)", () =>
+it.effect("mipro-trial-budget: auto light uses upstream trial count (Wave 3)", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Budget)(
-      (yield* fixture("mipro-trial-budget-001", "upstream-execution")).payload
+      (yield* fixture("mipro-trial-budget", "upstream-execution")).payload
     )
     const counts = Record.values(reference.instructions)
     const instructions = yield* Effect.fromOption(Arr.head(counts))
@@ -141,7 +141,7 @@ it.effect("mipro-trial-budget-001: auto light uses upstream trial count (Wave 3)
 
 const checkpoint = Effect.gen(function*() {
   const reference = yield* Schema.decodeUnknownEffect(Checkpoint)(
-    (yield* fixture("mipro-best-fullval-001", "upstream-execution")).payload
+    (yield* fixture("mipro-best-fullval", "upstream-execution")).payload
   )
   const baseline = Arr.headNonEmpty(reference.evaluations)
   const minibatch = yield* Effect.fromOption(
@@ -196,7 +196,7 @@ it.effect("checkpoint discriminator reaches full validation", () =>
   Effect.gen(function*() {
     expect((yield* checkpoint).fullTrials).toEqual([2])
   }))
-it.effect("mipro-best-fullval-001: minibatch best cannot replace full-val best (Wave 3)", () =>
+it.effect("mipro-best-fullval: minibatch best cannot replace full-val best (Wave 3)", () =>
   Effect.gen(function*() {
     const result = yield* checkpoint
     expect(result.actual).toEqual(Option.some(result.expected))
@@ -204,7 +204,7 @@ it.effect("mipro-best-fullval-001: minibatch best cannot replace full-val best (
 
 const gepa = Effect.gen(function*() {
   const reference = yield* Schema.decodeUnknownEffect(Gepa)(
-    (yield* fixture("gepa-aggregate-best-001", "upstream-execution")).payload
+    (yield* fixture("gepa-aggregate-best", "upstream-execution")).payload
   )
   const module = yield* Module.predict("qa", yield* signature)
   const mock = yield* MockLanguageModel.make(
@@ -258,7 +258,7 @@ it.effect("GEPA discriminator admits the generalist candidate", () =>
   Effect.gen(function*() {
     expect((yield* gepa).accepted).toBe(true)
   }))
-it.effect("gepa-aggregate-best-001: return aggregate best, not first frontier entry (Wave 3)", () =>
+it.effect("gepa-aggregate-best: return aggregate best, not first frontier entry (Wave 3)", () =>
   Effect.gen(function*() {
     const result = yield* gepa
     expect(result.actual).toBe(result.expected)
@@ -266,7 +266,7 @@ it.effect("gepa-aggregate-best-001: return aggregate best, not first frontier en
 
 const bootstrap = Effect.gen(function*() {
   const reference = yield* Schema.decodeUnknownEffect(Bootstrap)(
-    (yield* fixture("bootstrap-teacher-trace-001", "upstream-execution")).payload
+    (yield* fixture("bootstrap-teacher-trace", "upstream-execution")).payload
   )
   const qa = yield* signature
   const first = yield* Module.predict("first", qa)
@@ -328,7 +328,7 @@ it.effect("bootstrap discriminator uses teacher outputs rather than labels", () 
     expect(result.actual).toContainEqual({ question: "teacher", answer: "teacher" })
     expect(result.studentCalls).toHaveLength(0)
   }))
-it.effect("bootstrap-teacher-trace-001: retain repeated teacher trace demos (Wave 2)", () =>
+it.effect("bootstrap-teacher-trace: retain repeated teacher trace demos (Wave 2)", () =>
   Effect.gen(function*() {
     const result = yield* bootstrap
     expect(result.actual).toEqual(result.expected)

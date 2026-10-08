@@ -43,10 +43,10 @@ const Reference = Schema.Struct({
 /** "[[ ## answer ## ]]\nlabel-0" -> "label-0"; the upstream ChatAdapter text for one output field. */
 const fieldValue = (text: string) => Effect.fromOption(Arr.last(Str.split(text, "\n")))
 
-it.effect("eval-failure-inclusive-001: every upstream run, failure score, ordered row and cancellation", () =>
+it.effect("eval-failure-inclusive: every upstream run, failure score, ordered row and cancellation", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Reference)(
-      (yield* fixture("eval-failure-inclusive-001", "upstream-execution")).payload
+      (yield* fixture("eval-failure-inclusive", "upstream-execution")).payload
     )
     const qa = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
     const module = yield* Module.predict("qa", qa)

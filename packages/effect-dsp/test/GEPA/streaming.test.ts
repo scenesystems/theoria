@@ -83,7 +83,7 @@ describe("GEPA.stream", () => {
     "emits deterministic event order under fixed seed and fixtures",
     () =>
       Effect.gen(function*() {
-        const reference = yield* fixture("gepa-aggregate-best-001", "upstream-execution")
+        const reference = yield* fixture("gepa-aggregate-best", "upstream-execution")
         const { seed } = yield* Schema.decodeUnknownEffect(Schema.Struct({ seed: Schema.Int }))(reference.payload)
         const firstRun = yield* runSeededStream("qa-seeded", seed)
         const secondRun = yield* runSeededStream("qa-seeded", seed)

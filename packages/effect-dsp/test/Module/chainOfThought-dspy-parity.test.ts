@@ -43,10 +43,10 @@ const upstreamOutputFields = (system: string) =>
   )
 
 describe("Module.chainOfThought DSPy parity", () => {
-  it.effect("predict-trace-001: reasoning-first fields, upstream user turn, parsed completion and trace", () =>
+  it.effect("predict-trace: reasoning-first fields, upstream user turn, parsed completion and trace", () =>
     Effect.gen(function*() {
       const reference = yield* Schema.decodeUnknownEffect(Reference)(
-        (yield* fixture("predict-trace-001", "upstream-execution")).payload
+        (yield* fixture("predict-trace", "upstream-execution")).payload
       )
       const upstream = Arr.headNonEmpty(reference.history)
       const [system, user] = upstream.messages

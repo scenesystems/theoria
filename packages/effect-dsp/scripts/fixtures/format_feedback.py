@@ -41,7 +41,7 @@ def generate():
 
 
 def extractor_kernel():
-    return {"id": "gepa-instruction-extractor-001", "evidence": "upstream-kernel",
+    return {"id": "gepa-instruction-extractor", "evidence": "upstream-kernel",
             "description": "GEPA InstructionProposalSignature.output_extractor on fences, language tags, "
                            "incomplete blocks, empty replies and Python whitespace.",
             "payload": {"cases": [{"name": name, "response": response,
@@ -61,7 +61,7 @@ def demo_projection():
     model = DummyLM([{"reasoning": "why", "answer": "new"}])
     with dspy.context(lm=model):
         prediction = compiled(question="q-next")
-    return {"id": "chat-adapter-demo-projection-001",
+    return {"id": "chat-adapter-demo-projection",
             "description": "LabeledFewShot keeps raw dataset rows; ChatAdapter renders only signature fields, "
                            "keeps a partial demo and drops a demo without output fields.",
             "payload": {"signature": {"inputs": list(signature.input_fields), "outputs": list(signature.output_fields)},
@@ -104,7 +104,7 @@ def format_failure():
         cases.append({"program": name, "predictors": [path for path, _ in program.named_predictors()],
                       "splits": splits(train, train), "proposals": proposals, "metricCalls": metric_calls,
                       "totalMetricCalls": result.total_metric_calls, "taskCalls": len(task.history)})
-    return {"id": "gepa-format-failure-001",
+    return {"id": "gepa-format-failure",
             "description": "dspy.GEPA with add_format_failure_as_feedback and the default adapter gives the "
                            "proposer one failed-parse sample per minibatch row for Predict and ReAct.",
             "payload": {"rawResponse": RAW_RESPONSE, "maxMetricCalls": 7, "minibatchSize": 3, "seed": 0,

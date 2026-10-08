@@ -7,7 +7,7 @@ const metadata = Schema.Struct({
 })
 
 export const CPythonRandomFixture = Schema.Struct({
-  fixture: Schema.Literal("cpython-random-001"),
+  fixture: Schema.Literal("cpython-random"),
   metadata,
   payload: Schema.Struct({
     cases: Schema.Array(Schema.Struct({
@@ -25,7 +25,7 @@ export const CPythonRandomFixture = Schema.Struct({
 })
 
 export const NumPyRandomFixture = Schema.Struct({
-  fixture: Schema.Literal("numpy-random-001"),
+  fixture: Schema.Literal("numpy-random"),
   metadata,
   payload: Schema.Struct({
     cases: Schema.Array(Schema.Struct({

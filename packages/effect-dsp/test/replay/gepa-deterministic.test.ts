@@ -149,7 +149,7 @@ describe("GEPA deterministic replay", () => {
     "replays seeded runs with byte-stable selected programs after a nontrivial accepted mutation",
     () =>
       Effect.gen(function*() {
-        const reference = yield* fixture("gepa-aggregate-best-001", "upstream-execution")
+        const reference = yield* fixture("gepa-aggregate-best", "upstream-execution")
         const { seed } = yield* Schema.decodeUnknownEffect(Schema.Struct({ seed: Schema.Int }))(reference.payload)
         const firstRun = yield* runSeededReplay("qa", seed, 3)
         const secondRun = yield* runSeededReplay("qa", seed, 3)

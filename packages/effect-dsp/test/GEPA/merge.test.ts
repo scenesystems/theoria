@@ -25,7 +25,7 @@ const Reference = Schema.Struct({
 it.effect("common-ancestor eligibility, tied conflicts and balanced samples follow the shared upstream stream", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Reference)(
-      (yield* fixture("gepa-merge-001", "upstream-kernel")).payload
+      (yield* fixture("gepa-merge", "upstream-kernel")).payload
     )
     const left = [0.9, 0.8, 0.7, 0.6, 0.2, 0.5, 0.5], right = [0.1, 0.2, 0.3, 0.4, 0.8, 0.5, 0.5]
     const ids = Arr.range(0, left.length - 1)

@@ -12,7 +12,7 @@ import * as LanguageModel from "effect/ai/LanguageModel"
 import { fixture } from "../kit/Fixtures.js"
 import { assertNoMutation } from "../kit/Mutation.js"
 
-it.effect("labeledfewshot-001: resets demos, samples in canonical path order despite declaration order, and takes prefixes", () =>
+it.effect("labeledfewshot: resets demos, samples in canonical path order despite declaration order, and takes prefixes", () =>
   Effect.gen(function*() {
     const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
@@ -22,7 +22,7 @@ it.effect("labeledfewshot-001: resets demos, samples in canonical path order des
         first: Schema.Struct({ demos: Schema.Array(Row) }),
         second: Schema.Struct({ demos: Schema.Array(Row) })
       })
-    }))((yield* fixture("labeledfewshot-001", "upstream-execution")).payload)
+    }))((yield* fixture("labeledfewshot", "upstream-execution")).payload)
     const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
     const a = yield* Module.predict("a", signature)
     const b = yield* Module.predict("b", signature)

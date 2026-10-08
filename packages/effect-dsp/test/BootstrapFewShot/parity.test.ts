@@ -41,10 +41,10 @@ const Payload = Schema.Struct({
 
 it.effect("bootstrap fixtures: retain cross-example duplicates, threshold, teacher provenance, and error budget", () =>
   Effect.forEach([
-    "bootstrapfewshot-001",
-    "bootstrap-teacher-trace-001",
-    "bootstrapfewshot-threshold-001",
-    "bootstrapfewshot-errors-001"
+    "bootstrapfewshot",
+    "bootstrap-teacher-trace",
+    "bootstrapfewshot-threshold",
+    "bootstrapfewshot-errors"
   ], (id) =>
     Effect.gen(function*() {
       const reference = yield* Schema.decodeUnknownEffect(Payload)((yield* fixture(id, "upstream-execution")).payload)
@@ -151,7 +151,7 @@ it.effect("bootstrap fixtures: retain cross-example duplicates, threshold, teach
       expect(yield* Ref.get(teacher.calls)).toHaveLength(reference.metricCalls.length * 2)
     })))
 
-it.effect("bootstrapfewshot-labeled-001: prewarms the default teacher and excludes each traced label", () =>
+it.effect("bootstrapfewshot-labeled: prewarms the default teacher and excludes each traced label", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       splits: Schema.Struct({ train: Schema.Array(Row) }),
@@ -160,7 +160,7 @@ it.effect("bootstrapfewshot-labeled-001: prewarms the default teacher and exclud
         messages: Schema.Array(Schema.Struct({ role: Schema.String, content: Schema.String }))
       })),
       state: Schema.Struct({ demos: Schema.Array(StateDemo) })
-    }))((yield* fixture("bootstrapfewshot-labeled-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstrapfewshot-labeled", "upstream-execution")).payload)
     const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
     const module = yield* Module.predict("qa", signature)
     const mock = yield* MockLanguageModel.make(

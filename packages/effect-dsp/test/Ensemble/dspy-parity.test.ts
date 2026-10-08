@@ -86,7 +86,7 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 describe("Ensemble.make DSPy parity", () => {
   it.effect("matches fixture-backed majority vote and tie-break contracts", () =>
     Effect.gen(function*() {
-      const reference = yield* fixture("majority-001", "upstream-kernel")
+      const reference = yield* fixture("majority", "upstream-kernel")
       const payload = yield* Schema.decodeUnknownEffect(Schema.Struct({
         cases: Schema.Array(Schema.Struct({
           name: Schema.String,

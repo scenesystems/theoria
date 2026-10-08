@@ -57,7 +57,7 @@ def generate():
     result = compiled.detailed_results
     assert result.val_aggregate_scores == [0.5, 0.8]
     assert result.best_idx == 1
-    return [{"id": "gepa-aggregate-best-001",
+    return [{"id": "gepa-aggregate-best",
              "description": "GEPA.compile selects aggregate best, not first per-instance frontier winner; merge disabled.",
              "payload": {"seed": 0, "splits": splits(train, val), "metricCalls": calls,
                          "events": events, "maxMetricCalls": 8,
@@ -95,7 +95,7 @@ def selection_kernels():
                       "holdings": [sorted(h) for h in holdings.values()],
                       "pruned": [sorted(h) for h in pruned.values()],
                       "calls": calls, "nextRandom": rng.random()})
-    return [{"id": "gepa-selection-001", "evidence": "upstream-kernel",
+    return [{"id": "gepa-selection", "evidence": "upstream-kernel",
              "description": "GEPA coverage pruning, parent choice and shared epoch-shuffle stream with padding, skipped and repeated iterations.",
              "payload": {"seed": 9, "trainsetSize": 5, "minibatchSize": 3, "cases": cases}}]
 
@@ -142,7 +142,7 @@ def compile_sequences():
             ).compile(program, trainset=train, valset=val)
         result = compiled.detailed_results
         assert result.total_metric_calls == (8 if perfect else 38)
-        documents.append({"id": "gepa-budget-001" if perfect else "gepa-001",
+        documents.append({"id": "gepa-budget" if perfect else "gepa",
                           "description": "Real GEPA epoch-shuffled reflection, targeted feedback, iteration-boundary budget overshoot and aggregate selection; perfect batches skip reflection.",
                           "payload": {"seed": 9, "splits": splits(train, val), "metricCalls": calls,
                                       "events": events, "maxMetricCalls": budget,
@@ -186,7 +186,7 @@ def merge_kernels():
         cases.append({"name": name, "programs": candidates, "parents": lineage,
                       "scores": scores, "hasSupport": support, "merged": merged,
                       "subsample": subsample, "nextRandom": rng.random()})
-    return [{"id": "gepa-merge-001", "evidence": "upstream-kernel",
+    return [{"id": "gepa-merge", "evidence": "upstream-kernel",
              "description": "Pinned common-ancestor merge draws, eligibility, tied conflict and balanced validation sample.",
              "payload": {"seed": 9, "validationOrder": list(range(7)),
                          "buckets": [[0, 1, 2, 3], [4], [5, 6]], "cases": cases}}]
@@ -243,7 +243,7 @@ def merge_sequences():
                         skip_perfect_score=False, use_merge=True, seed=0)
         result = optimize(**settings, adapter=Adapter(), max_metric_calls=34, callbacks=[Recorder()])
         assert len(merges) == 1, (selected, proposals, iterations)
-        documents.append({"id": "gepa-merge-accepted-001" if accept else "gepa-merge-rejected-001",
+        documents.append({"id": "gepa-merge-accepted" if accept else "gepa-merge-rejected",
                           "description": "Real GEPA engine with scripted task: complementary merge consumes a whole iteration, accepted or rejected; exact shared-stream sampling and budget ledger.",
                           "payload": {"seed": 0, "maxMetricCalls": 34, "acceptMerge": accept,
                                       "train": train, "val": val, "validationScores": vectors,

@@ -25,7 +25,7 @@ import { assertNoMutation } from "../kit/Mutation.js"
 
 const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
 
-it.effect("bootstraprs-001: exact candidate catalog, fraction scores, reset and earliest winner", () =>
+it.effect("bootstraprs: exact candidate catalog, fraction scores, reset and earliest winner", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       splits: Schema.Struct({ train: Schema.Array(Row), val: Schema.Array(Row) }),
@@ -35,7 +35,7 @@ it.effect("bootstraprs-001: exact candidate catalog, fraction scores, reset and 
         state: Schema.Struct({ demos: Schema.Array(Schema.Struct({ question: Schema.String, answer: Schema.String })) })
       })),
       winnerSeed: Schema.Int
-    }))((yield* fixture("bootstraprs-001", "upstream-execution")).payload)
+    }))((yield* fixture("bootstraprs", "upstream-execution")).payload)
     const module = yield* Module.predict(
       "qa",
       yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })

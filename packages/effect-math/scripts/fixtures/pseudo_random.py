@@ -69,5 +69,5 @@ def numpy_cases():
 
 
 def generate(generated_at):
-    return [document("cpython-random-001", cpython_cases(), generated_at, "cpython", platform.python_version()),
-            document("numpy-random-001", numpy_cases(), generated_at, "numpy", importlib.metadata.version("numpy"))]
+    return [document("cpython-random", cpython_cases(), generated_at, "cpython", platform.python_version()),
+            document("numpy-random", numpy_cases(), generated_at, "numpy", importlib.metadata.version("numpy"))]

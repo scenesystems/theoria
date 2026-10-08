@@ -185,7 +185,7 @@ export const replay = Effect.gen(function* () {
 })
 ```
 
-`replay` returns the same element twice: the resumed stream continues from the captured state. `Numeric.sumNeumaier` matches CPython 3.12's builtin float `sum`, including cancellation, overflow, infinities, and signed zero, and `Numeric.sumPairwise` reproduces NumPy's pairwise summation order. Use them where a result must match those upstream reductions; `cpython-sum-001` and `numeric.scalar-parity` record the interpreter evidence.
+`replay` returns the same element twice: the resumed stream continues from the captured state. `Numeric.sumNeumaier` matches CPython 3.12's builtin float `sum`, including cancellation, overflow, infinities, and signed zero, and `Numeric.sumPairwise` reproduces NumPy's pairwise summation order. Use them where a result must match those upstream reductions; `cpython-sum` and `numeric.scalar-parity` record the interpreter evidence.
 
 ## Computation planning
 

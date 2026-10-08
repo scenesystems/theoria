@@ -6,7 +6,7 @@ import { CPythonRandomFixture } from "../helpers/fixtures/randomSchemas.js"
 import { loadFixture } from "../helpers/fixtures/registry.js"
 
 const reference = Effect.gen(function*() {
-  const fixture = yield* Schema.decodeUnknownEffect(CPythonRandomFixture)(yield* loadFixture("cpython-random-001"), {
+  const fixture = yield* Schema.decodeUnknownEffect(CPythonRandomFixture)(yield* loadFixture("cpython-random"), {
     onExcessProperty: "error"
   })
   return fixture.payload.cases
@@ -65,7 +65,7 @@ it.effect("trusted CPython draws surface a violated precondition as an immediate
     expect(yield* Effect.forEach(Array.take(entry.random, 3), () => rng.random())).toEqual(Array.take(entry.random, 3))
   }))
 
-it.effect("cpython-random-001: validated draws reproduce the CPython stream byte for byte", () =>
+it.effect("cpython-random: validated draws reproduce the CPython stream byte for byte", () =>
   Effect.gen(function*() {
     yield* Effect.forEach(yield* reference, (entry) =>
       Effect.gen(function*() {

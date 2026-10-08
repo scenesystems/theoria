@@ -10,7 +10,7 @@ const Float = Schema.String
 
 /** CPython 3.12 builtin `sum` executed by `scripts/fixtures/cpython_sum.py`. */
 export const CPythonSumFixture = Schema.Struct({
-  fixture: Schema.Literal("cpython-sum-001"),
+  fixture: Schema.Literal("cpython-sum"),
   metadata: Schema.Struct({
     generatedAt: Schema.String,
     generator: Schema.Struct({ script: Schema.String }),

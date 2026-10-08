@@ -175,7 +175,7 @@ describe("GEPA integration", () => {
     "runs end-to-end with deterministic mock LM and feedback-aware metric and returns the hand-derived best candidate",
     () =>
       Effect.gen(function*() {
-        const reference = yield* fixture("gepa-aggregate-best-001", "upstream-execution")
+        const reference = yield* fixture("gepa-aggregate-best", "upstream-execution")
         const { seed } = yield* Schema.decodeUnknownEffect(Schema.Struct({ seed: Schema.Int }))(reference.payload)
         const signature = yield* makeQaSignature()
         const module = yield* Module.predict("qa", signature)

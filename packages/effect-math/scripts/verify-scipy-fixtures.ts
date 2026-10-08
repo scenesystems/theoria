@@ -31,7 +31,7 @@ import {
  * SHA-256 of the committed `manifest.json` bytes. Update only this value when
  * the manifest metadata changes intentionally.
  */
-const expectedManifestSha256 = "2a266ac03147553bc5bf16e7282b099df3adc49925d5ddc9853fad538c0eabcb"
+const expectedManifestSha256 = "b0c9ef71c0ef72e05ca68c56c4aa92bc00e855da2d62db777612d12f8840858d"
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem

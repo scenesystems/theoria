@@ -21,7 +21,7 @@ from typing import Any
 # This family does not use NumPy; record a fixed dispatch environment anyway.
 os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
-FIXTURE = "cpython-sum-001"
+FIXTURE = "cpython-sum"
 
 
 def encode(value: float | int) -> str:

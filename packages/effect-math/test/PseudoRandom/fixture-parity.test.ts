@@ -5,10 +5,10 @@ import * as PseudoRandom from "../../src/PseudoRandom.js"
 import { CPythonRandomFixture, NumPyRandomFixture } from "../helpers/fixtures/randomSchemas.js"
 import { loadFixture } from "../helpers/fixtures/registry.js"
 
-it.effect("cpython-random-001: exact mixed operations, seed chunks, twist boundaries and sample branches", () =>
+it.effect("cpython-random: exact mixed operations, seed chunks, twist boundaries and sample branches", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(CPythonRandomFixture)(
-      yield* loadFixture("cpython-random-001"),
+      yield* loadFixture("cpython-random"),
       {
         onExcessProperty: "error"
       }
@@ -63,9 +63,9 @@ it.effect("cpython-random-001: exact mixed operations, seed chunks, twist bounda
       }))
   }).pipe(Effect.provide(BunServices.layer)))
 
-it.effect("numpy-random-001: bit-exact legacy integer seeding, batches, uniform and weighted choice", () =>
+it.effect("numpy-random: bit-exact legacy integer seeding, batches, uniform and weighted choice", () =>
   Effect.gen(function*() {
-    const reference = yield* Schema.decodeUnknownEffect(NumPyRandomFixture)(yield* loadFixture("numpy-random-001"), {
+    const reference = yield* Schema.decodeUnknownEffect(NumPyRandomFixture)(yield* loadFixture("numpy-random"), {
       onExcessProperty: "error"
     })
     yield* Effect.forEach(reference.payload.cases, (entry) =>

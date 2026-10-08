@@ -152,16 +152,16 @@ def generate():
     docs = []
     for auto in ["light", "medium", "heavy", None]:
         payload = run(auto, discriminator=auto is None)
-        name = "mipro-trial-budget-001" if auto == "light" else f"miprov2-{auto or 'explicit'}-001"
+        name = "mipro-trial-budget" if auto == "light" else f"miprov2-{auto or 'explicit'}"
         docs.append({"id": name, "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
                      "payload": payload})
         if auto is None:
             assert max(e["score"] for e in payload["evaluations"] if not e["fullValidation"]) > payload["bestFullValidationScore"]
             assert payload["state"]["signature"]["instructions"] == "baseline"
-            docs.append({"id": "mipro-best-fullval-001",
+            docs.append({"id": "mipro-best-fullval",
                          "description": "A minibatch specialist loses to the baseline full-validation checkpoint.",
                          "payload": payload})
-    for name, cap in [("miprov2-no-labels-001", 2), ("miprov2-zero-shot-001", 0)]:
+    for name, cap in [("miprov2-no-labels", 2), ("miprov2-zero-shot", 0)]:
         payload = run(None, max_bootstrapped_demos=cap, max_labeled_demos=0, minibatch=False)
         assert payload["bootstrapCalls"] > 0
         assert payload["bootstrapMetricIds"]
@@ -170,10 +170,10 @@ def generate():
         docs.append({"id": name,
                      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search.",
                      "payload": payload})
-    docs.append({"id": "miprov2-exhausted-full-eval-001",
+    docs.append({"id": "miprov2-exhausted-full-eval",
                  "description": "Three instruction candidates exhaust all not-yet-fully-evaluated combinations during twelve minibatch trials.",
                  "payload": run(None, max_bootstrapped_demos=0, max_labeled_demos=0, expect_error=True)})
-    docs.append({"id": "miprov2-auto-minibatch-001",
+    docs.append({"id": "miprov2-auto-minibatch",
                  "description": "Auto light enables minibatching above 50 validation rows and inserts full checkpoints at the default five-trial cadence.",
                  "payload": run("light", val_size=51, full_eval_steps=5)})
     for doc in docs:

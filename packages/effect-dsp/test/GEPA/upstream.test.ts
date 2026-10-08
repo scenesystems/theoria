@@ -124,11 +124,11 @@ const prepare = (reference: typeof Reference.Type, perfect: boolean) =>
     return { options, mock, calls }
   })
 
-Arr.forEach(["gepa-001", "gepa-budget-001"], (id) => {
+Arr.forEach(["gepa", "gepa-budget"], (id) => {
   it.effect(`${id}: exact metric identities, feedback accounting, overshoot and selected instructions`, () =>
     Effect.gen(function*() {
       const reference = yield* Schema.decodeUnknownEffect(Reference)((yield* fixture(id, "upstream-execution")).payload)
-      const { options, mock, calls } = yield* prepare(reference, id === "gepa-budget-001")
+      const { options, mock, calls } = yield* prepare(reference, id === "gepa-budget")
       const result = yield* assertNoMutation(options.module, GEPA.run(options)).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         ModelBinder.withBinder(mock.binder)
@@ -148,7 +148,7 @@ Arr.forEach(["gepa-001", "gepa-budget-001"], (id) => {
         reference.state.signature.instructions
       )
       const critic = Arr.filter(yield* Ref.get(mock.calls), (call) => call.role === "critic")
-      expect(critic).toHaveLength(Boolean.match(id === "gepa-budget-001", { onFalse: () => 3, onTrue: () => 0 }))
+      expect(critic).toHaveLength(Boolean.match(id === "gepa-budget", { onFalse: () => 3, onTrue: () => 0 }))
       Arr.forEach(critic, (call) => {
         expect(call.prompt).not.toContain("val-")
         expect(call.prompt).toContain("feedback:train-")
@@ -159,7 +159,7 @@ Arr.forEach(["gepa-001", "gepa-budget-001"], (id) => {
 it.effect("resuming a JSON checkpoint preserves candidates, scores, budget and both random streams", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Reference)(
-      (yield* fixture("gepa-001", "upstream-execution")).payload
+      (yield* fixture("gepa", "upstream-execution")).payload
     )
     const uninterrupted = yield* prepare(reference, false)
     const full = yield* GEPA.run(uninterrupted.options).pipe(
@@ -189,7 +189,7 @@ it.effect("resuming a JSON checkpoint preserves candidates, scores, budget and b
 it.effect("reflection settings bind only critic calls, retaining task configuration", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Reference)(
-      (yield* fixture("gepa-001", "upstream-execution")).payload
+      (yield* fixture("gepa", "upstream-execution")).payload
     )
     const { options, mock } = yield* prepare(reference, false)
     yield* GEPA.run(

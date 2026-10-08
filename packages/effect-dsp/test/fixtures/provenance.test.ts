@@ -32,9 +32,9 @@ const trajectoryOf = (manifest: typeof Fixtures.Manifest.Encoded, id: string) =>
   )
 
 const newCaptures = [
-  "bootstrap-teacher-trace-calls-001",
-  "bootstrapfewshot-teacher-settings-001",
-  "miprov2-default-grounded-001"
+  "bootstrap-teacher-trace-calls",
+  "bootstrapfewshot-teacher-settings",
+  "miprov2-default-grounded"
 ]
 
 it.effect("decodes the locked NumPy resolution, generator environment, capture environments and trajectories", () =>
@@ -51,11 +51,11 @@ it.effect("decodes the locked NumPy resolution, generator environment, capture e
         )
     )
     // Legacy captures predate per-entry environment metadata; the kit must not invent one.
-    expect((yield* Fixtures.entry("eval-failure-inclusive-001")).environment).toEqual(Option.none())
-    const explicit = yield* Effect.fromOption((yield* Fixtures.entry("miprov2-explicit-001")).trajectory)
+    expect((yield* Fixtures.entry("eval-failure-inclusive")).environment).toEqual(Option.none())
+    const explicit = yield* Effect.fromOption((yield* Fixtures.entry("miprov2-explicit")).trajectory)
     expect(explicit.strictThroughTrial).toBe(10)
     expect(Option.map(explicit.firstInadmissibleTie, (tie) => tie.trial)).toEqual(Option.some(11))
-    const grounded = yield* Effect.fromOption((yield* Fixtures.entry("miprov2-default-grounded-001")).trajectory)
+    const grounded = yield* Effect.fromOption((yield* Fixtures.entry("miprov2-default-grounded")).trajectory)
     expect(grounded.firstInadmissibleTie).toEqual(Option.none())
     expect(grounded.strictThroughTrial).toBe(grounded.totalStudyRows - 1)
   }))
@@ -85,12 +85,12 @@ it.effect("rejects altered or partial capture environments and duplicated fixtur
   Effect.gen(function*() {
     const manifest = yield* encoded
     expect(
-      (yield* rejection(withEntry(manifest, "miprov2-default-grounded-001", {
+      (yield* rejection(withEntry(manifest, "miprov2-default-grounded", {
         environment: { PYTHONHASHSEED: "0", NPY_DISABLE_CPU_FEATURES: "AVX512F" }
       }))).message
     ).toContain("NPY_DISABLE_CPU_FEATURES")
     expect(
-      (yield* rejection(withEntry(manifest, "bootstrapfewshot-teacher-settings-001", {
+      (yield* rejection(withEntry(manifest, "bootstrapfewshot-teacher-settings", {
         environment: { PYTHONHASHSEED: "0" }
       }))).message
     ).toContain("NPY_DISABLE_CPU_FEATURES")
@@ -107,41 +107,41 @@ it.effect("rejects altered or partial capture environments and duplicated fixtur
 it.effect("rejects trajectory accounting that cannot describe the recorded study rows", () =>
   Effect.gen(function*() {
     const manifest = yield* encoded
-    const explicit = yield* trajectoryOf(manifest, "miprov2-explicit-001")
-    const light = yield* trajectoryOf(manifest, "mipro-trial-budget-001")
+    const explicit = yield* trajectoryOf(manifest, "miprov2-explicit")
+    const light = yield* trajectoryOf(manifest, "mipro-trial-budget")
     const cases = [
       {
-        id: "miprov2-explicit-001",
+        id: "miprov2-explicit",
         trajectory: { ...explicit, totalStudyRows: explicit.totalStudyRows + 1 },
         message: "totalStudyRows must equal"
       },
       {
-        id: "miprov2-explicit-001",
+        id: "miprov2-explicit",
         trajectory: { ...explicit, sampledEvaluation: "fullValidation" },
         message: "sampledEvaluation must follow minibatch"
       },
       {
-        id: "miprov2-explicit-001",
+        id: "miprov2-explicit",
         trajectory: { ...explicit, strictThroughTrial: explicit.strictThroughTrial + 1 },
         message: "strictThroughTrial must end"
       },
       {
-        id: "miprov2-explicit-001",
+        id: "miprov2-explicit",
         trajectory: { ...explicit, firstInadmissibleTie: null },
         message: "strictThroughTrial must end"
       },
       {
-        id: "mipro-trial-budget-001",
+        id: "mipro-trial-budget",
         trajectory: { ...light, insertedFullEvaluations: 1, totalStudyRows: light.totalStudyRows + 1 },
         message: "full-validation trajectories insert no checkpoints"
       },
       {
-        id: "mipro-trial-budget-001",
+        id: "mipro-trial-budget",
         trajectory: { ...light, strictThroughTrial: light.totalStudyRows },
         message: "strictThroughTrial must end"
       },
       {
-        id: "mipro-trial-budget-001",
+        id: "mipro-trial-budget",
         trajectory: { ...light, baselineTrials: 0, totalStudyRows: light.totalStudyRows - 1 },
         message: "baselineTrials"
       }

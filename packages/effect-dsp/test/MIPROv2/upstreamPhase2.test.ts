@@ -45,7 +45,7 @@ const Reference = Schema.Struct({
 
 it.effect("matches upstream grounded proposer calls, settings, demo rotation, proposals and next RNG draw", () =>
   Effect.forEach(
-    ["miprov2-grounded-proposer-001", "miprov2-proposer-no-demos-001", "miprov2-proposer-summary-skips-001"],
+    ["miprov2-grounded-proposer", "miprov2-proposer-no-demos", "miprov2-proposer-summary-skips"],
     (id) =>
       Effect.gen(function*() {
         const reference = yield* Schema.decodeUnknownEffect(Reference)(

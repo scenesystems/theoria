@@ -61,17 +61,17 @@ const Run = Schema.Struct({
 })
 
 const kernels = Effect.gen(function*() {
-  return yield* Schema.decodeUnknownEffect(Kernels)((yield* fixture("gepa-sum-kernels-001", "upstream-kernel")).payload)
+  return yield* Schema.decodeUnknownEffect(Kernels)((yield* fixture("gepa-sum-kernels", "upstream-kernel")).payload)
 })
 
-it.effect("gepa-sum-kernels-001: aggregate ties keep GEPAResult.best_idx", () =>
+it.effect("gepa-sum-kernels: aggregate ties keep GEPAResult.best_idx", () =>
   Effect.gen(function*() {
     const reference = (yield* kernels).aggregate
     expect(bestIndex(reference.scoreVectors)).toBe(reference.bestIndex)
     expect(bestIndex(reference.scoreVectors)).toBe(reference.idxmax)
   }))
 
-it.effect("gepa-sum-kernels-001: mutation score sums retain the recorded exact tie", () =>
+it.effect("gepa-sum-kernels: mutation score sums retain the recorded exact tie", () =>
   Effect.gen(function*() {
     const reference = (yield* kernels).mutation
     expect(Numeric.sumNeumaier(reference.before)).toBe(reference.beforeSum)
@@ -80,7 +80,7 @@ it.effect("gepa-sum-kernels-001: mutation score sums retain the recorded exact t
     expect(reference.accepted).toBe(false)
   }))
 
-it.effect("gepa-sum-kernels-001: merge score sums retain the recorded best-parent tie", () =>
+it.effect("gepa-sum-kernels: merge score sums retain the recorded best-parent tie", () =>
   Effect.gen(function*() {
     const reference = (yield* kernels).merge
     expect(Numeric.sumNeumaier(reference.merged)).toBe(reference.mergedSum)
@@ -90,7 +90,7 @@ it.effect("gepa-sum-kernels-001: merge score sums retain the recorded best-paren
     expect(reference.accepted).toBe(true)
   }))
 
-it.effect("gepa-sum-kernels-001: aggregate-ordered pruning and parent weights follow remove_dominated_programs", () =>
+it.effect("gepa-sum-kernels: aggregate-ordered pruning and parent weights follow remove_dominated_programs", () =>
   Effect.gen(function*() {
     const reference = (yield* kernels).pruning
     const snapshot = deriveParetoKernelSnapshot(reference.scoreVectors)
@@ -99,10 +99,10 @@ it.effect("gepa-sum-kernels-001: aggregate-ordered pruning and parent weights fo
       .toEqual(reference.parentCatalogue)
   }))
 
-it.effect("gepa-mutation-tie-001: the engine rejects a tied child and returns the seed", () =>
+it.effect("gepa-mutation-tie: the engine rejects a tied child and returns the seed", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Run)(
-      (yield* fixture("gepa-mutation-tie-001", "upstream-execution")).payload
+      (yield* fixture("gepa-mutation-tie", "upstream-execution")).payload
     )
     const seed = Arr.headNonEmpty(reference.candidates).qa
     const proposed = yield* Effect.fromOption(
@@ -203,10 +203,10 @@ const MergeRun = Schema.Struct({
   totalMetricCalls: Schema.Int
 })
 
-it.effect("gepa-merge-tie-001: the engine accepts a merge whose subsample sum ties the best parent", () =>
+it.effect("gepa-merge-tie: the engine accepts a merge whose subsample sum ties the best parent", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(MergeRun)(
-      (yield* fixture("gepa-merge-tie-001", "upstream-execution")).payload
+      (yield* fixture("gepa-merge-tie", "upstream-execution")).payload
     )
     const signature = yield* Signature.make("Task", { question: Schema.String }, { answer: Schema.String })
     const qa = yield* Module.predict("qa", signature)
