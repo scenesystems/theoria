@@ -38,7 +38,6 @@ import { Effect, Schema } from "effect"
 
 const Document = Schema.Struct({
   domain: Schema.Literal("document"),
-  version: Schema.Literal(1),
   text: Schema.String,
   createdAt: Schema.DateFromString
 })
@@ -49,7 +48,7 @@ export const identify = (document: typeof Document.Type) =>
 
 `fromSchema` encodes the value, canonicalizes the encoded representation, and hashes it with BLAKE3-256 by default. It retains the codec's encoding requirements and failures. The result is an algorithm-tagged model; `toString` produces `<algorithm>:<base64url>` for protocol boundaries.
 
-The Schema determines identity fields and transformations. Include domain or version fields when they are part of the identity; Schema identifiers are not added automatically. Changing the encoded representation changes its digest. Use `fromBytes` when identity is over exact bytes rather than structured data.
+The Schema determines identity fields and transformations. Only encoded data contributes to identity; Schema identifiers are not added automatically. Changing the encoded representation changes its digest. Use `fromBytes` when identity is over exact bytes rather than structured data.
 
 For a canonical byte budget, use `fromSchemaWithByteLimit`:
 

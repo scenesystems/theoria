@@ -56,7 +56,7 @@ export const recorded = Effect.gen(function* () {
   const recording = yield* StudyStorage.open(
     new StudyStorage.OpenOptions({
       runId: "readings-1",
-      definitionDigest: "reading-sum-v1",
+      definitionDigest: "reading-sum",
       eventSchema: Schema.Finite,
       checkpointSchema: Schema.Finite
     })
