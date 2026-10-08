@@ -1,60 +1,21 @@
----
-description: Development guidelines for @scenesystems/sign
-globs: "**/*.ts, **/*.mts"
-alwaysApply: true
----
+# sign
 
-# @scenesystems/sign
-
-Effect-native signatures, key agreement, encapsulation, and JWT verification.
-
-## Design and ownership
-
-- Design representative imports and call sites before changing a concern. Use version-aligned Effect public declarations, implementations, tests, usage, and exports as the architectural reference.
-- Public concerns live in flat PascalCase modules; root namespace and exact-case package subpath expose the same canonical declarations. The explicit export allowlist exposes only supported public concerns.
-- Suite modules own operations and suite-specific models/errors. `Signature` owns signature carriers and signing failures; `KeyPair` owns common keys and generation failures; `Verification` owns strict-verifier resource policy and material-free errors.
-- There is no generic algorithm dispatcher, self-trusting signature verifier, separate schemas directory, or compatibility alias surface. Related variants remain together, such as the parameter sets in `MlDsa` and `SlhDsa`.
-- Small coherent implementations may stay public. Substantial private mechanics belong in camelCase files under `internal/`; private code must not redefine public models or leak Noble types into public declarations.
-- Models with codec semantics use Schema; capabilities use Context and Layers. Use Data values and type-only declarations for relationships without codec semantics.
-- Semantic roles determine casing. Constants are not automatically UPPER_SNAKE_CASE. Use qualified schema identifiers, brands, and service keys; preserve compatibility-sensitive wire tags independently of local names.
-- `index.ts` is maintained with the explicit source export map. The existing build-utils `pack-v3` workflow generates distribution manifests; do not hand-edit those outputs.
-
-## Native Effect implementation
-
-- Consume installed Effect public APIs throughout pure computations, callbacks, private mechanics, tests, examples, and tooling. An Effect return type does not exempt its body.
-- Use native Boolean/Match/Option/Result control flow, Number/BigInt/String operations, and Effect collections rather than native operators, branches, loops, collection methods, or handwritten record/array carriers. This is Theoria policy, not a claim about Effect's internal implementation style.
-- Schema owns validated and encoded data; Data owns structural values without codecs. Construct typed internal values through their constructors and decode untrusted representations at admission boundaries. Derive representations from the canonical schema.
-- Research public signatures, tests, usage, and ecosystem integrations against the installed version before selecting an API. Effect internals and lint exclusions do not authorize substitutes. A remaining external operation needs explicit user approval for that exact gap, not a blanket adapter exception.
-- Hashing is owned by `@scenesystems/digest`; sign composes that API rather than importing a second hashing implementation.
-
-### User-approved exceptions
-
-The following operations are permitted within this package:
-
-1. Noble cryptographic randomness, curve/signature/key-agreement/post-quantum/KEM primitives, and equal-length byte comparison without data-dependent early exit. JavaScript execution is not guaranteed constant-time.
-2. RSA public-integer `bitLen`, modular `pow`, and fixed-width big-endian `numberToBytesBE`. Byte-to-bigint admission continues to use native Encoding and Schema APIs.
-3. Test-only hostile host objects: `ArrayBuffer.transfer`, Proxy/Reflect interception, and throwing property getters used to exercise input-admission failures.
-
-Direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation, tests, and tooling. `Schema.Uint8Array` validates existing bytes; use Effect codecs for transport encoding. Preserve input validation, bounded traversal, hostile-input handling, and material-free errors.
-
-This approval is limited to those operations in this package. It does not exempt surrounding models, control flow, callbacks, error handling, state, or composition, authorize substitutes where Effect supplies the required API, or grant an exception to an entire adapter or dependency. Additional gaps require separate explicit approval.
-
-## Cryptographic contracts
-
-- Preserve standards, strict admission, canonical encodings, context binding, input snapshots, and error-channel distinctions. The strict verifier's 8,192-byte message bound is Theoria resource policy, not an Effect convention or cryptographic standard.
-- Output-determining randomness comes from `Entropy.Entropy`. Provide `Entropy.layer` at application boundaries, never inside library operations. Effect Random is unsuitable for secrets. Deterministic replacements are test-only.
-- Preserve Noble's independent scalar/inversion blinding. Explicit key/signature entropy does not mean the primitive performs no ambient RNG calls.
-- Derivation, deterministic signing, verification, agreement, and decapsulation must not acquire fictitious entropy requirements. Caller-hedged ML-DSA-65 takes explicit context and 32 fresh entropy bytes.
-- Authenticate keys and protocol framing outside the primitive. X25519 and X-Wing return raw secrets requiring a protocol-specific KDF. Signature carriers do not establish identity.
-- Strict errors retain no material. Other errors may contain diagnostics; document disclosure policy. Secret storage, redaction, and destruction remain explicit application responsibilities.
-- Noble audits do not cover Theoria's custom RSA scheme composition.
-
-## Tests and checks
-
-Use package-local `test/Concern.test.ts` and `test/Concern/behavior.test.ts`, with public imports for public guarantees. Test private algorithms directly only for focused laws. Drive behavioral changes red → green → refactor using `@effect/vitest`.
-
-Use independent RFC/ACVP/Wycheproof/OpenSSL vectors, asymmetric inputs, admission boundaries, and seeded property-based laws. Round trips alone are not conformance. Do not add file/export/metadata inventory tests; compiler, resolver, docs, and build own structural checks.
-
-Run the root four gates: `bun run check:all && bun run lint && bun run test && bun run build`. Also run `bun run --filter @scenesystems/sign fixtures:check` and, after building, `bun run --filter @scenesystems/sign test:packed`. The packed check installs a tarball in an isolated scoped directory and exercises public APIs in Bun and native workerd. Fixture payloads and fingerprints under `test/fixtures/conformance/` change only through their documented generation workflow.
-
-Public declarations need a purpose, `@since`, `@category`, and precise representation, failure, dependency, and security contracts. Module headers need `@module`. Keep README and examples aligned and compile them through the repository's documentation workflow. Breaking pre-1.0 API changes use a minor Changeset; do not silently add aliases.
+- Suite modules own suite-specific operations/models. `Signature` owns signature
+  carriers; `KeyPair` owns common keys; `Verification` owns strict admission and
+  resource policy. Keep Noble types private; hashing comes from `digest`.
+- Output-determining randomness comes from `Entropy.Entropy`; provide
+  `Entropy.layer` at host boundaries. Do not add entropy requirements to
+  deterministic operations or remove Noble's independent scalar blinding.
+  Caller-hedged ML-DSA-65 takes explicit context and 32 fresh entropy bytes.
+- Preserve canonical encodings, context binding, input snapshots, and distinct
+  failure channels. The strict verifier's 8,192-byte message limit is resource
+  policy, not a cryptographic standard. Strict errors retain no key/message
+  material; other diagnostics need an explicit disclosure policy.
+- Signature carriers do not establish identity. Authenticate keys and framing at
+  the protocol layer. X25519/X-Wing raw secrets require a protocol-specific KDF.
+  Noble audits do not cover Theoria's custom RSA composition.
+- Use independent RFC/ACVP/Wycheproof/OpenSSL vectors and boundary tests; round
+  trips alone are not conformance. Load `maintaining-fixtures` for corpus changes.
+- In addition to affected behavioral tests, run `bun run fixtures:check` here;
+  after building, `bun run test:packed` checks public consumption in Bun/workerd.
+  Breaking pre-1.0 API changes need a minor Changeset and consumer migration.
