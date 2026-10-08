@@ -539,7 +539,8 @@ export const runWithEvents = <
  * Runs MIPROv2 with lifecycle reporting disabled.
  *
  * @param options - Candidate, proposal, validation, and search settings.
- * @returns The supplied module after the selected configuration is applied.
+ * @returns An Optimized.Result containing the bound program, selected parameters,
+ * and report, without mutating the supplied module.
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored by the configured metric.
  * @typeParam ME - Expected failure from the configured metric.
