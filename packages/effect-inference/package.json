@@ -71,7 +71,7 @@
   "dependencies": {
     "@scenesystems/effect-lm": "workspace:^",
     "@effect/ai-anthropic": "4.0.0",
-    "@effect/ai-openai": "4.0.0",
+    "@effect/ai-openai": "4.0.1",
     "@effect/ai-openrouter": "4.0.0",
     "@huggingface/inference": "^4.13.28"
   }
