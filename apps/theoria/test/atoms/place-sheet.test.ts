@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Array as Arr, Effect, Number as Num } from "effect"
 
-import { drawingScaled, PlaceDrawing } from "../../app/contracts/demo/imagined-place-flow.js"
+import { renderingFor } from "../../app/contracts/demo/imagined-place-arrangement.js"
+import { drawingOnStage, drawingScaled, PlaceDrawing, stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
 import { PlaceSheet, sheetFit, sheetFitting } from "../../app/web/atoms/imagined-place-render.js"
 
 /**
@@ -31,6 +32,30 @@ const drawing = new PlaceDrawing({
 })
 
 describe("the sheet under a drawing while the column changes width", () => {
+  it.effect("rounds the paper outward so carrying a settled drawing into another search cannot enlarge it", () =>
+    Effect.sync(() => {
+      const stage = stageFor(640)
+      Arr.forEach([150, 150.25, 150.75], (y) => {
+        const rendered = renderingFor({
+          stage,
+          trials: 1,
+          bestLoss: 0,
+          arrangement: {
+            markers: [{ name: "Desk", description: "A desk.", x: 500, y, radius: 50, reach: 0 }],
+            lines: [],
+            quality: { loss: 0, lineCount: 0, narrowestLine: 0, raggedness: 0 }
+          }
+        })
+        const carried = new PlaceDrawing({
+          markers: rendered.projection.markers,
+          paper: rendered.projection.stageHeight
+        })
+        expect(carried.paper).toBeGreaterThanOrEqual(Num.sumAll([y, 50, stage.padding]))
+        expect(carried.paper).toBeLessThan(Num.sumAll([y, 51, stage.padding]))
+        expect(drawingOnStage(stage, carried).paper).toBe(carried.paper)
+      })
+    }))
+
   it.effect("fits a drawing wider than the column to the column, paper and all", () =>
     Effect.sync(() => {
       expect(sheetFit(448, 704)).toBeCloseTo(448 / 704, 10)
