@@ -59,7 +59,7 @@ const awaitRoomInWindow = (periodSeconds: number, marginSeconds: number) =>
     })
   )
 
-layer(SiteLive, { timeout: "2 minutes" })("Place build rate limit in workerd", (it) => {
+layer(SiteLive, { excludeTestServices: true, timeout: "2 minutes" })("Place build rate limit in workerd", (it) => {
   // Runs on the live clock: the Worker's counters follow wall-clock windows,
   // which the test clock cannot advance.
   it.effect("admits the configured number of builds per client address, then answers 429 until the window ends", () =>
