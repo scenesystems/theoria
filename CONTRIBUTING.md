@@ -61,6 +61,16 @@ Run `bun run docs` to validate examples and regenerate documentation, then inspe
 
 Some packages use [uv](https://docs.astral.sh/uv/) to generate golden test fixtures from reference implementations (Optuna, DSPy). Always use `uv run` — never `python3` directly.
 
+The effect-math generator pins `PYTHONHASHSEED=0` and
+`NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing NumPy, matching the
+DSPy/Optuna dispatch setting. Use the root `uv.lock` and Python 3.12.14 on Linux
+x86_64 for clean-machine regeneration. Run
+`bun run --filter @scenesystems/effect-math fixtures:verify` to regenerate and
+byte-compare every payload and the manifest; CI runs the same full check.
+Generate into `SCIPY_FIXTURE_OUTPUT_DIRECTORY` for review before replacing
+references. Record approved reference-byte changes with before/after SHA-256
+hashes; never alter assertions or tolerances to accommodate regeneration.
+
 ## Releases
 
 This project uses [Changesets](https://github.com/changesets/changesets) for versioning. Before committing, create a changeset:

@@ -9,8 +9,8 @@
   },
   "provenance": {
     "cpuDispatch": {
-      "observation": "Regenerating with the locked uv environment while NumPy's AVX-512 SVML dispatch was active reproduced every committed legacy fixture byte. With AVX512F disabled (NPY_DISABLE_CPU_FEATURES=AVX512F) the cpuSensitiveFiles regenerate with different bytes. The generator pins only PYTHONHASHSEED, not CPU dispatch, so byte regeneration of these files is CPU-dependent; portable verification checks their schema and SHA-256 instead.",
-      "generatorPinnedEnvironment": ["PYTHONHASHSEED"],
+      "observation": "All reference families run with PYTHONHASHSEED=0 and NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F before NumPy imports. The listed cpuSensitiveFiles were repinned from AVX-512/SVML dispatch to this portable environment: last-ulp reference provenance changes only, with no library behavior change. Every payload and the manifest are regenerated and byte-compared in CI.",
+      "generatorPinnedEnvironment": ["PYTHONHASHSEED=0", "NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F"],
       "cpuSensitiveFiles": [
         "complex/arithmetic-parity.json",
         "distribution/algebra-parity.json",
@@ -23,7 +23,7 @@
         "case": "expm1-one",
         "operation": "numpy.expm1",
         "input": "1.0",
-        "committed": "1.7182818284590453",
+        "committed": "1.718281828459045",
         "avx512fDisabled": "1.718281828459045"
       }
     }
@@ -42,7 +42,7 @@
     {
       "name": "complex.arithmetic-parity",
       "file": "complex/arithmetic-parity.json",
-      "sha256": "7afdba6b89ddd2fed7c832344d5ecf3a18711d4c22b952a61f9334687027d69f"
+      "sha256": "44176b639216d0f83e17d701d62a58de4ad1e6a49f3ec4e7abc87878279b2f8f"
     },
     {
       "name": "cpython-random-001",
@@ -57,7 +57,7 @@
     {
       "name": "distribution.algebra-parity",
       "file": "distribution/algebra-parity.json",
-      "sha256": "11925ad2cf91c00dc6e6a3cba146e36c68d98e15f70996f3ac530aa55f2ae243"
+      "sha256": "da6ee045938cacec6dd314ac93b166708ce9288c000629181425bd362c054d8e"
     },
     {
       "name": "geometry.distance-parity",
@@ -72,12 +72,12 @@
     {
       "name": "numeric.logspace-parity",
       "file": "numeric/logspace-parity.json",
-      "sha256": "64c286075a9458633f4202dba893a3c7816c24cc586c0fc0d8dae334a86824e4"
+      "sha256": "5be8d1708ab788375cbed46864c73842308886879233a32157ef576dc34b7ed1"
     },
     {
       "name": "numeric.scalar-parity",
       "file": "numeric/scalar-parity.json",
-      "sha256": "230413ca6154ca4015e70634702a71ba5b9a2c9e46d0333d5126f786784e0720"
+      "sha256": "f84ce12ee22c3b9615c65fbad58b440411759383d5711b642a0cb316565fbe80"
     },
     {
       "name": "numpy-random-001",
@@ -92,7 +92,7 @@
     {
       "name": "probability.distribution-parity",
       "file": "probability/distribution-parity.json",
-      "sha256": "cdbae0f440d803d317430d8c35830fc962d02429d7b8b79dc9da26e91d19a303"
+      "sha256": "5013a21e9cfebb5d2122c73b59d5bf89bf568d381e6c0a245fe39f7a0dea81b4"
     },
     {
       "name": "special.function-parity",

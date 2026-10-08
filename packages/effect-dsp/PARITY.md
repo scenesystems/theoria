@@ -388,14 +388,14 @@ sum at aggregate, coverage, acceptance, and ancestor-weight sites; Python's
 `Numeric.sumNeumaier` has independent `cpython-sum-001` interpreter evidence
 in effect-math, including cancellation and IEEE edges. These are arithmetic
 discriminators, not extensions of the libm-sensitive strict-prefix boundary.
-The effect-math manifest now records every payload's SHA-256. Its portable
-check validates legacy SciPy/NumPy payloads by schema and hash and regenerates
-bytes only for `cpython-sum-001`; full legacy byte regeneration matches only
-under AVX512/SVML NumPy dispatch (see the effect-math README). No frozen
-reference bytes changed.
-All pre-review fixture payloads retain their bytes; the canonical manifests
-gain only new fixture entries and additive provenance metadata, with every
-existing entry and value preserved.
+The effect-math manifest records every payload's SHA-256. Its verifier validates
+schemas and hashes and regenerates all 16 payloads plus the manifest under
+`NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F`, byte-comparing all 17 files in CI.
+Five formerly CPU-sensitive math payloads were explicitly repinned to this
+portable dispatch: last-ulp provenance changes with no library behavior change.
+Their before/after hashes are recorded in the math changeset and PR description.
+All other existing fixture payloads retain their bytes; DSPy and Optuna manifest
+updates remain additive, preserving existing entries and values.
 
 The DSP manifest now has 47 entries. Its generator-wide `environment` records
 `PYTHONHASHSEED=0` and `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F`, and

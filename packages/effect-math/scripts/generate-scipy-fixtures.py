@@ -6,6 +6,9 @@ The Effect entrypoint owns family discovery, process lifetime, validation,
 fixture files, and manifest construction. This process only evaluates the
 requested Python family and returns its reference data and provenance.
 
+Every family runs with PYTHONHASHSEED=0 and
+NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F for reproducible portable dispatch.
+
 Requirements: uv (https://docs.astral.sh/uv/)
 Entry point:  bun run fixtures:generate
 """
@@ -16,6 +19,9 @@ import importlib
 import json
 import os
 import sys
+
+# Pin dispatch before any family imports NumPy, regardless of the host environment.
+os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
 # Establish process-seeded iteration before accepting the stdin request.
 if os.environ.get("PYTHONHASHSEED") != "0":

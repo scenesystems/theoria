@@ -60,7 +60,6 @@
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:generate": "bun run scripts/generate-scipy-fixtures.ts",
     "fixtures:verify": "bun run scripts/verify-scipy-fixtures.ts",
-    "fixtures:verify:full": "SCIPY_FIXTURE_VERIFY_MODE=full bun run scripts/verify-scipy-fixtures.ts",
     "fixtures:lock": "uv lock --project ../..",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",

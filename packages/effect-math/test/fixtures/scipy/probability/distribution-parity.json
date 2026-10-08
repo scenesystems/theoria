@@ -50,7 +50,7 @@
           "mu": 0,
           "sigma": 1
         },
-        "expected": 0.004431848411938008
+        "expected": 0.0044318484119380075
       },
       {
         "id": "normal-pdf-tail-6sigma",

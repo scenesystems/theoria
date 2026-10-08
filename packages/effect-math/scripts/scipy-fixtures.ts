@@ -160,19 +160,15 @@ const formatJson = (prettier: string, repositoryRoot: string, canonicalPath: str
     Effect.map((result) => result.stdout)
   )
 
-/** Python reference family whose bytes do not depend on the CPU; its module pins its own dispatch environment. */
-export const portableFamily = "cpython_sum"
-
 /**
- * Additive manifest provenance recording the CPU-dispatch observation approved
- * for the legacy SciPy fixtures. It states only what was reproduced; it does
- * not describe the machine that originally generated the committed bytes.
+ * Portable dispatch provenance for all families, including the five payloads
+ * repinned from AVX-512/SVML references without changing library behavior.
  */
 export const manifestProvenance = FixtureManifestProvenanceSchema.make({
   cpuDispatch: FixtureCpuDispatchProvenanceSchema.make({
     observation:
-      "Regenerating with the locked uv environment while NumPy's AVX-512 SVML dispatch was active reproduced every committed legacy fixture byte. With AVX512F disabled (NPY_DISABLE_CPU_FEATURES=AVX512F) the cpuSensitiveFiles regenerate with different bytes. The generator pins only PYTHONHASHSEED, not CPU dispatch, so byte regeneration of these files is CPU-dependent; portable verification checks their schema and SHA-256 instead.",
-    generatorPinnedEnvironment: Array.make("PYTHONHASHSEED"),
+      "All reference families run with PYTHONHASHSEED=0 and NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F before NumPy imports. The listed cpuSensitiveFiles were repinned from AVX-512/SVML dispatch to this portable environment: last-ulp reference provenance changes only, with no library behavior change. Every payload and the manifest are regenerated and byte-compared in CI.",
+    generatorPinnedEnvironment: Array.make("PYTHONHASHSEED=0", "NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F"),
     cpuSensitiveFiles: Array.make(
       "complex/arithmetic-parity.json",
       "distribution/algebra-parity.json",
@@ -185,7 +181,7 @@ export const manifestProvenance = FixtureManifestProvenanceSchema.make({
       case: "expm1-one",
       operation: "numpy.expm1",
       input: "1.0",
-      committed: "1.7182818284590453",
+      committed: "1.718281828459045",
       avx512fDisabled: "1.718281828459045"
     }
   })
@@ -336,19 +332,6 @@ export const generateReferenceFixtures = (options: {
     yield* fileSystem.writeFileString(path.join(options.outputDirectory, manifestFile), manifestContent)
     return { fixtures: Array.length(written.entries), cases: written.cases }
   })
-
-/**
- * Regenerates only the CPU-independent `portableFamily` into
- * `outputDirectory`, without a manifest, and returns its manifest entries.
- */
-export const generatePortableFixtures = (options: {
-  readonly packageRoot: string
-  readonly outputDirectory: string
-  readonly generatedAt: string
-}) =>
-  writeReferenceFixtures({ ...options, families: Array.of(portableFamily) }).pipe(
-    Effect.map((written) => ({ entries: written.entries, cases: written.cases }))
-  )
 
 const findJsonFiles = (
   fileSystem: FileSystem.FileSystem,

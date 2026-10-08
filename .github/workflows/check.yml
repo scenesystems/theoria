@@ -28,7 +28,7 @@ jobs:
       - run: uv run --locked packages/effect-dsp/scripts/verify-dspy-fixtures.py --check
       - run: uv run --locked packages/effect-search/scripts/generate-optuna-fixtures.py --check
       - uses: ./.github/actions/setup
-      - name: Verify SciPy fixture schemas, payload and manifest hashes, and portable regeneration bytes
+      - name: Verify SciPy fixture schemas, hashes, and full portable byte regeneration
         run: bun run --filter @scenesystems/effect-math fixtures:verify
 
   check:
