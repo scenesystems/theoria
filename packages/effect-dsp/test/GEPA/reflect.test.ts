@@ -29,6 +29,7 @@ const reflectiveSamples = Effect.gen(function*() {
     new ReflectiveDatasetSample({
       exampleId: "ex-1",
       predictorName: "qa",
+      evidenceScope: "program",
       inputs,
       generatedOutputs,
       expectedOutput,
@@ -37,6 +38,7 @@ const reflectiveSamples = Effect.gen(function*() {
     new ReflectiveDatasetSample({
       exampleId: "ex-2",
       predictorName: "qa",
+      evidenceScope: "program",
       inputs,
       generatedOutputs: expectedOutput,
       expectedOutput,
@@ -45,6 +47,7 @@ const reflectiveSamples = Effect.gen(function*() {
     new ReflectiveDatasetSample({
       exampleId: "ex-3",
       predictorName: "qa",
+      evidenceScope: "program",
       inputs,
       generatedOutputs,
       expectedOutput,

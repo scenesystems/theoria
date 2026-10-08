@@ -9,7 +9,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean as Bool, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Option, Ref, Schema, Stream, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -41,7 +41,7 @@ describe("BootstrapFewShot.stream", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          Bool.match(prompt.includes("France"), {
+          Bool.match(Str.includes("France")(prompt), {
             onFalse: () => ({ answer: "London" }),
             onTrue: () => ({ answer: "Paris" })
           })

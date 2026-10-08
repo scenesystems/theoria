@@ -163,7 +163,7 @@ export const tapProgress =
     Stream.tap(stream, (event) => sink(formatEvent(event)))
 
 /** Folded MIPROv2 lifecycle counters.
- * @since 0.1.0
+ * @since 0.7.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/MIPROv2/Report")({
@@ -339,7 +339,8 @@ export class Options<
   readonly teacherSettings?: ModelSettings
   /** Optional bootstrap acceptance threshold; absent accepts nonzero scores. */
   readonly metricThreshold?: Option.Option<number>
-  /** Raises when the bootstrap failure count reaches this limit. */
+  /** Failure count that stops bootstrapping (raising) or an evaluation (scoring it 0); absent or none
+   * uses DSPy's `dspy.settings.max_errors`, 10, for bootstrap and every Phase 3 evaluation. */
   readonly maxErrors?: Option.Option<number>
   /** Evaluation concurrency; absent uses the evaluator's default. */
   readonly numThreads?: number
@@ -365,7 +366,10 @@ export class Options<
   readonly minibatchSize?: number
   /** Insert a full-validation checkpoint after this many sampled trials, default 5. */
   readonly minibatchFullEvalSteps?: number
-  /** Optional evaluation traceback reporting, corresponding to compile's provide_traceback. */
+  /** Phase 3 evaluation diagnostics, compile's provide_traceback; absent is DSPy's setting, false.
+   * Every failed validation example is logged at error level with its input. False appends a hint to
+   * enable tracebacks; true attaches the failure's Cause, including its stack. Bootstrap and proposal
+   * are unaffected. A cancelled evaluation is always logged with its cause before scoring 0. */
   readonly provideTraceback?: boolean
 }> {}
 

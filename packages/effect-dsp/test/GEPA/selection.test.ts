@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Effect, Ref, Schema } from "effect"
+import { BatchState } from "../../src/GEPA.js"
 import { deriveParetoKernelSnapshot } from "../../src/internal/gepa/frontier.js"
-import { BatchState, nextMinibatch, selectParent } from "../../src/internal/gepa/sampling.js"
+import { nextMinibatch, selectParent } from "../../src/internal/gepa/sampling.js"
 import { fixture } from "../kit/Fixtures.js"
 
 const Reference = Schema.Struct({

@@ -6,5 +6,9 @@
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Option } from "effect"
 
+/** DSPy optimizers inherit settings.max_errors=10 when max_errors is absent/None. */
+export const effectiveMaxErrors = (maxErrors: Option.Option<number>): Option.Option<number> =>
+  Option.orElse(maxErrors, () => Option.some(10))
+
 export const maxFailures = (maxErrors: Option.Option<number>): Option.Option<number> =>
   Option.map(maxErrors, (limit) => Numeric.max(0, limit - 1))

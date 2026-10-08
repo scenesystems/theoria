@@ -51,7 +51,7 @@ export class Score extends Schema.Class<Score>("@scenesystems/effect-dsp/Metric/
 }) {}
 
 /** Effectful scorer; labels retain their dataset representation.
- * @since 0.7.0
+ * @since 0.1.0
  * @category type-level
  */
 export type Fn<E = never, R = never> = (

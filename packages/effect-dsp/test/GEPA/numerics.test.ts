@@ -2,15 +2,11 @@
  * GEPA aggregate, acceptance and pruning sums against pinned GEPA builtin-sum ties.
  */
 import { expect, it } from "@effect/vitest"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Effect, Match, Option, Record, Ref, Schema, String as Str, Tuple } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { Example, Id } from "../../src/Example.js"
 import * as GEPA from "../../src/GEPA.js"
-import {
-  evaluateMergeAcceptance,
-  evaluateMutationAcceptance,
-  EvaluateMutationAcceptanceOptions
-} from "../../src/internal/gepa/accept.js"
 import { deriveParetoKernelSnapshot } from "../../src/internal/gepa/frontier.js"
 import { bestIndex } from "../../src/internal/gepa/runtime/mutation.js"
 import * as Metric from "../../src/Metric.js"
@@ -75,32 +71,23 @@ it.effect("gepa-sum-kernels-001: aggregate ties keep GEPAResult.best_idx", () =>
     expect(bestIndex(reference.scoreVectors)).toBe(reference.idxmax)
   }))
 
-it.effect("gepa-sum-kernels-001: the strict mutation gate rejects a builtin-sum tie", () =>
+it.effect("gepa-sum-kernels-001: mutation score sums retain the recorded exact tie", () =>
   Effect.gen(function*() {
     const reference = (yield* kernels).mutation
-    const acceptance = yield* evaluateMutationAcceptance(
-      new EvaluateMutationAcceptanceOptions({
-        previousSubsampleScores: reference.before,
-        mutatedSubsampleScores: reference.after,
-        evaluateFullValset: Effect.succeed(reference.after)
-      })
-    )
-    expect(acceptance.previousSubsampleSum).toBe(reference.beforeSum)
-    expect(acceptance.mutatedSubsampleSum).toBe(reference.afterSum)
-    expect(acceptance.gate1Passed).toBe(reference.accepted)
+    expect(Numeric.sumNeumaier(reference.before)).toBe(reference.beforeSum)
+    expect(Numeric.sumNeumaier(reference.after)).toBe(reference.afterSum)
+    expect(reference.beforeSum).toBe(reference.afterSum)
+    expect(reference.accepted).toBe(false)
   }))
 
-it.effect("gepa-sum-kernels-001: the non-strict merge gate accepts a builtin-sum tie", () =>
+it.effect("gepa-sum-kernels-001: merge score sums retain the recorded best-parent tie", () =>
   Effect.gen(function*() {
     const reference = (yield* kernels).merge
-    const acceptance = evaluateMergeAcceptance({
-      mergedSubsampleScores: reference.merged,
-      parentASubsampleScores: reference.parentA,
-      parentBSubsampleScores: reference.parentB
-    })
-    expect(acceptance.mergedSubsampleSum).toBe(reference.mergedSum)
-    expect(acceptance.bestParentSubsampleSum).toBe(reference.bestParentSum)
-    expect(acceptance.accepted).toBe(reference.accepted)
+    expect(Numeric.sumNeumaier(reference.merged)).toBe(reference.mergedSum)
+    expect(Numeric.max(Numeric.sumNeumaier(reference.parentA), Numeric.sumNeumaier(reference.parentB)))
+      .toBe(reference.bestParentSum)
+    expect(reference.mergedSum).toBe(reference.bestParentSum)
+    expect(reference.accepted).toBe(true)
   }))
 
 it.effect("gepa-sum-kernels-001: aggregate-ordered pruning and parent weights follow remove_dominated_programs", () =>

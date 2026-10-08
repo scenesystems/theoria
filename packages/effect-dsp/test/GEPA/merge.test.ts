@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Effect, Option, Record, Schema, Tuple } from "effect"
+import { PredictorInstruction, ProgramCandidate } from "../../src/GEPA.js"
 import { prepareMerge, selectMergeSubsample } from "../../src/internal/gepa/merge.js"
-import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
 import { fixture } from "../kit/Fixtures.js"
 
 const Instructions = Schema.Record(Schema.String, Schema.String)

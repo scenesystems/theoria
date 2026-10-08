@@ -4,7 +4,6 @@ import * as LanguageModel from "effect/ai/LanguageModel"
 import { GEPAError } from "../../src/DspError.js"
 import { Example } from "../../src/Example.js"
 import * as GEPA from "../../src/GEPA.js"
-import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
 import { evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
 import { bestIndex } from "../../src/internal/gepa/runtime/mutation.js"
 import * as Metric from "../../src/Metric.js"
@@ -35,10 +34,12 @@ const makeModule = Effect.gen(function*() {
       forward: ({ input }) => child.forward({ query: `child:${input.question}` })
     })
   )
-  const candidate = new ProgramCandidate({
+  const candidate = new GEPA.ProgramCandidate({
     candidateId: "candidate",
     parentIds: [],
-    predictorInstructions: [new PredictorInstruction({ predictorName: "root.child", instruction: "changed child" })]
+    predictorInstructions: [
+      new GEPA.PredictorInstruction({ predictorName: "root.child", instruction: "changed child" })
+    ]
   })
   return { root, child, candidate }
 })

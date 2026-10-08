@@ -23,8 +23,10 @@ import { bound } from "../../Module.js"
 import * as ParameterSet from "../../ParameterSet.js"
 import { bestFullEvaluation, nextFullEvaluation, ToldEvaluation } from "./phase3State.js"
 import { phase3TrialBudget, resolvePhase3Cadence } from "./runtime/budget.js"
+import { diagnoseMetric, diagnoseModule, logCancelled } from "./runtime/diagnostics.js"
 import { parametersForConfig, ParametersForConfigOptions } from "./runtime/evaluate.js"
 import type { Phase3Config } from "./runtime/model.js"
+import { effectiveMaxErrors } from "./runtime/options.js"
 import {
   baselineConfig,
   buildSearchDimensions,
@@ -111,18 +113,23 @@ export const runPhase3Search = <
     const evaluations = Ref.get(ledger).pipe(Effect.map(Arr.map((row) => row.evaluation)))
     const parameters = (config: Phase3Config) =>
       parametersForConfig(new ParametersForConfigOptions({ config, bindings, trialBudget }))
+    // One evaluator configuration for baseline, minibatch and full rows, as compile builds one Evaluate.
+    const provideTraceback = Option.getOrElse(Option.fromUndefinedOr(options.provideTraceback), () => false)
+    const metric = diagnoseMetric(options.metric, provideTraceback)
+    const maxErrors = effectiveMaxErrors(options)
     const evaluateOn = (selected: ParameterSet.ParameterSet, examples: Examples) =>
       Evaluate.run(
         new Evaluate.Options({
-          module: bound(options.module, { ...initialParameters, ...selected }),
+          module: diagnoseModule(bound(options.module, { ...initialParameters, ...selected }), provideTraceback),
           examples,
-          metrics: { miprov2: options.metric },
+          metrics: { miprov2: metric },
           concurrency: Option.getOrElse(Option.fromUndefinedOr(options.numThreads), () => 1),
-          maxErrors: Option.getOrElse(Option.fromUndefinedOr(options.maxErrors), () => Option.none())
+          maxErrors
         })
       ).pipe(
         Effect.map((report) => evaluationPercentage(report, "miprov2")),
-        Effect.catch((error) => Effect.logError("MIPROv2 evaluation failed", error).pipe(Effect.as(0)))
+        // eval_candidate_program logs a cancelled evaluation and scores it 0.0.
+        Effect.catch((error) => logCancelled(error).pipe(Effect.as(0)))
       )
     const record = (evaluation: TrialEvaluation, percent: number) =>
       Ref.update(ledger, Arr.append(new ToldEvaluation({ evaluation, percent }))).pipe(

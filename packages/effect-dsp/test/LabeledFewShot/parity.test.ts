@@ -12,7 +12,7 @@ import * as LanguageModel from "effect/ai/LanguageModel"
 import { fixture } from "../kit/Fixtures.js"
 import { assertNoMutation } from "../kit/Mutation.js"
 
-it.effect("labeledfewshot-001: resets demos, samples each predictor independently, and can take the prefix", () =>
+it.effect("labeledfewshot-001: resets demos, samples in canonical path order despite declaration order, and takes prefixes", () =>
   Effect.gen(function*() {
     const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
@@ -30,7 +30,7 @@ it.effect("labeledfewshot-001: resets demos, samples each predictor independentl
       new Module.ComposeOptions({
         name: "root",
         signature,
-        subModules: { a, b },
+        subModules: { b, a },
         forward: ({ input }) => a.forward(input)
       })
     )

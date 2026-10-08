@@ -29,24 +29,17 @@ import {
 import { GEPAError } from "./DspError.js"
 import { Example, id as exampleId } from "./Example.js"
 import { deriveParetoKernelSnapshot } from "./internal/gepa/frontier.js"
-import {
-  CandidateScoreMatrix,
-  ParetoKernelSnapshot,
-  PredictorInstruction,
-  ProgramCandidate,
-  ProgramCandidates,
-  type ReflectiveExample
-} from "./internal/gepa/model.js"
 import { candidateParameters, evaluateCandidate } from "./internal/gepa/runtime/evaluate.js"
 import { runMergePhase } from "./internal/gepa/runtime/mergePhase.js"
 import { bestIndex, runMutationPhase } from "./internal/gepa/runtime/mutation.js"
 import { streamGEPAEvents } from "./internal/gepa/runtime/stream.js"
-import { BatchState } from "./internal/gepa/sampling.js"
+import { CheckpointContext, validateCheckpoint } from "./internal/gepa/validation.js"
 import * as Binding from "./internal/parameterBinding.js"
 import type { Metric } from "./Metric.js"
 import { bound, type Module as DspModule } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
 import * as Optimized from "./Optimized.js"
+import { Payload } from "./Payload.js"
 import type * as Predictor from "./Predictor.js"
 
 /** Ordered examples consumed by GEPA.
@@ -60,16 +53,113 @@ export const Examples = Schema.Array(Example)
  */
 export type Examples = typeof Examples.Type
 
+/** Instruction text for one trainable predictor of a candidate program.
+ * @since 0.7.0
+ * @category models
+ */
+export class PredictorInstruction extends Schema.Class<PredictorInstruction>(
+  "@scenesystems/effect-dsp/GEPA/PredictorInstruction"
+)({
+  predictorName: Schema.String,
+  instruction: Schema.String
+}) {}
+
+/** A program in the GEPA population. Candidate `i` is `candidate-i`; parents
+ * name earlier candidates, and instructions follow the module's trainable
+ * predictor order. Custom instruction proposers receive the selected parent.
+ * @since 0.7.0
+ * @category models
+ */
+export class ProgramCandidate extends Schema.Class<ProgramCandidate>("@scenesystems/effect-dsp/GEPA/ProgramCandidate")({
+  candidateId: Schema.String,
+  parentIds: Schema.Array(Schema.String),
+  predictorInstructions: Schema.Array(PredictorInstruction)
+}) {}
+
+/** Candidates attaining the best observed score on one validation example.
+ * @since 0.7.0
+ * @category models
+ */
+export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>(
+  "@scenesystems/effect-dsp/GEPA/ExampleFrontierHolding"
+)({
+  exampleIndex: Schema.Finite,
+  bestScore: Schema.Finite,
+  holders: Schema.Array(Schema.Finite)
+}) {}
+
+/** Parent-selection frequency: the number of validation examples on which a
+ * candidate remains in the irredundant per-example cover.
+ * @since 0.7.0
+ * @category models
+ */
+export class ParentSelectionWeight extends Schema.Class<ParentSelectionWeight>(
+  "@scenesystems/effect-dsp/GEPA/ParentSelectionWeight"
+)({
+  candidateIndex: Schema.Finite,
+  weight: Schema.Finite
+}) {}
+
+/** Coverage front derived from the validation score vectors: frontier and
+ * dominated candidate indices, raw per-example holdings and parent weights.
+ * A checkpoint's snapshot must equal the one derived from its score vectors.
+ * @since 0.7.0
+ * @category models
+ */
+export class ParetoSnapshot extends Schema.Class<ParetoSnapshot>("@scenesystems/effect-dsp/GEPA/ParetoSnapshot")({
+  frontierIndices: Schema.Array(Schema.Finite),
+  dominatedIndices: Schema.Array(Schema.Finite),
+  exampleHoldings: Schema.Array(ExampleFrontierHolding),
+  parentWeights: Schema.Array(ParentSelectionWeight)
+}) {}
+
+/** Epoch-shuffled training minibatch schedule persisted with the orchestration RNG.
+ * `shuffled` holds training-set indices for a training set of `trainsetSize` rows.
+ * @since 0.7.0
+ * @category models
+ */
+export class BatchState extends Schema.Class<BatchState>("@scenesystems/effect-dsp/GEPA/BatchState")({
+  shuffled: Schema.Array(Schema.Int),
+  frequencies: Schema.Array(Schema.Struct({ id: Schema.Int, count: Schema.Int })),
+  epoch: Schema.Int,
+  iteration: Schema.Int,
+  calls: Schema.Int,
+  trainsetSize: Schema.Int
+}) {}
+
+/** One reflective-feedback row offered to an instruction proposer: the
+ * predictor execution's input and output, the expected output, feedback and
+ * score. `predictor-execution` rows carry the targeted predictor's own call.
+ * @since 0.7.0
+ * @category models
+ */
+export class ReflectiveExample extends Schema.Class<ReflectiveExample>(
+  "@scenesystems/effect-dsp/GEPA/ReflectiveExample"
+)({
+  exampleId: Schema.String,
+  predictorName: Schema.String,
+  evidenceScope: Schema.Literals(["predictor-execution", "program"]).pipe(
+    Schema.withConstructorDefault(Effect.succeed("program"))
+  ),
+  inputs: Payload,
+  generatedOutputs: Payload,
+  expectedOutput: Payload,
+  feedback: Schema.String,
+  score: Schema.Finite
+}) {}
+
 /** Complete continuation state, including both RNG streams and the epoch/merge schedulers.
  * Resume is uninterrupted-equivalent, unlike upstream's partial run_dir checkpoint.
+ * `resume` rejects a state inconsistent with the module, datasets or its own
+ * derived frontier with `GEPAError` reason `invalid-state` before evaluating.
  * @since 0.7.0
  * @category models
  */
 export class State extends Schema.Class<State>("@scenesystems/effect-dsp/GEPA/State")({
   iteration: Schema.Int,
-  candidates: ProgramCandidates,
-  scoreVectors: CandidateScoreMatrix,
-  paretoSnapshot: ParetoKernelSnapshot,
+  candidates: Schema.Array(ProgramCandidate),
+  scoreVectors: Schema.Array(Schema.Array(Schema.Finite)),
+  paretoSnapshot: ParetoSnapshot,
   componentCursors: Schema.Array(Schema.Int),
   metricCalls: Schema.Int,
   feedbackMetricCalls: Schema.Int,
@@ -112,6 +202,7 @@ export class Options<
   readonly skipPerfectScore?: boolean
   readonly addFormatFailureAsFeedback?: boolean
   readonly reflectionSettings?: ModelSettings
+  /** Custom selectors must return trainable predictor paths; unknown or frozen paths fail with `GEPAError`. */
   readonly componentSelector?: "roundRobin" | "all" | ((state: State) => Chunk.Chunk<Predictor.Path>)
   readonly instructionProposer?: (
     candidate: ProgramCandidate,
@@ -298,7 +389,7 @@ export const tapProgress =
     Stream.tap(stream, (event) => sink(formatEvent(event)))
 
 /** Folded terminal GEPA event state.
- * @since 0.1.0
+ * @since 0.7.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/GEPA/Report")({
@@ -565,9 +656,19 @@ const runOptimization = <I extends Schema.Struct.Fields, O extends Schema.Struct
       parentIds: Arr.empty<string>(),
       predictorInstructions: initialInstructions
     })
+    const checkpointContext = new CheckpointContext({
+      trainable: Arr.map(paramRefs, Struct.get("path")),
+      frozen: Arr.map(
+        Arr.filter(Arr.fromIterable(predictors(options.module)), Struct.get("frozen")),
+        Struct.get("path")
+      ),
+      trainsetSize: options.trainset.length,
+      valsetSize: valset.length
+    })
     const initial = yield* Option.match(checkpoint, {
       onSome: (state) =>
-        rng.restore(state.orchestrationRandom).pipe(
+        validateCheckpoint(state, checkpointContext).pipe(
+          Effect.andThen(rng.restore(state.orchestrationRandom)),
           Effect.andThen(adapterRng.restore(state.adapterRandom)),
           Effect.as(state)
         ),

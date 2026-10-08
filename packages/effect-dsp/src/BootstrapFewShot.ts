@@ -28,6 +28,7 @@ import {
 } from "effect"
 import { Example, Id as ExampleId, id as exampleId } from "./Example.js"
 import { sampleLabeled } from "./internal/labeledFewShot/sampling.js"
+import { effectiveMaxErrors } from "./internal/maxErrors.js"
 import * as LabeledFewShot from "./LabeledFewShot.js"
 import { type Metric, Score } from "./Metric.js"
 import { bound, type Module } from "./Module.js"
@@ -36,9 +37,6 @@ import { withDemos as withModuleParametersDemos } from "./ModuleParameters.js"
 import * as Optimized from "./Optimized.js"
 import * as ParameterSet from "./ParameterSet.js"
 import * as TeacherTrace from "./TeacherTrace.js"
-
-/** DSPy's `max_errors=None` inherits `dspy.settings.max_errors`, pinned at 10. */
-const settingsMaxErrors = Option.some(10)
 
 const normalizeNonNegative = (value: number): number =>
   Bool.match(Numeric.isFinite(value), {
@@ -148,7 +146,7 @@ export const tapProgress =
     Stream.tap(stream, (event) => sink(formatEvent(event)))
 
 /** Folded bootstrap lifecycle counters.
- * @since 0.1.0
+ * @since 0.7.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/BootstrapFewShot/Report")({
@@ -359,7 +357,7 @@ export const runWithEvents = <
         trainset: Chunk.fromIterable(options.trainset),
         metric: options.metric,
         threshold: Option.flatten(Option.fromUndefinedOr(options.metricThreshold)),
-        maxErrors: Option.orElse(Option.flatten(Option.fromUndefinedOr(options.maxErrors)), () => settingsMaxErrors),
+        maxErrors: effectiveMaxErrors(Option.flatten(Option.fromUndefinedOr(options.maxErrors))),
         maxRounds,
         concurrency: 1,
         stopWhen: (accepted) =>

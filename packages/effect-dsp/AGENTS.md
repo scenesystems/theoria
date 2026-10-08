@@ -13,11 +13,17 @@ must remain independent of `@scenesystems/effect-inference`.
 ## Public architecture
 
 Public modules are PascalCase source-root files and matching package subpaths:
-`Signature`, `Module`, `ModuleParameters`, `ModuleGraph`, `Demonstration`,
-`Example`, `Metric`, `Evaluate`, `EvaluationObjective`, `Artifact`, `Trace`,
-`Cache`, `Payload`, `DspError`, `OptimizerEvent`, `LabeledFewShot`,
+`Signature`, `Module`, `ModuleParameters`, `ModuleGraph`, `Predictor`,
+`ParameterSet`, `Optimized`, `Prediction`, `Demonstration`, `Example`, `Metric`,
+`Evaluate`, `EvaluationObjective`, `Artifact`, `Trace`, `Cache`, `Payload`,
+`DspError`, `OptimizerEvent`, `TeacherTrace`, `LabeledFewShot`,
 `BootstrapFewShot`, `BootstrapRS`, `MIPROv2`, `MIPROv2Candidates`,
-`MIPROv2Search`, `GEPA`, `Ensemble`, and `MockLanguageModel`.
+`MIPROv2Search`, `GEPA`, `Ensemble`, and `MockLanguageModel`. Model settings,
+roles, identity and binding belong to `@scenesystems/effect-lm`; do not mirror
+them here.
+
+Optimizers return `Optimized.Result` values and never write caller parameters;
+`Module.install` (and validated `Module.load`) are the only writers.
 
 Algorithms own their options, lifecycle events, streams, progress formatting,
 and summaries. There is no umbrella Optimizer namespace. Optimization results,
@@ -41,7 +47,12 @@ compatibility aliases, generic contracts buckets, or empty experimental modules.
 - Trace payloads use the lossless `Payload` codec and retain native AI usage.
 - Use Effect modules for control flow, collections, equality, ordering, numbers,
   strings, graphs, maps, and randomness. Search randomness uses effect-search
-  Sampler primitives directly.
+  Sampler primitives directly. Where a DSPy parity claim depends on upstream's
+  exact seeded draws, use the pinned CPython or NumPy legacy streams from
+  `@scenesystems/effect-math/PseudoRandom` with explicit seeds and checkpoints;
+  this is not a license for native randomness or other new adapters.
+- Upstream-compatible float sums use `Numeric.sumNeumaier` from effect-math
+  where pinned DSPy/GEPA call Python's builtin `sum`.
 - Public names are concern-local (`Options`, `run`, `runWithEvents`, `stream`);
   do not repeat the module name in symbols.
 

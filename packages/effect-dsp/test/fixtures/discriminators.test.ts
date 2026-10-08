@@ -77,8 +77,8 @@ const Bootstrap = Schema.Struct({
   })
 })
 
-// Decode outside each expected-failure assertion too: malformed evidence must fail the suite.
-it.effect("decodes all discriminator payloads independently of expected failures", () =>
+// Decode independently of behavior assertions: malformed evidence must fail the suite.
+it.effect("schema-validates all discriminator payloads before behavioral replay", () =>
   Effect.gen(function*() {
     yield* Schema.decodeUnknownEffect(Eval)(
       (yield* fixture("eval-failure-inclusive-001", "upstream-execution")).payload

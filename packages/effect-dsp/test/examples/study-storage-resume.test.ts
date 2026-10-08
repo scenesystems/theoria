@@ -11,6 +11,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
+import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as ObjectiveCache from "@scenesystems/effect-search/ObjectiveCache"
 import * as Optimization from "@scenesystems/effect-search/Optimization"
@@ -99,12 +100,13 @@ const runtimeLayer = (
     ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: cachePrefix }))
   )
 
-describe("examples/07-miprov2-resume-from-storage", () => {
+describe("examples/07-study-resume-from-storage-live", () => {
   it.effect("writes snapshot/log state and resumes from persisted storage", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-dsp-example-resume-" })
       const module = yield* makeQAModule
+      const before = yield* ParameterSet.snapshot(module)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map(responseForPrompt)
       )
@@ -114,18 +116,17 @@ describe("examples/07-miprov2-resume-from-storage", () => {
         Effect.gen(function*() {
           const config = yield* Schema.decodeUnknownEffect(space.schema)(raw)
 
-          yield* Ref.set(
-            module.parameters,
-            new ModuleParameters({
+          const candidate = Module.bound(module, {
+            [module.name]: new ModuleParameters({
               instructions: instructionCandidate(config.instructionIndex),
               demos: demoCandidate(config.demoIndex),
               outputStrategy: "structured"
             })
-          )
+          })
 
           const report = yield* Evaluate.run(
             new Evaluate.Options({
-              module,
+              module: candidate,
               examples: italyEvalset,
               metrics: {
                 exactMatch: Metric.exactMatch("answer")
@@ -184,6 +185,7 @@ describe("examples/07-miprov2-resume-from-storage", () => {
       const resumedTags = Arr.map(resumed, (event) => event._tag)
       const calls = yield* Ref.get(mock.calls)
 
+      expect(yield* ParameterSet.snapshot(module)).toEqual(before)
       expect(Arr.length(firstLeg)).toBeGreaterThan(0)
       expect(resumedTags).toContain("Completed")
       expect(Arr.last(resumedTags)).toEqual(Option.some("Completed"))

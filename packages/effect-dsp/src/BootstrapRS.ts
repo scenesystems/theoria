@@ -10,6 +10,7 @@ import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Number as Num, Opti
 import * as BootstrapFewShot from "./BootstrapFewShot.js"
 import * as Evaluate from "./Evaluate.js"
 import type { Example } from "./Example.js"
+import { effectiveMaxErrors } from "./internal/maxErrors.js"
 import * as LabeledFewShot from "./LabeledFewShot.js"
 import type { Metric } from "./Metric.js"
 import * as Module from "./Module.js"
@@ -63,10 +64,11 @@ export class Options<
   readonly maxLabeledDemos?: number
   /** Optional bootstrap acceptance threshold. */
   readonly metricThreshold?: Option.Option<number>
-  /** Error count that aborts each bootstrap or validation pass. */
+  /** Error count that aborts each bootstrap or validation pass; absent or none uses DSPy's settings default, 10. */
   readonly maxErrors?: Option.Option<number>
   /** Stop after a full validation average reaches this fraction in [0, 1].
-   * DSPy's stop_at_score is a percentage; this is the equivalent fraction.
+   * DSPy's stop_at_score is compared with a percentage rounded to two decimals; this compares the
+   * unrounded fraction, so averages within 0.00005 below the threshold continue where DSPy stops.
    */
   readonly stopAtScore?: Option.Option<number>
   /** Teacher program used by each BootstrapFewShot compilation. */
@@ -90,7 +92,15 @@ const count = (value: number) =>
  * Every candidate starts independently from the supplied program. Evaluate.average
  * includes failed rows in its denominator. The highest fraction score wins, with
  * earliest-candidate ties. stopAtScore prevents construction of subsequent candidates.
- * Checked evaluation errors consume maxErrors; exhausted budgets propagate.
+ *
+ * DSPy ranks `round(100 * ncorrect / ntotal, 2)` percentages. Ranking the unrounded
+ * fraction differs only when two averages round to the same hundredth of a percent,
+ * so they differ by less than 0.0001: DSPy keeps the earlier candidate, this keeps the
+ * higher fraction. Fractions 0.0001 or more apart rank identically.
+ *
+ * Checked bootstrap and evaluation errors consume maxErrors; exhausted budgets propagate.
+ * An absent maxErrors is DSPy's `dspy.settings.max_errors`, 10, for every bootstrap
+ * compilation and validation pass.
  * Caller parameters remain unchanged on success, failure, and interruption.
  *
  * @since 0.1.0
@@ -115,6 +125,8 @@ export const run = <
       (threshold) => Schema.decodeEffect(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 })))(threshold)
     )
     const original = Module.bound(options.module, yield* ParameterSet.snapshot(options.module))
+    // One effective budget for every bootstrap compilation and validation pass, as compile does.
+    const maxErrors = effectiveMaxErrors(Option.flatten(Option.fromUndefinedOr(options.maxErrors)))
     const maxBootstrappedDemos = Numeric.max(
       1,
       count(Option.getOrElse(Option.fromUndefinedOr(options.maxBootstrappedDemos), () => 4))
@@ -165,7 +177,7 @@ export const run = <
                     maxBootstrappedDemos: cap,
                     maxLabeledDemos,
                     metricThreshold: Option.flatten(Option.fromUndefinedOr(options.metricThreshold)),
-                    maxErrors: Option.flatten(Option.fromUndefinedOr(options.maxErrors)),
+                    maxErrors,
                     ...Option.match(Option.fromUndefinedOr(options.teacher), {
                       onNone: () => ({}),
                       onSome: (teacher) => ({ teacher })
@@ -184,7 +196,7 @@ export const run = <
               examples: Option.getOrElse(Option.fromUndefinedOr(options.valset), () => options.trainset),
               metrics: { bootstrapRS: options.metric },
               concurrency: 1,
-              maxErrors: Option.flatten(Option.fromUndefinedOr(options.maxErrors))
+              maxErrors
             })
           )
           const candidate = {

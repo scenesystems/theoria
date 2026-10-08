@@ -10,7 +10,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Match, Option, Record, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Record, Ref, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
@@ -20,13 +20,13 @@ const trainset = Arr.make(
 
 const responseForPrompt = (prompt: string) =>
   Match.value(prompt).pipe(
-    Match.when((value: string) => value.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
-    Match.when((value: string) => value.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
+    Match.when(Str.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
+    Match.when(Str.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
     Match.orElse(() => ({ answer: "Unknown" }))
   )
 
 describe("integration/predict-optimize-evaluate", () => {
-  it.effect("runs the full pipeline with deterministic mock-layer behavior", () =>
+  it.effect("evaluates, bootstraps demos and re-evaluates the compiled program with every row succeeding", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make(
         "Answer geography questions with concise city names",
@@ -101,6 +101,6 @@ describe("integration/predict-optimize-evaluate", () => {
       expect(optimizedReport.failureCount).toBe(0)
       expect(optimizedReport.successCount).toBeGreaterThanOrEqual(baselineReport.successCount)
       expect(prediction).toEqual({ answer: "Paris" })
-      expect(Arr.some(calls, (call) => call.prompt.includes("What is the capital of France?"))).toBe(true)
+      expect(Arr.some(calls, (call) => Str.includes("What is the capital of France?")(call.prompt))).toBe(true)
     }))
 })

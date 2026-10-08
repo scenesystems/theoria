@@ -35,18 +35,25 @@ const DraftResponse = Schema.Struct({
   sources: Signature.describe(Schema.Array(Schema.String), "Evidence identifiers")
 })
 
+const reflectedInstruction = "Answer geography questions with concise, factually correct capital city names."
+
 const reflectiveResponse = Arr.of(
   Response.makePart("text", {
-    text: "```\nAnswer geography questions with concise, factually correct capital city names.\n```"
+    text: `\`\`\`\n${reflectedInstruction}\n\`\`\``
   })
 )
 
+// Germany is answered correctly only under the reflected instruction.
 const responseForPrompt = (prompt: string) =>
   Match.value(prompt).pipe(
     Match.when(Str.includes("Your task is to write a new instruction"), () => reflectiveResponse),
     Match.when(Str.includes("France"), () => AnswerResponse.make({ answer: "Paris" })),
     Match.when(Str.includes("Japan"), () => AnswerResponse.make({ answer: "Tokyo" })),
-    Match.orElse(() => AnswerResponse.make({ answer: "Lyon" }))
+    Match.orElse((text) =>
+      AnswerResponse.make({
+        answer: Bool.match(Str.includes(reflectedInstruction)(text), { onFalse: () => "Lyon", onTrue: () => "Berlin" })
+      })
+    )
   )
 
 const makeQaSignature = () =>
@@ -165,7 +172,7 @@ describe("GEPA integration", () => {
     }))
 
   it.effect(
-    "runs end-to-end with deterministic mock LM and feedback-aware metric",
+    "runs end-to-end with deterministic mock LM and feedback-aware metric and returns the hand-derived best candidate",
     () =>
       Effect.gen(function*() {
         const reference = yield* fixture("gepa-aggregate-best-001", "upstream-execution")
@@ -196,39 +203,101 @@ describe("GEPA integration", () => {
             })
           }), "feedbackExactMatch")
 
-        const events = yield* Stream.runCollect(
-          GEPA.stream(
-            new GEPA.Options({
-              module,
-              trainset: Arr.make(
-                new Example({
-                  input: { question: "What is the capital of France?" },
-                  labels: Option.some({ answer: "Paris" })
-                }),
-                new Example({
-                  input: { question: "What is the capital of Japan?" },
-                  labels: Option.some({ answer: "Tokyo" })
-                }),
-                new Example({
-                  input: { question: "What is the capital of Germany?" },
-                  labels: Option.some({ answer: "Berlin" })
-                })
-              ),
-              metric: feedbackMetric,
-              maxMetricCalls: 30,
-              maxIterations: 3,
-              seed
+        const options = new GEPA.Options({
+          module,
+          trainset: Arr.make(
+            new Example({
+              input: { question: "What is the capital of France?" },
+              labels: Option.some({ answer: "Paris" })
+            }),
+            new Example({
+              input: { question: "What is the capital of Japan?" },
+              labels: Option.some({ answer: "Tokyo" })
+            }),
+            new Example({
+              input: { question: "What is the capital of Germany?" },
+              labels: Option.some({ answer: "Berlin" })
             })
-          )
-        ).pipe(Effect.provide(layer))
+          ),
+          metric: feedbackMetric,
+          maxMetricCalls: 30,
+          maxIterations: 3,
+          seed
+        })
+        const callerBefore = yield* Ref.get(module.parameters)
+        const recorded = yield* Ref.make(Arr.empty<GEPA.Event>())
+        const result = yield* GEPA.runWithEvents(options, (event) => Ref.update(recorded, Arr.append(event))).pipe(
+          Effect.provide(layer)
+        )
+        const streamed = yield* Stream.runCollect(GEPA.stream(options)).pipe(Effect.provide(layer))
 
-        const eventList = Arr.fromIterable(events)
+        const eventList = yield* Ref.get(recorded)
         const paretoEvents = Arr.filter(eventList, GEPA.events.$is("ParetoUpdated"))
-        const parameters = yield* Ref.get(module.parameters)
+        const state = yield* Option.match(result.report.state, {
+          onNone: () => Effect.sync(() => expect.fail("GEPA report retained no final state")),
+          onSome: Effect.succeed
+        })
+        const selected = yield* Option.match(Record.get(result.parameters, "qa"), {
+          onNone: () => Effect.sync(() => expect.fail("GEPA result omitted the qa predictor")),
+          onSome: Effect.succeed
+        })
+        const germany = yield* result.program.forward({ question: "What is the capital of Germany?" }).pipe(
+          Effect.provide(layer)
+        )
 
+        // Hand-derived validation table (trainset doubles as valset): only the reflected
+        // instruction answers Germany, so the seed scores [1, 1, 0] and the child [1, 1, 1].
+        const expectedScores = [[1, 1, 0], [1, 1, 1]]
+        const expectedBest = Option.getOrThrow(
+          Arr.reduce(
+            expectedScores,
+            Option.none<{ index: number; total: number }>(),
+            (best, scores, index) => {
+              const total = Arr.reduce(scores, 0, Num.sum)
+              return Option.match(best, {
+                onNone: () => Option.some({ index, total }),
+                onSome: (current) =>
+                  Bool.match(total > current.total, {
+                    onFalse: () => best,
+                    onTrue: () => Option.some({ index, total })
+                  })
+              })
+            }
+          )
+        )
+        expect(expectedBest.index).toBe(1)
+        expect(state.scoreVectors).toEqual(expectedScores)
+        expect(
+          Arr.map(
+            state.candidates,
+            (candidate) => Arr.map(candidate.predictorInstructions, (entry) => entry.instruction)
+          )
+        ).toEqual([
+          [callerBefore.instructions],
+          [reflectedInstruction]
+        ])
+        expect(result.report.optimizationBestCandidateId).toBe(`candidate-${expectedBest.index}`)
+        expect(selected.instructions).toBe(reflectedInstruction)
+        expect(selected.instructions).not.toBe(callerBefore.instructions)
+        expect(germany.answer).toBe("Berlin")
+        expect(
+          Arr.getSomes(Arr.map(eventList, (event) =>
+            Match.value(event).pipe(
+              Match.tag("AcceptanceEvaluated", (acceptance) =>
+                Option.some({
+                  accepted: acceptance.accepted,
+                  before: acceptance.previousSubsampleSum,
+                  after: acceptance.mutatedSubsampleSum
+                })),
+              Match.orElse(() => Option.none())
+            )))
+        ).toEqual([{ accepted: true, before: 2, after: 3 }])
+        expect(Arr.length(paretoEvents)).toBe(3)
+        expect(Option.getOrThrow(Arr.last(paretoEvents)).frontierIndices).toEqual([1])
+        expect(Arr.fromIterable(streamed)).toEqual(eventList)
+        expect(yield* Ref.get(module.parameters)).toEqual(callerBefore)
         expect(Num.isGreaterThan(Arr.length(paretoEvents), 0)).toBe(true)
-        expect(Num.isGreaterThan(Str.length(parameters.instructions), 0)).toBe(true)
-        expect(Option.isSome(Arr.findFirst(eventList, GEPA.events.$is("AcceptanceEvaluated")))).toBe(true)
+        expect(Num.isGreaterThan(Str.length(selected.instructions), 0)).toBe(true)
       })
   )
 })

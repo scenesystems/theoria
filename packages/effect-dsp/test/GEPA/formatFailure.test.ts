@@ -23,7 +23,6 @@ import * as Tool from "effect/ai/Tool"
 import * as Toolkit from "effect/ai/Toolkit"
 import { Example, Id } from "../../src/Example.js"
 import * as GEPA from "../../src/GEPA.js"
-import type { ProgramCandidate, ReflectiveExample } from "../../src/internal/gepa/model.js"
 import { parseFailureFeedbackPrefix } from "../../src/internal/gepa/reflect.js"
 import { promptToTraceText } from "../../src/internal/prompt/trace.js"
 import * as Metric from "../../src/Metric.js"
@@ -86,9 +85,9 @@ const Lookup = Tool.make("Lookup", {
 })
 
 class Proposal extends Data.Class<{
-  readonly candidate: ProgramCandidate
+  readonly candidate: GEPA.ProgramCandidate
   readonly components: ReadonlyArray<string>
-  readonly examples: Record.ReadonlyRecord<string, ReadonlyArray<ReflectiveExample>>
+  readonly examples: Record.ReadonlyRecord<string, ReadonlyArray<GEPA.ReflectiveExample>>
 }> {}
 
 /**

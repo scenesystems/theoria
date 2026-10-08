@@ -9,7 +9,19 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean as Bool, Effect, Exit, Fiber, Layer, Option, Ref, Schema, Stream } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Option,
+  Ref,
+  Schema,
+  Stream,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -72,7 +84,7 @@ describe("MIPROv2.stream", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          Bool.match(prompt.includes("Return only "), {
+          Bool.match(Str.includes("Return only ")(prompt), {
             onFalse: () => ({ answer: "Paris" }),
             onTrue: () => "Use concise factual answers"
           })
@@ -105,7 +117,7 @@ describe("MIPROv2.stream", () => {
         MockLanguageModel.fromFunction((prompt) =>
           Effect.sleep("50 millis").pipe(
             Effect.as(
-              Bool.match(prompt.includes("Return only "), {
+              Bool.match(Str.includes("Return only ")(prompt), {
                 onFalse: () => ({ answer: "Paris" }),
                 onTrue: () => "Use concise factual answers"
               })
@@ -128,7 +140,7 @@ describe("MIPROv2.stream", () => {
       expect(Exit.hasInterrupts(exit)).toBe(true)
     }))
 
-  it.effect("keeps stream and non-stream optimization states in parity", () =>
+  it.effect("summarizes streamed events into the run report and leaves both modules' saved state unchanged", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const moduleA = yield* Module.predict("qa-a", signature)
@@ -139,7 +151,7 @@ describe("MIPROv2.stream", () => {
 
       const mockA = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          Bool.match(prompt.includes("Return only "), {
+          Bool.match(Str.includes("Return only ")(prompt), {
             onFalse: () => ({ answer: "Paris" }),
             onTrue: () => "Use concise factual answers"
           })
@@ -147,7 +159,7 @@ describe("MIPROv2.stream", () => {
       )
       const mockB = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          Bool.match(prompt.includes("Return only "), {
+          Bool.match(Str.includes("Return only ")(prompt), {
             onFalse: () => ({ answer: "Paris" }),
             onTrue: () => "Use concise factual answers"
           })

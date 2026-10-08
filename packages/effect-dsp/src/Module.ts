@@ -87,7 +87,7 @@ export const RolloutCount = Schema.Int.pipe(
 export type RolloutCount = typeof RolloutCount.Type
 
 /** A module and its sub-modules used for composition, optimization, and persistence.
- * @since 0.1.0
+ * @since 0.7.0
  * @category models
  */
 export class Structure extends Data.Class<{
@@ -104,7 +104,7 @@ export class Structure extends Data.Class<{
 }> {}
 
 /** A named sub-module in a program's structure.
- * @since 0.4.0
+ * @since 0.7.0
  * @category models
  */
 export class SubModule extends Data.Class<{
@@ -122,7 +122,7 @@ const predictorIdentity = Equivalence.strictEqual<Structure["parameters"]>()
 const subModuleOrder: Order.Order<SubModule> = Order.mapInput(Order.String, (entry) => entry.name)
 
 /** Projects recursive program structure into a directed graph without reading parameters.
- * @since 0.4.0
+ * @since 0.7.0
  * @category constructors
  */
 export const structure = (roots: Iterable<Structure>): Graph.DirectedGraph<Structure, SubModule> =>
@@ -167,7 +167,7 @@ export const structure = (roots: Iterable<Structure>): Graph.DirectedGraph<Struc
   })
 
 /** A module observed during program execution.
- * @since 0.1.0
+ * @since 0.7.0
  * @category models
  */
 export class Discovered extends Data.TaggedClass("ModuleDiscovered")<{

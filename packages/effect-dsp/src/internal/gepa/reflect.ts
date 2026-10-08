@@ -7,8 +7,8 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean, Match, Number, Option, Schema, String } from "effect"
+import { ReflectiveExample } from "../../GEPA.js"
 import type { Score } from "../../Metric.js"
-import { ReflectiveExample } from "./model.js"
 import type { ReflectiveDatasetSample } from "./model.js"
 
 const EMPTY_FEEDBACK = ""
@@ -166,7 +166,8 @@ export const selectPredictorRoundRobin = (
 export const ReflectivePromptOptions = Schema.Struct({
   predictorName: Schema.String,
   currentInstruction: Schema.String,
-  examples: Schema.Array(ReflectiveExample)
+  // Suspended: GEPA owns ReflectiveExample and is evaluated after this private module.
+  examples: Schema.suspend(() => Schema.Array(ReflectiveExample))
 })
 
 /**

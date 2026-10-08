@@ -9,7 +9,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean as Bool, Effect, Layer, Match, Option, Record, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Match, Option, Record, Ref, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { assertNoMutation } from "../kit/Mutation.js"
 
@@ -55,17 +55,17 @@ describe("BootstrapRS.run", () => {
         MockLanguageModel.map((prompt) =>
           Match.value(prompt).pipe(
             Match.when(
-              (value: string) => value.includes("What is the capital of France?"),
+              Str.includes("What is the capital of France?"),
               () => "[[ ## answer ## ]]\nParis"
             ),
             Match.when(
-              (value: string) => value.includes("What is the capital of Japan?"),
+              Str.includes("What is the capital of Japan?"),
               () => "[[ ## answer ## ]]\nTokyo"
             ),
             Match.when(
-              (value: string) => value.includes("Name the capital of Japan in one word"),
+              Str.includes("Name the capital of Japan in one word"),
               (value) =>
-                Bool.match(value.includes("Tokyo"), {
+                Bool.match(Str.includes("Tokyo")(value), {
                   onFalse: () => "[[ ## answer ## ]]\nLondon",
                   onTrue: () => "[[ ## answer ## ]]\nTokyo"
                 })

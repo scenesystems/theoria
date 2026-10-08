@@ -15,18 +15,17 @@ import * as TeacherTrace from "@scenesystems/effect-dsp/TeacherTrace"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Chunk, Effect, Number, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
-import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
 import { evaluateCandidate, reflectiveSamples } from "../../src/internal/gepa/runtime/evaluate.js"
 
 const Input = Schema.Struct({ seed: Schema.FiniteFromString })
 const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.FiniteFromString }) })
 const example = new Example({ input: { seed: "04" }, labels: Option.some({ result: { count: "03" } }) })
 const invalidExample = new Example({ input: { seed: "04" }, labels: Option.some({ result: { count: "invalid" } }) })
-const candidate = new ProgramCandidate({
+const candidate = new GEPA.ProgramCandidate({
   candidateId: "candidate",
   parentIds: Arr.empty(),
   predictorInstructions: Arr.make(
-    new PredictorInstruction({ predictorName: "counter", instruction: "Try another instruction" })
+    new GEPA.PredictorInstruction({ predictorName: "counter", instruction: "Try another instruction" })
   )
 })
 

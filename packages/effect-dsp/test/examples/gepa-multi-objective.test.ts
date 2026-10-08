@@ -112,7 +112,7 @@ const runGepaMultiObjective = Effect.gen(function*() {
   }> {})({ eventList, parameters, module: compiled.program, layer })
 })
 
-describe("examples/15-gepa-multi-objective-mock", () => {
+describe("examples/gepa-multi-objective", () => {
   it.effect("emits canonical GEPA event progression with Pareto updates", () =>
     Effect.gen(function*() {
       const { eventList } = yield* runGepaMultiObjective

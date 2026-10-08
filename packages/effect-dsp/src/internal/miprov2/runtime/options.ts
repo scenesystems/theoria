@@ -12,8 +12,13 @@ import {
 } from "../../../MIPROv2Candidates.js"
 import { type EventSink, Options as SearchOptions } from "../../../MIPROv2Search.js"
 import { predictors } from "../../../ModuleGraph.js"
+import * as ErrorBudget from "../../maxErrors.js"
 import * as Sampling from "../sampling.js"
 import { phase3TrialBudget } from "./budget.js"
+
+/** Absent or none uses the settings default for bootstrap and every evaluation, as compile does. @internal */
+export const effectiveMaxErrors = (options: { readonly maxErrors?: Option.Option<number> }): Option.Option<number> =>
+  ErrorBudget.effectiveMaxErrors(Option.flatten(Option.fromUndefinedOr(options.maxErrors)))
 
 /** Resolved compile datasets and counts; source options carry generic module/metric services. @internal */
 export class ResolvedOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>
@@ -141,7 +146,7 @@ export const toPhase1Options = <I extends Schema.Struct.Fields, O extends Schema
     maxLabeledDemos: Option.getOrElse(Option.fromUndefinedOr(resolved.options.maxLabeledDemos), () => 4),
     maxBootstrappedDemos: Option.getOrElse(Option.fromUndefinedOr(resolved.options.maxBootstrappedDemos), () => 4),
     metricThreshold: Option.getOrElse(Option.fromUndefinedOr(resolved.options.metricThreshold), () => Option.none()),
-    maxErrors: Option.getOrElse(Option.fromUndefinedOr(resolved.options.maxErrors), () => Option.none())
+    maxErrors: effectiveMaxErrors(resolved.options)
   }))
 
 /** @internal */
@@ -178,5 +183,6 @@ export const toPhase3Options = <I extends Schema.Struct.Fields, O extends Schema
     minibatch: resolved.minibatch,
     minibatchSize: Option.getOrElse(Option.fromUndefinedOr(resolved.options.minibatchSize), () => 35),
     fullEvalEvery: Option.getOrElse(Option.fromUndefinedOr(resolved.options.minibatchFullEvalSteps), () => 5),
-    seed: Option.getOrElse(Option.fromUndefinedOr(resolved.options.seed), () => 9)
+    seed: Option.getOrElse(Option.fromUndefinedOr(resolved.options.seed), () => 9),
+    maxErrors: effectiveMaxErrors(resolved.options)
   }))

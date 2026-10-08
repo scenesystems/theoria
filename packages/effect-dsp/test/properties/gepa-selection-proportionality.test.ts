@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Arbitrary, Array as Arr, Effect, Number as Num, Schema } from "effect"
-import { ParentSelectionWeight } from "../../src/internal/gepa/model.js"
+import { ParentSelectionWeight } from "../../src/GEPA.js"
 import { selectParent } from "../../src/internal/gepa/sampling.js"
 
 const weightVectorArbitrary = Arbitrary.array(

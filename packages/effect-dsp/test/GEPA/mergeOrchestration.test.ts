@@ -3,7 +3,6 @@ import { Array as Arr, Boolean, Chunk, Effect, Match, Option, Record, Ref, Schem
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { Example, Id } from "../../src/Example.js"
 import * as GEPA from "../../src/GEPA.js"
-import type { ProgramCandidate } from "../../src/internal/gepa/model.js"
 import * as Metric from "../../src/Metric.js"
 import * as MockLanguageModel from "../../src/MockLanguageModel.js"
 import * as Module from "../../src/Module.js"
@@ -37,7 +36,7 @@ const Reference = Schema.Struct({
   bestIndex: Schema.Int,
   totalMetricCalls: Schema.Int
 })
-const instructions = (candidate: ProgramCandidate) =>
+const instructions = (candidate: GEPA.ProgramCandidate) =>
   Record.fromEntries(
     Arr.map(candidate.predictorInstructions, (entry) => Tuple.make(entry.predictorName, entry.instruction))
   )

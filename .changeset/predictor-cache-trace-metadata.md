@@ -4,7 +4,7 @@
 "@scenesystems/effect-inference": minor
 ---
 
-Add predictor request caching partitioned by model identity, settings, role, rollout, predictor path, effective signature and parameters. Automatic caching warns and continues on cache failures; explicit cache operations retain typed errors. ModelIdentity declares provider/model identity for durable reuse, with process-local runtime identity as the fallback.
+Add predictor request caching partitioned by model identity, settings, role, rollout, predictor path, effective signature and parameters. Automatic caching warns and continues on cache failures; explicit cache operations retain typed errors. ModelIdentity declares provider/model identity for durable reuse. Runtimes without a declared identity are partitioned by language-model and binder object identity only for the lifetime of the `Cache.layer` scope, which releases those identities when it closes; a Cache service installed without that layer memoizes only declared identities, and no identity is invented per call.
 
 TextProvider.Runtime now accepts only a validated Config and derives model identity, defaults, request intent and its language-model layer from it; callers no longer supply independent model layers or settings. TextProvider configuration accepts defaults directly or through DSP_MODEL_SETTINGS. The binder resolves defaults, ambient provider configuration and invocation overrides in that order and exposes the resolved settings through ModelSettings.Current. A supplied HttpClient service replaces only the transport, not model configuration. Auto-caching applies at every temperature; rollout IDs partition sampling requests and cache: "never" opts out.
 

@@ -14,15 +14,8 @@ import {
 } from "@scenesystems/effect-search/Pareto"
 import { Array as Arr, Boolean, Number as Num, Option, Order } from "effect"
 
-import {
-  type CandidateIndices,
-  type CandidateScoreMatrix,
-  type CandidateScoreVector,
-  ExampleFrontierHolding,
-  ParentSelectionWeight,
-  type ParentSelectionWeights,
-  ParetoKernelSnapshot
-} from "./model.js"
+import { ExampleFrontierHolding, ParentSelectionWeight, ParetoSnapshot } from "../../GEPA.js"
+import type { CandidateIndices, CandidateScoreMatrix, CandidateScoreVector } from "./model.js"
 
 const objectiveCount = (scoreVectors: CandidateScoreMatrix): number =>
   Arr.head(scoreVectors).pipe(
@@ -75,7 +68,7 @@ export const dominatesCandidateVector = (
  */
 export const perExampleFrontierHoldings = (
   scoreVectors: CandidateScoreMatrix
-): ParetoKernelSnapshot["exampleHoldings"] =>
+): ParetoSnapshot["exampleHoldings"] =>
   Arr.map(objectiveFrontierHoldings(scoreVectors, maximizeObjectiveDirections(scoreVectors)), toExampleFrontierHolding)
 
 /**
@@ -88,7 +81,7 @@ export const perExampleFrontierHoldings = (
  */
 export const deriveParentSelectionWeights = (
   scoreVectors: CandidateScoreMatrix
-): ParentSelectionWeights => deriveParetoKernelSnapshot(scoreVectors).parentWeights
+): ParetoSnapshot["parentWeights"] => deriveParetoKernelSnapshot(scoreVectors).parentWeights
 
 /**
  * Keep an irredundant cover of per-instance maxima, removing lower-aggregate
@@ -100,7 +93,7 @@ export const deriveParentSelectionWeights = (
  */
 export const deriveParetoKernelSnapshot = (
   scoreVectors: CandidateScoreMatrix
-): ParetoKernelSnapshot => {
+): ParetoSnapshot => {
   const exampleHoldings = perExampleFrontierHoldings(scoreVectors)
   const holders = Arr.dedupe(Arr.flatMap(exampleHoldings, (holding) => holding.holders))
   const ordered = Arr.sort(
@@ -134,7 +127,7 @@ export const deriveParetoKernelSnapshot = (
         weight: Arr.filter(exampleHoldings, (holding) => Arr.contains(holding.holders, candidateIndex)).length
       })
   )
-  return new ParetoKernelSnapshot({
+  return new ParetoSnapshot({
     frontierIndices: Arr.sort(remaining, Num.Order),
     dominatedIndices: Arr.filter(
       Arr.map(scoreVectors, (_, index) => index),

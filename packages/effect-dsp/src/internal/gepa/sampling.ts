@@ -6,23 +6,13 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import { Array as Arr, Boolean, Chunk, Effect, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean, Chunk, Effect, Number as Num, Option } from "effect"
 
-import type { ParentSelectionWeights } from "./model.js"
+import { BatchState, type ParetoSnapshot } from "../../GEPA.js"
 
 /** CPython choice over the frequency-expanded, insertion-ordered parent catalog. @internal */
-export const selectParent = (weights: ParentSelectionWeights, rng: PseudoRandom.CPython) =>
+export const selectParent = (weights: ParetoSnapshot["parentWeights"], rng: PseudoRandom.CPython) =>
   rng.choice(Chunk.fromIterable(Arr.flatMap(weights, (entry) => Arr.replicate(entry.candidateIndex, entry.weight))))
-
-/** Epoch-shuffle bookkeeping persisted with the orchestration RNG. @internal */
-export class BatchState extends Schema.Class<BatchState>("@scenesystems/effect-dsp/internal/gepa/sampling/BatchState")({
-  shuffled: Schema.Array(Schema.Int),
-  frequencies: Schema.Array(Schema.Struct({ id: Schema.Int, count: Schema.Int })),
-  epoch: Schema.Int,
-  iteration: Schema.Int,
-  calls: Schema.Int,
-  trainsetSize: Schema.Int
-}) {}
 
 /** Parent selection must precede this shared-stream draw. Padding consumes no RNG. @internal */
 export const nextMinibatch = (

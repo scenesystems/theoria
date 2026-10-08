@@ -73,7 +73,11 @@ export class Options<
   readonly fullEvalEvery?: number
   readonly seed?: number
   readonly numThreads?: number
+  /** Failures that cancel one evaluation, which then scores 0; absent or none uses
+   * DSPy's `dspy.settings.max_errors`, 10. */
   readonly maxErrors?: Option.Option<number>
+  /** Logs every failed example at error level with its input: false (default, DSPy's setting) adds a
+   * hint, true attaches the failure Cause with its stack. Events are unchanged and still emitted. */
   readonly provideTraceback?: boolean
   readonly emit?: EventSink<EE, ER>
 }> {}

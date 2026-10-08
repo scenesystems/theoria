@@ -4,7 +4,9 @@
  *
  * The first study leg writes trials through `StudyStorage`; the resumed leg
  * reloads that state and evaluates two more instruction and demonstration
- * candidates.
+ * candidates. Each trial evaluates a bound copy of the module, so candidate
+ * parameters never touch the module's own refs; only the best trial is written
+ * back, through `Module.install`, after both legs finish.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)
@@ -16,12 +18,22 @@
  * Run: bun run examples/07-study-resume-from-storage-live.ts
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
-import { Demonstration, Evaluate, Example, Metric, Module, ModuleParameters, Signature } from "@scenesystems/effect-dsp"
+import {
+  Demonstration,
+  Evaluate,
+  Example,
+  Metric,
+  Module,
+  ModuleParameters,
+  ParameterSet,
+  Signature
+} from "@scenesystems/effect-dsp"
 import * as Optimization from "@scenesystems/effect-search/Optimization"
+import * as OptimizationEvent from "@scenesystems/effect-search/OptimizationEvent"
 import * as Sampler from "@scenesystems/effect-search/Sampler"
 import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
-import { Array as Arr, Effect, Layer, Match, Number as Num, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Match, Number as Num, Option, Record, Ref, Schema, Stream } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import {
   makeStandardEvents,
@@ -87,28 +99,29 @@ const program = Effect.gen(function*() {
     }
   )
   const qa = yield* Module.predict("qa-study-resume", qaSignature)
+  const baselineParameters = yield* ParameterSet.snapshot(qa)
 
   const space = yield* SearchSpace.make({
     instructionIndex: SearchSpace.int(0, 2),
     demoIndex: SearchSpace.int(0, 2)
   })
 
+  // `qa` has a single predictor, so every snapshot path receives the candidate.
+  const candidateParameters = (config: typeof space.schema.Type): ParameterSet.ParameterSet =>
+    Record.map(baselineParameters, () =>
+      new ModuleParameters.ModuleParameters({
+        instructions: instructionCandidate(config.instructionIndex),
+        demos: demoCandidate(config.demoIndex),
+        outputStrategy: "structured"
+      }))
+
   const objective = (raw: unknown) =>
     Effect.gen(function*() {
       const config = yield* Schema.decodeUnknownEffect(space.schema)(raw)
 
-      yield* Ref.set(
-        qa.parameters,
-        new ModuleParameters.ModuleParameters({
-          instructions: instructionCandidate(config.instructionIndex),
-          demos: demoCandidate(config.demoIndex),
-          outputStrategy: "structured"
-        })
-      )
-
       const report = yield* Evaluate.run(
         new Evaluate.Options({
-          module: qa,
+          module: Module.bound(qa, candidateParameters(config)),
           examples: italyEvalset,
           metrics: {
             exactMatch: Metric.exactMatch("answer")
@@ -154,6 +167,24 @@ const program = Effect.gen(function*() {
   const firstLegTags = Arr.map(Arr.fromIterable(firstLegEvents), (event) => event._tag)
   const resumedTags = Arr.map(Arr.fromIterable(resumedEvents), (event) => event._tag)
   const resumedLastEvent = Option.getOrElse(Arr.last(resumedTags), () => "none")
+  const studyEvents = Arr.appendAll(Arr.fromIterable(firstLegEvents), Arr.fromIterable(resumedEvents))
+  const bestTrialNumber = yield* Option.match(Arr.findLast(studyEvents, OptimizationEvent.is("BestUpdated")), {
+    onNone: () => Effect.die("study finished without a BestUpdated event"),
+    onSome: (event) => Effect.succeed(event.trialNumber)
+  })
+  const bestConfig = yield* Option.match(
+    Arr.findFirst(
+      Arr.filter(studyEvents, OptimizationEvent.is("TrialStarted")),
+      (event) => Num.Equivalence(event.trialNumber, bestTrialNumber)
+    ),
+    {
+      onNone: () => Effect.die(`study events contain no TrialStarted for best trial ${bestTrialNumber}`),
+      onSome: (event) => Schema.decodeUnknownEffect(space.schema)(event.config)
+    }
+  )
+
+  yield* Module.install(qa, candidateParameters(bestConfig))
+
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
       module: qa,

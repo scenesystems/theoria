@@ -1,19 +1,16 @@
 /** Common-ancestor crossover and balanced validation sampling. @internal */
 import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import { Array as Arr, Boolean, Chunk, Effect, Equivalence, Match, Number as Num, Option, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Chunk, Data, Effect, Equivalence, Match, Number as Num, Option, Tuple } from "effect"
 import { GEPAError } from "../../DspError.js"
-import type { State } from "../../GEPA.js"
-import { ProgramCandidate } from "./model.js"
+import { ProgramCandidate, type State } from "../../GEPA.js"
 
 /** A concrete proposal has consumed all pair, ancestor and instruction draws. @internal */
-export class MergeProposal
-  extends Schema.Class<MergeProposal>("@scenesystems/effect-dsp/internal/gepa/merge/MergeProposal")({
-    candidate: ProgramCandidate,
-    parents: Schema.Tuple([Schema.Int, Schema.Int]),
-    ancestor: Schema.Int,
-    description: Schema.Array(Schema.Int)
-  })
-{}
+export class MergeProposal extends Data.Class<{
+  readonly candidate: ProgramCandidate
+  readonly parents: readonly [number, number]
+  readonly ancestor: number
+  readonly description: ReadonlyArray<number>
+}> {}
 
 const at = <A>(values: ReadonlyArray<A>, index: number): A => Option.getOrThrow(Arr.get(values, index))
 const ancestors = (candidates: ReadonlyArray<ProgramCandidate>, index: number): ReadonlyArray<number> =>

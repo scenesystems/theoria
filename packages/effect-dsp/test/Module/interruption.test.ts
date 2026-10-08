@@ -4,13 +4,15 @@ import * as Module from "../../src/Module.js"
 import { withInstructions } from "../../src/ModuleParameters.js"
 import * as ParameterSet from "../../src/ParameterSet.js"
 import * as Signature from "../../src/Signature.js"
+import { encodedSnapshot, expectInterruptedOnly } from "../kit/Interruption.js"
 import { assertNoMutation } from "../kit/Mutation.js"
 
-it.effect("discards an interrupted overlay and installs only on explicit request", () =>
+it.effect("an interrupted overlay exits by interruption alone, leaves the caller snapshot unchanged, and installs only on explicit request", () =>
   Effect.gen(function*() {
     const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
     const leaf = yield* Module.predict("generate", signature)
     const before = yield* ParameterSet.snapshot(leaf)
+    const encodedBefore = yield* encodedSnapshot(leaf)
     const candidate = Record.map(before, (parameters) => withInstructions(parameters, "candidate"))
     const entered = yield* Deferred.make<void>()
     const fiber = yield* assertNoMutation(
@@ -23,6 +25,9 @@ it.effect("discards an interrupted overlay and installs only on explicit request
     ).pipe(Effect.forkChild)
     yield* Deferred.await(entered)
     yield* Fiber.interrupt(fiber)
+    // The in-fiber mutation guard and overlay release run as finalizers; any failure there is a Die beside the Interrupt.
+    expectInterruptedOnly(yield* Fiber.await(fiber))
+    expect(yield* encodedSnapshot(leaf)).toEqual(encodedBefore)
     expect(yield* ParameterSet.snapshot(leaf)).toEqual(before)
     expect(yield* ParameterSet.snapshot(Module.bound(leaf, candidate))).toEqual(candidate)
     yield* Module.install(leaf, candidate)

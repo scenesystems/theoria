@@ -27,6 +27,7 @@ import {
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { TestConsole } from "effect/testing"
 import * as TeacherTrace from "../src/TeacherTrace.js"
+import { encodedSnapshot, expectInterruptedOnly } from "./kit/Interruption.js"
 import { assertNoMutation } from "./kit/Mutation.js"
 
 it.effect("rejects incompatible encoded field types before teacher execution", () =>
@@ -276,11 +277,20 @@ it.effect("leaves the current labeled row out of teacher prompts without changin
     expect(call.prompt).toContain("keep-other")
   }))
 
-it.effect("maxErrors reaches its limit on the first failure and interruption preserves both callers", () =>
+it.effect("maxErrors reaches its limit on the first failure; interruption exits cleanly with partial events and both callers unchanged", () =>
   Effect.gen(function*() {
     const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
     const student = yield* Module.predict("qa", signature)
-    const teacher = Module.bound(student, yield* ParameterSet.snapshot(student))
+    const teacher = Module.bound(
+      student,
+      Record.map(
+        yield* ParameterSet.snapshot(student),
+        (parameters) =>
+          ModuleParameters.withDemos(parameters, [
+            new Demonstration({ input: { question: "other" }, output: { answer: "teacher-only demo" } })
+          ])
+      )
+    )
     const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "teacher" }))
     const trainset = Chunk.of(new Example.Example({ input: { question: "q" } }))
     const failure = yield* assertNoMutation(
@@ -295,7 +305,14 @@ it.effect("maxErrors reaches its limit on the first failure and interruption pre
       )
     ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
     expect(failure).toEqual(new TeacherTrace.TooManyErrors({ count: 1, limit: 1 }))
+    // Demonstrations select the text strategy for the teacher.
+    const demoMock = yield* MockLanguageModel.make(
+      MockLanguageModel.succeed("[[ ## answer ## ]]\nteacher\n[[ ## completed ## ]]")
+    )
+    const studentBefore = yield* encodedSnapshot(student)
+    const teacherBefore = yield* encodedSnapshot(teacher)
     const started = yield* Deferred.make<void>()
+    const observed = yield* Ref.make(Arr.empty<TeacherTrace.Event>())
     const fiber = yield* assertNoMutation(
       student,
       assertNoMutation(
@@ -306,13 +323,24 @@ it.effect("maxErrors reaches its limit on the first failure and interruption pre
             teacher: Option.some(teacher),
             trainset,
             metric: Metric.withFeedback(() => Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)))
-          })
+          }),
+          (event) => Ref.update(observed, Arr.append(event))
         )
       )
-    ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.forkChild)
-    yield* Deferred.await(started)
+    ).pipe(Effect.provideService(LanguageModel.LanguageModel, demoMock.service), Effect.forkChild)
+    yield* Deferred.await(started).pipe(
+      Effect.raceFirst(
+        Fiber.await(fiber).pipe(Effect.andThen(Effect.die("collector exited before the metric blocked")))
+      )
+    )
     yield* Fiber.interrupt(fiber)
-    expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true)
+    const exit = yield* Fiber.await(fiber)
+    expect(Exit.hasInterrupts(exit)).toBe(true)
+    // The nested mutation guards run as finalizers; a failed guard is a Die combined with the Interrupt.
+    expectInterruptedOnly(exit)
+    expect(Arr.map(yield* Ref.get(observed), (event) => event._tag)).toEqual(["RoundStarted"])
+    expect(yield* encodedSnapshot(student)).toEqual(studentBefore)
+    expect(yield* encodedSnapshot(teacher)).toEqual(teacherBefore)
   }))
 
 it.effect("emits teacher events in execution order and excludes observer errors from the error budget", () =>

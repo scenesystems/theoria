@@ -15,13 +15,22 @@ import {
   Tuple
 } from "effect"
 import type { Schema } from "effect"
-import { events, type EventSink, type Examples, type Options, State } from "../../../GEPA.js"
+import {
+  events,
+  type EventSink,
+  type Examples,
+  type Options,
+  PredictorInstruction,
+  ProgramCandidate,
+  State
+} from "../../../GEPA.js"
+import { predictors } from "../../../ModuleGraph.js"
 import * as Predictor from "../../../Predictor.js"
 import { CurrentRole } from "../../modelRole.js"
 import { extractInstruction, generateText } from "../../module/textGeneration.js"
-import { PredictorInstruction, ProgramCandidate } from "../model.js"
 import { buildReflectivePrompt } from "../reflect.js"
 import { nextMinibatch, selectParent } from "../sampling.js"
+import { validateComponents } from "../validation.js"
 import { evaluateCandidate, reflectiveSamples } from "./evaluate.js"
 
 /** Earliest aggregate maximum, including candidates outside the coverage front.
@@ -84,6 +93,11 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
             Match.when(Predicate.isFunction, (select) => select(evaluated)),
             Match.when("all", () => Chunk.fromIterable(names)),
             Match.orElse(() => Chunk.of(Option.getOrThrow(Arr.get(names, cursor))))
+          )
+          yield* validateComponents(
+            components,
+            names,
+            Arr.map(Arr.filter(Arr.fromIterable(predictors(options.module)), Struct.get("frozen")), Struct.get("path"))
           )
           const cursors = Boolean.match(selector === "roundRobin", {
             onFalse: () => state.componentCursors,

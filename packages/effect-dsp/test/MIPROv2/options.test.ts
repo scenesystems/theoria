@@ -47,7 +47,9 @@ it.effect("defaults match the pinned constructor and compile signatures", () =>
     ])
     expect([bootstrap.seed, bootstrap.maxLabeledDemos, bootstrap.maxBootstrappedDemos]).toEqual([9, 4, 4])
     expect(bootstrap.metricThreshold).toEqual(Option.none())
-    expect(bootstrap.maxErrors).toEqual(Option.none())
+    // dspy.settings.max_errors is 10 at the pinned DSPy 3.4.0; both phases inherit it.
+    expect(bootstrap.maxErrors).toEqual(Option.some(10))
+    expect(search.maxErrors).toEqual(Option.some(10))
     expect([proposer.initTemperature, proposer.viewDataBatchSize]).toEqual([1, 10])
     expect([
       proposer.programAwareProposer,

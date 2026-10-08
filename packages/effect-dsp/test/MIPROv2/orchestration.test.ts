@@ -11,7 +11,19 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
 import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/PersistenceError"
-import { Array as Arr, Boolean as Bool, Effect, Equal, Layer, Number as Num, Option, Ref, Result, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Equal,
+  Layer,
+  Number as Num,
+  Option,
+  Ref,
+  Result,
+  Schema,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { constVoid } from "effect/Function"
 
@@ -45,7 +57,7 @@ const makeStructuredQaModule = Effect.gen(function*() {
 
 const makeQaMock = MockLanguageModel.make(
   MockLanguageModel.map((prompt) =>
-    Bool.match(prompt.includes("Return only "), {
+    Bool.match(Str.includes("Return only ")(prompt), {
       onFalse: () => ({ answer: "Paris" }),
       onTrue: () => "Use concise and factual answers"
     })

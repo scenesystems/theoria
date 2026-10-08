@@ -2,8 +2,11 @@
  * Cache keys and the service contract for language-model call memoization.
  * Automatic caching is durable across processes only when ModelIdentity is
  * declared (effect-inference always declares it). Otherwise runtime object
- * identity partitions process-local entries. Automatic cache failures warn and
- * behave as misses or skipped writes; explicit resolve retains typed errors.
+ * identity partitions process-local entries for the lifetime of the Cache
+ * layer; closing its scope releases those identities, and a Cache service
+ * installed without {@link layer} memoizes only declared identities.
+ * Automatic cache failures warn and behave as misses or skipped writes;
+ * explicit resolve retains typed errors.
  *
  * @since 0.1.0
  * @module
@@ -14,6 +17,7 @@ import { Role } from "@scenesystems/effect-lm/Role"
 import * as SearchCache from "@scenesystems/effect-search/Cache"
 import { Context, Data, Effect, Layer, Option, Schema, String as Str } from "effect"
 
+import * as LocalIdentities from "./internal/cache/identities.js"
 import { RolloutRef } from "./internal/cache/rollout.js"
 
 /**
@@ -171,7 +175,8 @@ export const key = <Input, ParameterValues>(
  * This layer requires `SearchCache.Cache`; provide the desired memory,
  * filesystem, SQL, or custom search-cache layer at the application boundary.
  * The resulting DSP service retains the backend's durability and failure
- * semantics.
+ * semantics. Process-local identities of runtimes without a declared
+ * ModelIdentity are scoped to this layer and released when it closes.
  *
  * @since 0.1.0
  * @category layers
@@ -212,7 +217,7 @@ export const layer: Layer.Layer<Cache, never, SearchCache.Cache> = Layer.effect(
         )
     }
   })
-)
+).pipe(Layer.merge(LocalIdentities.layer))
 
 /**
  * Installs the DSP cache with a process-local effect-search memory backend.

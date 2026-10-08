@@ -102,10 +102,25 @@ const ProgramCode = Schema.Struct({
   predictors: Schema.Array(Schema.Struct({ path: Schema.String, signature: Text }))
 })
 
+// DSPy describes the proposed-for module as `Predict(inputs) -> outputs` from its current signature
+// (grounded_proposer.py:199-213). The public structure has no field schemas, so the module is identified
+// by its canonical path plus the signature text and field metadata effective under any overlay.
+const FieldMetadata = Schema.Struct({
+  prefix: Schema.OptionFromNullOr(Schema.String),
+  description: Schema.OptionFromNullOr(Schema.String)
+})
+const ModuleCode = Schema.Struct({
+  path: Schema.String,
+  name: Schema.String,
+  signature: Text,
+  fields: Schema.Record(Schema.String, FieldMetadata)
+})
+
 class PreparedPredictor extends Data.Class<{
   readonly ref: Predictor.Predictor
   readonly predictorIndex: number
   readonly instruction: string
+  readonly moduleCode: Payload.Payload
   readonly renderedDemoCandidates: typeof RenderedDemoCandidates.Type
 }> {}
 
@@ -149,6 +164,12 @@ const preparePredictor = (
       ref,
       predictorIndex,
       instruction: parameters.instructions,
+      moduleCode: yield* Payload.encode(ModuleCode, {
+        path: ref.path,
+        name: ref.name,
+        signature: new Text({ description: ref.signature.description, instructions: parameters.instructions }),
+        fields: parameters.fields
+      }),
       renderedDemoCandidates
     })
   })
@@ -161,6 +182,10 @@ const preparePredictor = (
  * sequentially. Grounding rotates augmented demonstrations from the current,
  * following, then preceding sets. A shared CPython stream draws a tip before
  * the rollout ID; all calls for that proposal share its rollout partition.
+ * The program-aware `module` input is a JSON document of the predictor's canonical
+ * path, name, signature description, effective instructions and effective field
+ * metadata, read through parameter overlays; DSPy's Python class/field rendering
+ * has no equivalent in the public program structure.
  * Every supplied set must uniquely identify a predictor.
  * Missing, empty, duplicate, unknown, or misbound Phase 1 candidates fail with
  * `InstructionProposalFailed`. All identities and destination wire demonstrations
@@ -224,7 +249,7 @@ export const proposeInstructionCandidates = <
       onSome: (set) => Num.max(1, Arr.length(set.candidates))
     })
     const requested = Arr.range(0, Num.decrement(Num.min(options.numInstructions, numDemos)))
-    return yield* Effect.forEach(prepared, ({ instruction, predictorIndex, ref, renderedDemoCandidates }) =>
+    return yield* Effect.forEach(prepared, ({ instruction, moduleCode, predictorIndex, ref, renderedDemoCandidates }) =>
       Effect.gen(function*() {
         const generated = yield* Effect.forEach(
           requested,
@@ -282,14 +307,14 @@ export const proposeInstructionCandidates = <
                             program_code: programCode,
                             program_example: taskDemos,
                             program_description: programDescription,
-                            module: ref.signature.instructions
+                            module: moduleCode
                           }, "module_description"),
                           settings
                         )
                         return {
                           program_code: programCode,
                           program_description: programDescription,
-                          module: ref.signature.instructions,
+                          module: moduleCode,
                           module_description: moduleDescription
                         }
                       }).pipe(Effect.option)

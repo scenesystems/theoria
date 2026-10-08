@@ -15,14 +15,18 @@ COMMITS = {
 }
 
 
+# Locked by uv.lock (pyproject allows >=1.26,<2); Optuna's TPE and DSPy's demo sampling use it.
+LOCKED = {"numpy": "1.26.4"}
+
+
 def assert_runtime_version():
-    for package, version in VERSIONS.items():
+    for package, version in {**VERSIONS, **LOCKED}.items():
         if importlib.metadata.version(package) != version:
             raise RuntimeError(f"{package}: expected {version}")
     assert dspy.__version__ == VERSIONS["dspy"]
     return {**VERSIONS, "commits": COMMITS,
             "python": platform.python_version(),
-            "platform": f"{platform.system()}-{platform.machine()}"}
+            "platform": f"{platform.system()}-{platform.machine()}", **LOCKED}
 
 
 def render(value):
@@ -35,7 +39,8 @@ def document(item, generator):
              "evidence": item.get("evidence", "upstream-execution"),
              "sha256": hashlib.sha256(payload).hexdigest(), "generator": generator,
              "description": item["description"],
-             **({"trajectory": item["trajectory"]} if "trajectory" in item else {})}, payload)
+             **({"trajectory": item["trajectory"]} if "trajectory" in item else {}),
+             **({"environment": item["environment"]} if "environment" in item else {})}, payload)
 
 
 def examples(split, n):

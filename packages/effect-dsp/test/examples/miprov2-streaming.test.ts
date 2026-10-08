@@ -10,7 +10,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
@@ -21,10 +21,10 @@ const trainset = Arr.make(
 
 const responseForPrompt = (prompt: string) =>
   Match.value(prompt).pipe(
-    Match.when((value: string) => value.includes("Return only "), () => "Answer with concise factual city names"),
-    Match.when((value: string) => value.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
-    Match.when((value: string) => value.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
-    Match.when((value: string) => value.includes("What is the capital of Italy?"), () => ({ answer: "Rome" })),
+    Match.when(Str.includes("Return only "), () => "Answer with concise factual city names"),
+    Match.when(Str.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
+    Match.when(Str.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
+    Match.when(Str.includes("What is the capital of Italy?"), () => ({ answer: "Rome" })),
     Match.orElse(() => ({ answer: "Unknown" }))
   )
 
@@ -77,7 +77,7 @@ const runMiproTagTrace = Effect.gen(function*() {
   return tags
 })
 
-describe("examples/06-optimize-miprov2-stream-mock", () => {
+describe("examples/miprov2-streaming", () => {
   it.effect("emits deterministic canonical phase progression", () =>
     Effect.gen(function*() {
       const first = yield* runMiproTagTrace
