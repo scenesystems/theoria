@@ -217,8 +217,9 @@ const Lines = ({ drawing, preference, projection, prose }: {
  * on from the measured fit. It names the trial it is drawn from
  * (`data-place-stage-trial`), so the trace can identify what the stage shows.
  */
-const fitStyle = (width: number): CSSProperties => ({
-  transform: `scale(min(1, calc(100cqw / ${width}px)))`,
+const fitStyle = (width: number, fit: number) => ({
+  "--place-drawing-width": `${width}px`,
+  transform: `scale(var(--place-container-fit, ${fit}))`,
   transformOrigin: "0 0"
 })
 
@@ -257,7 +258,7 @@ const Drawing = ({ drawn, fit, frame, shown }: {
       style={{
         height: `${projection.stageHeight}px`,
         width: `${projection.stageWidth}px`,
-        ...fitStyle(projection.stageWidth)
+        ...fitStyle(projection.stageWidth, fit)
       }}
     >
       <Walk frame={frame} />

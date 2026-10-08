@@ -106,6 +106,15 @@
  * --------------------------------------------------------------------------- */
 
 @layer utilities {
+  /* Length division is newer than container units. Keep the measured numeric
+   * scale in browsers that cannot divide lengths; unsupported values in a
+   * custom property would otherwise invalidate the entire transform. */
+  @supports (transform: scale(calc(1px / 1px))) {
+    [data-place-stage="content"] {
+      --place-container-fit: min(1, calc(100cqw / var(--place-drawing-width)));
+    }
+  }
+
   /*
    * Words that are known before they are here in evidence, drawn as the room
    * they take: the text is transparent and a bar covers the middle of each
