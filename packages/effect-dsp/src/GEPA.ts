@@ -148,8 +148,14 @@ export class ReflectiveExample extends Schema.Class<ReflectiveExample>(
   score: Schema.Finite
 }) {}
 
-/** Complete continuation state, including both RNG streams and the epoch/merge schedulers.
- * Resume is uninterrupted-equivalent, unlike upstream's partial run_dir checkpoint.
+/** Complete continuation state for exact replay of an uninterrupted run.
+ * Carries both RNG streams, epoch-shuffled batch state, component cursors,
+ * merge scheduler counters and deduplication records. With the same module,
+ * datasets, metric, options and model responses, resuming reproduces the
+ * uninterrupted run exactly.
+ * Upstream gepa 0.1.4 pickles only GEPAState: its batch sampler and merge
+ * proposer rebuild their RNGs (random.Random(0)) and counters on restart,
+ * so an upstream resumed run does not reproduce its uninterrupted run.
  * `resume` rejects a state inconsistent with the module, datasets or its own
  * derived frontier with `GEPAError` reason `invalid-state` before evaluating.
  * @since 0.7.0
@@ -195,7 +201,13 @@ export class Options<
   readonly auto?: Option.Option<"light" | "medium" | "heavy">
   readonly maxMetricCalls?: number
   readonly maxFullEvals?: number
-  /** Optional local iteration boundary for checkpointing, independent of the metric budget. */
+  /** Absolute local iteration boundary for checkpointing, independent of the metric budget.
+   * The returned State carries both RNG streams, epoch-shuffled batches, component
+   * cursors, merge scheduler counters and deduplication records for exact continuation.
+   * Upstream gepa 0.1.4 pickles only GEPAState and rebuilds the batch sampler and
+   * merge proposer RNGs (random.Random(0)) and counters, losing uninterrupted-run
+   * equivalence. Raise or remove this boundary when calling {@link resume}.
+   */
   readonly maxIterations?: number
   readonly reflectionMinibatchSize?: number
   readonly candidateSelectionStrategy?: "pareto" | "currentBest"
@@ -793,8 +805,13 @@ export const run = <
 ) => runWithEvents(options, noEvents)
 
 /** Continues an encoded checkpoint without replaying evaluations or reseeding.
- * The module, metric and datasets must match the original run. maxIterations is
- * an absolute iteration boundary; raise or remove it when continuing.
+ * Restores both RNG streams, epoch-shuffled batch state, component cursors,
+ * merge scheduler counters and deduplication records, reproducing the uninterrupted
+ * run exactly with matching module, datasets, metric, options and model responses.
+ * Upstream gepa 0.1.4 pickles only GEPAState; its batch sampler and merge proposer
+ * rebuild their RNGs (random.Random(0)) and counters on restart, so an upstream
+ * resumed run does not reproduce its uninterrupted run.
+ * maxIterations is an absolute iteration boundary; raise or remove it when continuing.
  * @since 0.7.0
  * @category constructors
  */

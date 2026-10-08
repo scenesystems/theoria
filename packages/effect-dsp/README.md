@@ -202,11 +202,38 @@ GEPA requires exactly one of `auto`, `maxMetricCalls`, or `maxFullEvals`. It
 reflects on training examples and returns the highest aggregate validation score,
 not the first member of its coverage front. Its metric budget stops at iteration
 boundaries and can overshoot; `report.feedbackMetricCalls` separately counts
-targeted feedback invocations. `report.state` retains both seeded RNG streams and
-the epoch/merge schedulers. Resume it with matching module, datasets, metric and
-options; `maxIterations` is an absolute local checkpoint boundary. This stronger
-continuation contract is not upstream run_dir restart parity. `resume` rejects a
-checkpoint that cannot belong to the supplied module and datasets with a typed
+targeted feedback invocations.
+
+`GEPA.State` carries both RNG streams, epoch-shuffled batch state, component
+cursors, merge scheduler counters and deduplication records. Resuming from this
+state reproduces the uninterrupted run exactly with the same module, datasets,
+metric, options and model responses. Upstream gepa 0.1.4 pickles only `GEPAState`:
+its batch sampler and merge proposer rebuild their `random.Random(0)` streams
+and counters on restart (`batch_sampler.py:43`, `merge.py:240`), so an upstream
+resumed run does not reproduce its uninterrupted run.
+
+`maxIterations` is an absolute checkpoint boundary; raise or remove it when
+continuing. This example pauses after two iterations and continues to ten using
+the same evaluation budget and model services:
+
+```ts typecheck
+import { Effect, Schema } from "effect"
+import { GEPA } from "@scenesystems/effect-dsp"
+
+export const optimizeInStages = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+  options: GEPA.Options<I, O>
+) =>
+  Effect.gen(function* () {
+    const partial = yield* GEPA.run(new GEPA.Options({ ...options, maxIterations: 2 }))
+    const state = yield* Effect.fromOption(partial.report.state)
+    const codec = Schema.fromJsonString(Schema.toCodecJson(GEPA.State))
+    const checkpoint = yield* Schema.encodeEffect(codec)(state)
+    const restored = yield* Schema.decodeEffect(codec)(checkpoint)
+    return yield* GEPA.resume(new GEPA.Options({ ...options, maxIterations: 10 }), restored)
+  })
+```
+
+`resume` rejects a checkpoint that cannot belong to the supplied module and datasets with a typed
 `GEPAError` before restoring either stream. Custom `instructionProposer`s and
 `componentSelector`s receive public GEPA models: `ProgramCandidate`,
 `PredictorInstruction`, `ReflectiveExample`, and `State` with its `ParetoSnapshot`
