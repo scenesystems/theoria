@@ -25,6 +25,7 @@ import {
   placeMarkFocusedAtom,
   placeMarkLeftAtom
 } from "../../atoms/imagined-place-experience.js"
+import { usePlaceAnswerLayout } from "../../atoms/place-answer-layout.js"
 import {
   elevationClassName,
   firmUnderPointerClassName,
@@ -152,21 +153,18 @@ export const StatusMarkPending = ({ className = "", label, tone }: {
 )
 
 /**
- * The positioner's box is frozen to the measured size while the content
- * changes, so the popup can ease between two answers' sizes without
- * re-deciding which side of the mark it is on.
- * The answer's reading surface must not cover another mark's touch target
- * when viewport collisions flip it below its trigger. Only its links and
- * buttons receive pointer input; the rest lets the underlying marks answer.
+ * Base UI owns focus, dismissal and answer transitions. The mount-scoped
+ * layout atom owns viewport coordinates: its obstacle-aware result must not
+ * be flipped back over a disc by the positioner's viewport-only collision pass.
  */
 const positionerClassName = `${
   elevationClassName("answer")
-} pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto w-(--positioner-width) h-(--positioner-height)`
+} invisible fixed! left-0! top-0! [transform:translate(var(--answer-left),var(--answer-top))]!`
 
 const popupClassName = Arr.join([
   surfaceClassName("overlay"),
-  `w-(--popup-width) h-(--popup-height) max-w-[min(22rem,calc(100vw-1.5rem))] ${focusEdgeClassName}`,
-  `origin-(--transform-origin) transition-[opacity,transform,width,height] ${transitionClassName("enter")}`,
+  `relative! inset-auto! w-[min(22rem,var(--answer-viewport-width,100vw),calc(100vw-1.5rem))] max-h-[min(var(--answer-height,100dvh),calc(100dvh-1.5rem))] overflow-y-auto overscroll-contain ${focusEdgeClassName}`,
+  `origin-center transition-[opacity,transform] ${transitionClassName("enter")}`,
   "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
   "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
   stillUnderReducedMotion
@@ -174,7 +172,7 @@ const popupClassName = Arr.join([
 
 /**
  * Between two answers the old one fades where it is and the new one fades in
- * over it; the popup's size eases from one to the other underneath.
+ * over it. The popup scrolls, leaving prose selectable and all controls live.
  */
 const viewportClassName = Arr.join([
   "relative overflow-clip",
@@ -343,6 +341,7 @@ const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTr
  */
 export const PlaceProvenanceOverlay = () => {
   useAtomMount(placeAnswerLifetimeAtom)
+  const positionerRef = usePlaceAnswerLayout()
   const answer = useAtomValue(placeAnswerAtom)
   const onShow = useAtomValue(placeAnswerOnShowAtom)
   const focusReturn = useAtomValue(placeAnswerFocusReturnAtom)
@@ -384,6 +383,7 @@ export const PlaceProvenanceOverlay = () => {
       {() => (
         <Popover.Portal>
           <Popover.Positioner
+            ref={positionerRef}
             align="center"
             className={positionerClassName}
             collisionPadding={12}

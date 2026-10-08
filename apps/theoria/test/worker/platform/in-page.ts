@@ -1583,14 +1583,16 @@ export const unmountWrappedBaselineRow = (): void => {
   document.querySelector("[data-probe-row]")?.remove()
 }
 
-/** Where each element's box begins and ends down the page. For `evaluateAll`. */
+/** Each element's four box edges, read together. For `evaluateAll`. */
 export const boxEdges = (elements: ReadonlyArray<Element>): ReadonlyArray<{
+  readonly left: number
+  readonly right: number
   readonly top: number
   readonly bottom: number
 }> =>
   elements.map((element) => {
     const box = element.getBoundingClientRect()
-    return { top: box.top, bottom: box.bottom }
+    return { left: box.left, right: box.right, top: box.top, bottom: box.bottom }
   })
 
 /**

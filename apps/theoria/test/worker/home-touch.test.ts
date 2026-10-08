@@ -57,14 +57,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               Arr.map(features, () =>
                 Option.none()),
               stageFor(sample.width),
-              {
-                edge: 0.7,
-                swing: 0,
-                phase: 0,
-                turns: 1,
-                step: 0.03,
-                top: sample.top
-              }
+              { edge: 0.7, swing: 0, phase: 0, turns: 1, step: 0.03, top: sample.top }
             )
             yield* Effect.forEach(markers, (marker, index) =>
               act(() =>
@@ -80,6 +73,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* act(() => paper.evaluate(scrollElementTo, 0))
             yield* act(() => discs.first().tap())
             yield* visible(page.locator("[data-place-provenance]"))
+            yield* attribute(page.locator("[data-place-provenance]"), "data-answer-placement", "free")
             const second = yield* act(() => discs.nth(1).evaluate(boxOf))
             const receivesTouch = yield* act(() =>
               discs.nth(1).evaluate(
