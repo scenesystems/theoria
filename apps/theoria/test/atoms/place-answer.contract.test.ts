@@ -13,8 +13,8 @@ import {
   placeMarkLeftAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
 import { placeRenderFrameAtom, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
-import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
-import { describeOnStage, onStage, pageShowing } from "../helpers/place-on-stage.js"
+import { placeBuildAtom, placeClientLayerAtom } from "../../app/web/atoms/imagined-place.js"
+import { clientFor, describeOnStage, onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /**
  * A mark answers when it is pressed, and only then: there is no pointer
@@ -60,7 +60,7 @@ describeOnStage("the answer under a press", (it) => {
   it.effect("an answer hands focus back to its mark when it closes", () =>
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
-      const registry = pageShowing(build, showingTrial)
+      const registry = yield* pageShowing(build, showingTrial)
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
       registry.set(placeAnswerAtom, Option.some(onDisc))
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
@@ -75,7 +75,7 @@ describeOnStage("the answer under a press", (it) => {
         _tag: "Feature",
         name: (yield* Effect.fromOption(Arr.head(build.artifact.composition.features))).name
       }
-      const registry = pageShowing(build, showingTrial)
+      const registry = yield* pageShowing(build, showingTrial)
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
       registry.set(placeAnswerAtom, Option.some(new PlaceAnswer({ triggerId: "a", mark: available })))
       expect(registry.get(placeFocusAtom)).toEqual(Option.some(available))
@@ -93,6 +93,7 @@ describeOnStage("answer lifetime", (it) => {
         Effect.sync(() =>
           Registry.make({
             initialValues: [
+              [placeClientLayerAtom, clientFor(other.build)],
               [placeBuildAtom, Result.success(other.build)],
               [placeShownFrameAtom, Result.success(showingTrial)],
               [placeRenderFrameAtom, Result.success(other.showing)]
@@ -133,13 +134,13 @@ describeOnStage("answer lifetime", (it) => {
       })
 
       // The column already describes the next story; the paper still draws this one.
-      const stillDrawn = pageShowing(other.build, showingTrial)
+      const stillDrawn = yield* pageShowing(other.build, showingTrial)
       stillDrawn.set(placeAnswerAtom, Option.some(onDisc))
       expect(Option.map(stillDrawn.get(placeAnswerAtom), (answer) => answer.mark)).toEqual(Option.some(onDisc.mark))
       expect(stillDrawn.get(placeAnswerFocusReturnAtom)).toBe("mark")
 
       // The paper now draws the next story: the disc pointed at is no longer on the page.
-      const replaced = pageShowing(other.build, other.showing)
+      const replaced = yield* pageShowing(other.build, other.showing)
       replaced.set(placeAnswerAtom, Option.some(onDisc))
       expect(replaced.get(placeAnswerAtom)).toEqual(Option.none())
     }))
@@ -148,7 +149,7 @@ describeOnStage("answer lifetime", (it) => {
     Effect.gen(function*() {
       const { build, showingTrial, trial } = yield* onStage
       const name = (yield* Effect.fromOption(Arr.head(trial.projection.markers))).name
-      const registry = pageShowing(build, showingTrial)
+      const registry = yield* pageShowing(build, showingTrial)
       expect(registry.get(placeAnswerOnShowAtom)).toEqual(Option.none())
 
       registry.set(
@@ -176,7 +177,7 @@ describeOnStage("answer lifetime", (it) => {
         triggerId: "ghost",
         mark: { _tag: "Feature", name: declined.proposal.feature.name }
       })
-      const registry = pageShowing(build, showingTrial)
+      const registry = yield* pageShowing(build, showingTrial)
       // Every mark holds the leaving mounted, as `useAtomSet` does.
       registry.mount(placeMarkLeftAtom)
       registry.set(placeAnswerAtom, Option.some(ghost))

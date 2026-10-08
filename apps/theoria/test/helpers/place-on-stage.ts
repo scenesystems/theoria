@@ -14,7 +14,9 @@ import { render } from "../../app/server/imagined-place/render.js"
 import { buildPlace } from "../../app/server/imagined-place/run.js"
 import { scenarioById } from "../../app/server/imagined-place/scenarios.js"
 import { PlaceRenderFrame, PlaceSearch, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
-import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
+import { placeBuildAtom, placeClientLayerAtom } from "../../app/web/atoms/imagined-place.js"
+import { SuccessEnvelopeData } from "../../app/web/services/envelopeRequest.js"
+import { ImaginedPlaceClient } from "../../app/web/services/ImaginedPlaceClient.js"
 
 /**
  * A place as the page has it: a real build from the server's own programs,
@@ -110,22 +112,39 @@ export class onStage
  */
 export const describeOnStage = layer(Layer.effect(onStage, makeOnStage), { timeout: "1 minute" })
 
+/** A build supplied by the fixture, including when an unseeded dependency requests its envelope. */
+export const clientFor = (build: PlaceBuild): Layer.Layer<ImaginedPlaceClient> =>
+  Layer.succeed(ImaginedPlaceClient, {
+    build: () =>
+      Effect.succeed(
+        new SuccessEnvelopeData({
+          data: build,
+          meta: { requestId: "on-stage", buildSha: "fixture", durationMs: 0 }
+        })
+      )
+  })
+
 /**
  * A page with `build` arrived in the column and `shown` on the paper, as the
  * page has them: held mounted, since the column and the stage render them
  * for as long as the page stands. A seeded value only stands while its node
  * does; unmounted, the node goes when the last thing reading it lets go,
- * and the next read computes the atom afresh — for the build, from the
- * network. Callers await scheduled derivations before reading their results.
+ * and the next read computes the atom afresh. The fixture client also owns
+ * those recomputations, and closing the test scope disposes the whole page.
  */
-export const pageShowing = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.AtomRegistry => {
-  const registry = Registry.make({
-    initialValues: Tuple.make(
-      Tuple.make(placeBuildAtom, Result.success(build)),
-      Tuple.make(placeShownFrameAtom, Result.success(shown))
-    )
-  })
-  registry.mount(placeBuildAtom)
-  registry.mount(placeShownFrameAtom)
-  return registry
-}
+export const pageShowing = (build: PlaceBuild, shown: PlaceRenderFrame) =>
+  Effect.acquireRelease(
+    Effect.sync(() => {
+      const registry = Registry.make({
+        initialValues: Tuple.make(
+          Tuple.make(placeClientLayerAtom, clientFor(build)),
+          Tuple.make(placeBuildAtom, Result.success(build)),
+          Tuple.make(placeShownFrameAtom, Result.success(shown))
+        )
+      })
+      registry.mount(placeBuildAtom)
+      registry.mount(placeShownFrameAtom)
+      return registry
+    }),
+    (registry) => Effect.sync(() => registry.dispose())
+  )
