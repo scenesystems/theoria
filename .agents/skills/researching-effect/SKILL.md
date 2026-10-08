@@ -5,17 +5,45 @@ description: Resolves Effect API and integration questions using version-aligned
 
 # Researching Effect
 
-1. Establish the installed version and public exports. Find a relevant consumer,
-   then read the API declaration; do not treat existing usage as proof of correctness.
-2. For unresolved behavior, read the matching implementation and tests. Check
-   vendored version alignment before relying on it. Search for the specific API
-   rather than loading entire guides or unrelated upstream instructions.
-3. Check laziness, error and requirement channels, resource ownership, and
-   interruption behavior against the intended use.
-4. For implementation changes, run a focused typecheck and relevant behavioral
-   tests. Add a regression case only for behavior not already covered, not a new
-   harness to certify API usage. Do not hide mismatches with assertions,
-   suppressions, or private imports.
+- Use the installed version as the source of truth. Find relevant topics in
+  `node_modules/effect/AGENTS.md` and follow their examples. Resolve API questions
+  against public declarations, source, and tests matching that version.
+- Read nearby consumers before introducing an abstraction. Prefer direct
+  composition of public APIs over wrappers that add no domain meaning.
+- Check when work executes, which failures and services it exposes, who owns
+  resources, and what happens on interruption. Preserve these semantics through
+  composition.
+- Verify changed behavior with focused typechecks and tests in the existing
+  suite. Use small, deterministic examples that exercise the actual uncertainty.
+- Report missing capabilities rather than hiding mismatches with assertions,
+  suppressions, private imports, or non-Effect substitutes.
 
-If the needed capability cannot be found in Effect public APIs, report the gap.
-Do not substitute native operations or introduce an exception.
+## References
+
+- [Effect documentation and guides](https://effect.website/docs/v4/): concepts,
+  usage, and examples.
+- [Effect API reference](https://effect.website/docs/v4/api/effect): public modules,
+  signatures, and operation semantics.
+- [Effect repository](https://github.com/Effect-TS/effect): implementations, tests,
+  and package exports. Its [AI guides](https://github.com/Effect-TS/effect/tree/main/ai-docs)
+  provide topic-specific coding examples.
+- Installed references: `node_modules/effect/AGENTS.md`, its linked `ai-docs/`
+  examples, and `node_modules/effect/src/`. Web documentation and repository `main`
+  may be newer; check signatures against the installed version.
+
+## Effect diagnostics and linting
+
+- [Effect TypeScript-Go](https://github.com/Effect-TS/tsgo): Effect-aware compiler
+  diagnostics, language service, and supported tooling versions.
+- [Effect's Oxlint integration](https://github.com/Effect-TS/tsgo/blob/main/docs/README.md):
+  type-aware configuration, presets, and patching requirements.
+- [Effect diagnostic rules](https://github.com/Effect-TS/tsgo/tree/main/docs/rules):
+  explanations and examples for individual findings.
+- [Oxlint documentation](https://oxc.rs/docs/guide/usage/linter.html): configuration,
+  CLI behavior, and general lint rules.
+
+Read `package.json`, `.oxlintrc.json`, and the relevant tsconfig before diagnosing
+tooling failures. Use `bun run lint` for repository lint checks and
+`bun run effect:diagnostics` for dedicated Effect diagnostics. Check the installed
+`@effect/tsgo` compatibility requirements before changing TypeScript, Oxlint, or
+`oxlint-tsgolint`; fix the underlying issue rather than suppressing the finding.
