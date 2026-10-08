@@ -346,11 +346,12 @@ export const buildPackageGuides = (
         )
       })
   )
-  const pages = Array.appendAll(Array.make(overview, gettingStarted), guidePages)
-  const slugs = Array.appendAll(
-    Array.make("", "getting-started"),
-    Array.map(guidePages, (page) => guideSlug(page.title))
-  )
+  const introductoryPages = Boolean.match(Array.isArrayEmpty(gettingBlocks), {
+    onTrue: () => Array.of(overview),
+    onFalse: () => Array.make(overview, gettingStarted)
+  })
+  const pages = Array.appendAll(introductoryPages, guidePages)
+  const slugs = Array.prepend(Array.map(Array.drop(pages, 1), (page) => guideSlug(page.title)), "")
 
   return {
     pages,
