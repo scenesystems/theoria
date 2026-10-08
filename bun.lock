@@ -22,7 +22,7 @@
         "@effect/vitest": "4.0.0",
         "@scenesystems/digest": "workspace:*",
         "@scenesystems/effect-search": "workspace:*",
-        "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
+        "@secretlint/secretlint-rule-preset-recommend": "^13.0.7",
         "@theoria/docs-model": "workspace:*",
         "@types/mdast": "^4.0.4",
         "@types/node": "^26.6.4",
@@ -96,7 +96,7 @@
     },
     "packages/digest": {
       "name": "@scenesystems/digest",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "dependencies": {
         "@noble/hashes": "2.4.0",
       },
@@ -114,7 +114,7 @@
     },
     "packages/effect-dsp": {
       "name": "@scenesystems/effect-dsp",
-      "version": "0.5.0",
+      "version": "0.6.1",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-lm": "workspace:^",
@@ -152,7 +152,7 @@
     },
     "packages/effect-math": {
       "name": "@scenesystems/effect-math",
-      "version": "0.5.0",
+      "version": "0.5.2",
       "devDependencies": {
         "@scenesystems/digest": "workspace:^",
       },
@@ -162,7 +162,7 @@
     },
     "packages/effect-search": {
       "name": "@scenesystems/effect-search",
-      "version": "0.7.0",
+      "version": "0.8.1",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-math": "workspace:^",
@@ -177,7 +177,7 @@
     },
     "packages/effect-study": {
       "name": "@scenesystems/effect-study",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
       },
@@ -187,7 +187,7 @@
     },
     "packages/effect-text": {
       "name": "@scenesystems/effect-text",
-      "version": "0.5.0",
+      "version": "0.5.2",
       "dependencies": {
         "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
@@ -212,7 +212,7 @@
     },
     "packages/sign": {
       "name": "@scenesystems/sign",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "dependencies": {
         "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
@@ -738,7 +738,7 @@
 
     "@secretlint/resolver": ["@secretlint/resolver@13.0.5", "", {}, "sha512-6V3PfSKJTafCMLbPMVZkP1d43Ot9y4hB8tmtA10NEybnV2gqgO8hMrWe2SsZUPBugjUPTise7efs9BFPsO9M6A=="],
 
-    "@secretlint/secretlint-rule-preset-recommend": ["@secretlint/secretlint-rule-preset-recommend@13.0.5", "", {}, "sha512-dxOmTLf1w7I6rQEFPL8Hkdz6dR1FQXF0bzmTahH/Wyezy89TMPLL+8LbZ2YD8trkmYBnS37zUmOsZT6rMVftKQ=="],
+    "@secretlint/secretlint-rule-preset-recommend": ["@secretlint/secretlint-rule-preset-recommend@13.0.7", "", {}, "sha512-hfdYra+ZB6RmviEApxeL/YCx4ovBtpj0d9c+uhlCZaCikObjb8Sb8yqBN6g8/9tt7qD7LXGE3k9RtVvGK1fNVw=="],
 
     "@secretlint/source-creator": ["@secretlint/source-creator@13.0.5", "", { "dependencies": { "@secretlint/types": "13.0.5", "istextorbinary": "^9.5.0" } }, "sha512-Y1edWpqit4Ai9fM4LU+v3s0JcCW6rSzOisDcxKBKfrg6ynFPX8n+JwEr5Bk+zGA0RnwlngJbmqjS+/CxDNl56A=="],
 
@@ -1465,8 +1465,6 @@
     "trough": ["trough@2.2.0", "", {}, "sha512-tmMpK00BjZiUyVyvrBK7knerNgmgvcV/KLVyuma/SC+TQN167GrMRciANTz09+k3zW8L8t60jWO1GpfkZdjTaw=="],
 
     "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
-
-    "tsx": ["tsx@4.23.13", "", { "dependencies": { "esbuild": "~0.28.0" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "bin": { "tsx": "dist/cli.mjs" } }, "sha512-BL5MGkRln6aDYhb0xbQlEAGw743BaZYWdbWtdJOBriYJboKgUUYCadFp2/FpBBZquBC/ezNBn7wMMPx7FDZUDw=="],
 
     "type-check": ["type-check@0.4.0", "", { "dependencies": { "prelude-ls": "^1.2.1" } }, "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew=="],
 
