@@ -135,10 +135,16 @@ export const placeFocusedProvenanceAtom: AtomType.Atom<Option.Option<PlaceProven
 /**
  * What the popup says: the answer on show, or, while it closes, the one just
  * leaving. A popup fades out over a moment; it fades with its last words
- * rather than emptying the instant the answer is let go.
+ * rather than emptying the instant the answer is let go. Retain the words
+ * synchronously: the lifetime stream runs after the drawing's invalidation,
+ * and React can render the closing popup before that stream saves its answer.
  */
 export const placeAnswerOnShowAtom: AtomType.Atom<Option.Option<PlaceProvenance>> = Atom.make(
-  (get: AtomType.AtomContext) => Option.orElse(get(placeFocusedProvenanceAtom), () => get(answerLeavingState))
+  (get: AtomType.AtomContext) =>
+    Option.orElse(
+      get(placeFocusedProvenanceAtom),
+      () => Option.orElse(Option.flatten(get.self<Option.Option<PlaceProvenance>>()), () => get(answerLeavingState))
+    )
 )
 
 /** The answer open, and what the page says about it this instant. */
