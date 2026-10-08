@@ -1,8 +1,8 @@
 # @scenesystems/effect-math
 
-`@scenesystems/effect-math` is a numerical library for programs built with [Effect](https://effect.website). Its flat concern modules cover scalar numerics, algebra, linear algebra, calculus, special functions, probability and distributions, statistics, optimization, geometry, complex arithmetic, runtime policy, and computation planning. Operations use typed failures and schema-checked boundaries where values enter from outside.
+Compute numerical results in [Effect](https://effect.website) programs, including scalar and vector operations, calculus, and probability.
 
-Numerical concerns expose the forms their behavior needs. Base operations are synchronous functions for trusted values. `Validated` variants decode unknown input and return an `Effect` whose error channel names what went wrong. `WithPolicies` variants read only the runtime-policy services shown in their Effect requirement, so a program can provide numerical behavior with a Layer.
+Base operations are synchronous functions for trusted values. `Validated` variants decode unknown input and return an `Effect` with typed errors. `WithPolicies` variants use services supplied through a Layer to configure numerical behavior.
 
 [`@scenesystems/effect-search`](../effect-search/README.md) builds its samplers on this package, and [`@scenesystems/effect-text`](../effect-text/README.md) uses it to score layout calibration. Content identities for cached numerical inputs come from [`@scenesystems/digest`](../digest/README.md).
 
@@ -12,9 +12,11 @@ Numerical concerns expose the forms their behavior needs. Base operations are sy
 bun add @scenesystems/effect-math effect
 ```
 
-Effect `^4.0.0` is a required peer dependency.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-math/LinearAlgebra`.
 
 ## Basic use
+
+Compute a dot product directly or validate vectors supplied as unknown input.
 
 ```ts typecheck
 import { Chunk, Effect } from "effect"
@@ -30,9 +32,6 @@ export const checked = dotValidated({
   b: [4, 5, 6]
 }).pipe(Effect.result)
 ```
-
-Import from a subpath such as `@scenesystems/effect-math/LinearAlgebra`, or
-import namespaces from the package root.
 
 ## Domains
 
@@ -59,7 +58,7 @@ Choose a numerical domain below; each link opens its API reference.
 | [`Uncertainty`](./src/Uncertainty.ts)     | Float64 and BigDecimal uncertainty intervals and envelopes                                                                                                                            |
 | [`Computation`](./src/Computation.ts)     | Effect services and Layers that plan scalar, backend, precision, differentiation, and uncertainty metadata                                                                            |
 
-Vectors and matrices use immutable `Chunk<number>` carriers. A matrix is a row-major chunk accompanied by row and column counts, so `matvec(matrix, 2, 3, x)` multiplies a 2×3 matrix by a 3-vector. `LinearAlgebra.add(a, b)` adds vectors and `LinearAlgebra.scale(vector, alpha)` scales one. Distribution functions use suffixes such as `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
+Vectors and matrices use immutable `Chunk<number>` values. A matrix is a row-major chunk accompanied by row and column counts, so `matvec(matrix, 2, 3, x)` multiplies a 2×3 matrix by a 3-vector. `LinearAlgebra.add(a, b)` adds vectors and `LinearAlgebra.scale(vector, alpha)` scales one. Distribution functions use suffixes such as `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
 
 Use `Distribution` for distribution functions and `Probability` for entropy:
 
@@ -148,21 +147,32 @@ For `Numeric.sumWithPolicies`, `compensated` selects Kahan-compensated accumulat
 
 ## Computation planning
 
-The planning concerns describe how a numerical computation should run without executing its kernel. [`Scalar`](./src/Scalar.ts) selects an available Float64 or BigDecimal lane. [`Precision`](./src/Precision.ts) evaluates convergence and escalation. [`Backend`](./src/Backend.ts) resolves a backend compatible with the selected lane. [`Autodiff`](./src/Autodiff.ts) chooses forward or reverse mode, or an allowed finite-difference fallback. [`Uncertainty`](./src/Uncertainty.ts) defines lane-specific result envelopes.
+The planning modules describe how a numerical computation should run without executing its kernel. [`Scalar`](./src/Scalar.ts) selects an available Float64 or BigDecimal lane. [`Precision`](./src/Precision.ts) evaluates convergence and escalation. [`Backend`](./src/Backend.ts) resolves a backend compatible with the selected lane. [`Autodiff`](./src/Autodiff.ts) chooses forward or reverse mode, or an allowed finite-difference fallback. [`Uncertainty`](./src/Uncertainty.ts) defines lane-specific result envelopes.
 
 [`Computation`](./src/Computation.ts) composes those decisions. `Computation.plan` decodes untrusted requests through the configured `Computation` service; `Computation.planWithAuthorities` accepts a decoded request and reads the individual authority services. `Computation.layer` provides the default planner and authorities. This planning layer records selections and provenance; it does not execute a numerical operation.
 
 `Policy.Precision` is the strict/relaxed runtime policy read by numerical `WithPolicies` operations. `Precision.Precision` is a separate computation-planning service for convergence and scalar escalation. Their qualified names make that distinction explicit.
 
-## Errors and boundaries
+## Errors
 
-Validated and policy-aware operations fail with tagged errors, so `Effect.catchTag` and `Effect.catchTags` work on them directly and the generated API reference lists each operation's exact union. Import errors from their owning concern: for example, `Numeric.ExecutionError` captures callback failure while preserving the `KernelExecutionError` wire tag, and `LinearAlgebra.ShapeMismatchError` reports incompatible dimensions. Encodable errors use `Schema.TaggedError`; service-only failures that need no codec may use `Data.TaggedError`.
+Validated and policy-aware operations fail with tagged errors, so `Effect.catchTag` and `Effect.catchTags` work on them directly. The API reference lists each operation's error union. Import errors from their module: `Numeric.ExecutionError` reports callback failure with the `KernelExecutionError` tag, and `LinearAlgebra.ShapeMismatchError` reports incompatible dimensions.
 
 Base operations have no typed error channel. They require their documented preconditions; `Numeric.unsafeDivide`, for example, throws on a zero divisor, following Effect v4. Use `Numeric.safeDivide` for an `Option` result or `Numeric.unsafeDivideValidated` for typed validation failures.
 
 ## Examples
 
-The [examples directory](./examples/) contains runnable programs showing base, validated, and policy-aware forms: [numeric transforms](./examples/01-numeric-scalar-transforms.ts), [linear algebra](./examples/02-linear-algebra-vectors.ts), [geometry](./examples/03-geometry-distances.ts), [probability](./examples/04-probability-distributions.ts), [statistics](./examples/05-statistics-summary.ts), [special functions](./examples/06-special-functions.ts), [algebra](./examples/07-algebra-polynomials.ts), [calculus](./examples/08-calculus-numerical.ts), [optimization](./examples/09-optimization-solvers.ts), and [distributions](./examples/10-distributions.ts).
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [Numeric transforms](./examples/01-numeric-scalar-transforms.ts)
+- [Linear algebra](./examples/02-linear-algebra-vectors.ts)
+- [Geometry](./examples/03-geometry-distances.ts)
+- [Probability](./examples/04-probability-distributions.ts)
+- [Statistics](./examples/05-statistics-summary.ts)
+- [Special functions](./examples/06-special-functions.ts)
+- [Algebra](./examples/07-algebra-polynomials.ts)
+- [Calculus](./examples/08-calculus-numerical.ts)
+- [Optimization](./examples/09-optimization-solvers.ts)
+- [Distributions](./examples/10-distributions.ts)
 
 ## Reference fixtures
 
@@ -172,11 +182,11 @@ Set `SCIPY_FIXTURE_OUTPUT_DIRECTORY` to generate into a separate directory for r
 
 ## Status
 
-This package is pre-1.0. Public concern APIs are provisional: minor releases may change signatures and behavior. Pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
 
 ## Contributing and support
 
-Read the repository [contributing guide](../../CONTRIBUTING.md) before opening a pull request. Report defects and request changes through [GitHub issues](https://github.com/scenesystems/theoria/issues). For security concerns, follow the [security policy](../../SECURITY.md).
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## Attribution
 

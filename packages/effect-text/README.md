@@ -1,6 +1,6 @@
 # @scenesystems/effect-text
 
-`@scenesystems/effect-text` prepares measured text once and then performs pure, greedy multiline layout at any number of widths. It is intended for canvas renderers, virtualized views, diagrams, and other applications that need deterministic line geometry without invoking a browser layout engine.
+Measure text in [Effect](https://effect.website) programs and reuse the measurements for greedy multiline layout at different widths. Use it for canvas renderers, virtualized views, diagrams, and other applications that need deterministic line geometry without invoking a browser layout engine.
 
 Preparation is an `Effect`: it segments text, measures runs, optionally applies dictionary hyphenation, and captures a text-engine profile. Every projection after preparation is synchronous and pure.
 
@@ -10,11 +10,9 @@ Preparation is an `Effect`: it segments text, measures runs, optionally applies 
 bun add @scenesystems/effect-text effect
 ```
 
-Effect `^4.0.0` is a required peer dependency. Calibration additionally uses
-`@scenesystems/effect-search`, `@scenesystems/effect-study`, and
-`@scenesystems/effect-math`; these are installed with the package.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-text/Text`.
 
-## Quick start
+## Basic use
 
 The default `Text.layer` combines the Unicode-aware segmenter, default profile, bundled hyphenation dictionaries, deterministic estimator, and layer-owned measurement cache.
 
@@ -228,10 +226,17 @@ Validate canvas output against every target browser and font. The package guaran
 
 ## Examples
 
-The [examples directory](./examples/) contains runnable programs for the [quick start](./examples/01-quick-start.ts), [cursors and streams](./examples/02-cursor-and-stream.ts), [explicit services](./examples/03-explicit-services.ts), [canvas measurement](./examples/04-canvas-measurement.ts), [calibration](./examples/05-calibration-search.ts), [synthetic canvas regression artifacts](./examples/06-synthetic-regression-artifacts.ts), and [dictionary hyphenation](./examples/07-dictionary-hyphenation.ts).
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
 
-See the [public API](./src/index.ts) for all modules. Each is available as a
-root namespace and a subpath such as `@scenesystems/effect-text/Text`.
+- [Basic layout](./examples/01-quick-start.ts)
+- [Cursors and streams](./examples/02-cursor-and-stream.ts)
+- [Services and layers](./examples/03-explicit-services.ts)
+- [Canvas measurement](./examples/04-canvas-measurement.ts)
+- [Calibration](./examples/05-calibration-search.ts)
+- [Synthetic canvas regression artifacts](./examples/06-synthetic-regression-artifacts.ts)
+- [Dictionary hyphenation](./examples/07-dictionary-hyphenation.ts)
+
+## Benchmarks
 
 Run `bun run packages/effect-text/benchmarks/run.ts` from the repository root to
 measure the public projections and warm-cache preparation. The report is written
@@ -240,7 +245,11 @@ outputs, and Effect dispatch overhead. Timings depend on the host.
 
 ## Status
 
-This package is pre-1.0. Pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## Attribution
 

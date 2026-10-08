@@ -1,6 +1,6 @@
 # @scenesystems/effect-search
 
-`@scenesystems/effect-search` is black-box optimization for programs built with [Effect](https://effect.website). Use it when you can evaluate a configuration but cannot express its quality as a closed-form or differentiable function: benchmark scores, model quality, operating cost, or the outcome of an experiment.
+Optimize configurations with black-box search in [Effect](https://effect.website) programs. Use it when you can evaluate a configuration but cannot express its quality as a closed-form or differentiable function: benchmark scores, model quality, operating cost, or the outcome of an experiment.
 
 A `SearchSpace` describes the valid configurations and infers their TypeScript type. An `Optimization` asks a `Sampler` for a configuration, runs your Effect objective, records the resulting `Trial`, and returns that history to the sampler before its next suggestion. Because the optimization owns trial states, sampler checkpoints, and search-space identity, it can be inspected, snapshotted, and resumed.
 
@@ -15,11 +15,13 @@ For fixed-input evaluation or non-numeric observations without search, use
 bun add @scenesystems/effect-search effect
 ```
 
-Effect `^4.0.0` is the only required peer dependency. Platform implementations such as `@effect/platform-bun` or `@effect/platform-node` are needed only when an application uses filesystem-backed persistence. Install an Effect SQL implementation only when using the SQL-backed cache layer.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-search/Optimization`.
+
+Filesystem persistence also requires `@effect/platform-bun` or `@effect/platform-node`. Install an Effect SQL implementation when using the SQL-backed cache layer.
 
 ## Basic use
 
-The optimization below minimizes a two-dimensional function. `SearchSpace.make` validates the definition and carries the inferred configuration type through the objective and the result.
+Minimize a two-dimensional function. `SearchSpace.make` validates the definition and infers the configuration type used by the objective and result.
 
 ```ts typecheck
 import { Effect, Match, Number as Num } from "effect"
@@ -257,7 +259,7 @@ export const program = Effect.scoped(
 )
 ```
 
-## Errors and boundaries
+## Errors
 
 Failures surface in the Effect error channel as `Schema.TaggedError` values, so `Effect.catchTag` and `Effect.catchTags` work on them directly. `InvalidSearchSpace` and `InvalidOptimizationConfig` reject definitions before any trial runs. `InvalidSamplerConfig`, `SamplerSearchSpaceUnsupported`, and `SamplerObjectiveUnsupported` report a sampler that cannot serve the space or the objective shape. `TrialError` wraps an objective failure with its trial number, `NoSuccessfulTrials` means a completed optimization has no best trial to report, and `SamplerExhausted` means a finite sampler has nothing left to suggest.
 
@@ -265,18 +267,25 @@ The package owns the search loop and its state. It does not own the objective's 
 
 ## Examples
 
-See the [public API](./src/index.ts) for all modules. Import namespaces from
-the root or matching subpaths, such as `@scenesystems/effect-search/Optimization`.
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
 
-The [examples directory](./examples/) contains one runnable program per capability. Start with the [quick start](./examples/01-quick-start.ts), then follow the topic you need: [conditional spaces](./examples/07-conditional-spaces.ts) and [space composition](./examples/18-space-composition.ts); [multi-objective optimization](./examples/04-multi-objective.ts), [constrained optimization](./examples/15-constrained-optimization.ts), and [HyperBand and BOHB](./examples/14-hyperband-bohb.ts); [snapshot resume](./examples/10-snapshot-resume.ts), [storage resume](./examples/11-storage-resume.ts), and [trial caching](./examples/12-trial-cache.ts); [ask and tell](./examples/25-ask-tell.ts), [streaming events](./examples/03-streaming-events.ts), and [parallel evaluation](./examples/21-parallel-evaluation.ts); [sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts).
+- [Basic optimization](./examples/01-quick-start.ts)
+- [Conditional spaces](./examples/07-conditional-spaces.ts) and [space composition](./examples/18-space-composition.ts)
+- [Multi-objective optimization](./examples/04-multi-objective.ts) and [constraints](./examples/15-constrained-optimization.ts)
+- [HyperBand and BOHB](./examples/14-hyperband-bohb.ts)
+- [Snapshot resumption](./examples/10-snapshot-resume.ts) and [storage resumption](./examples/11-storage-resume.ts)
+- [Objective caching](./examples/12-trial-cache.ts)
+- [Ask and tell](./examples/25-ask-tell.ts)
+- [Streaming events](./examples/03-streaming-events.ts) and [parallel evaluation](./examples/21-parallel-evaluation.ts)
+- [Sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts)
 
 ## Status
 
-This package is pre-1.0. Minor releases may change public APIs; pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
 
 ## Contributing and support
 
-Read the repository [contributing guide](../../CONTRIBUTING.md) before opening a pull request. Report defects and request changes through [GitHub issues](https://github.com/scenesystems/theoria/issues). For security concerns, follow the [security policy](../../SECURITY.md).
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## Attribution
 

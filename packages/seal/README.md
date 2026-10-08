@@ -1,6 +1,6 @@
 # @scenesystems/seal
 
-Authenticated encryption for Effect v4, backed by Noble Ciphers. Effect `^4.0.0` is a required peer dependency.
+Encrypt and authenticate bytes in [Effect](https://effect.website) programs using Noble Ciphers.
 
 `Cipher` provides an injectable encryption backend and the byte-valued `Cipher.Encrypted` model. `Envelope` encodes encrypted values for base64url transport. Applications manage identity, authorization, and key lifecycle, and select the encryption algorithm.
 
@@ -10,9 +10,11 @@ Authenticated encryption for Effect v4, backed by Noble Ciphers. Effect `^4.0.0`
 bun add @scenesystems/seal effect
 ```
 
-Import `Cipher` and `Envelope` from the package root or their matching public subpaths, such as `@scenesystems/seal/Cipher`.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/seal/Cipher`.
 
-## Encrypt and decrypt
+## Basic use
+
+Encrypt bytes with XChaCha20-Poly1305, encode the result as JSON, and decrypt the decoded value.
 
 ```ts typecheck
 import { Cipher, Envelope } from "@scenesystems/seal"
@@ -70,7 +72,7 @@ All algorithms use 32-byte keys and 16-byte tags. All-zero keys are rejected as 
 
 For 96-bit random nonces, keep message counts per AES key well below 2^32. Noble recommends around 2^23 messages for a collision probability near 2^-50. Choose stricter limits when required and rotate keys on an application-owned schedule. Do not reuse keys across protocols without a domain and lifecycle analysis.
 
-## Typed failures
+## Errors
 
 - `Cipher.InvalidKey`: wrong length or all-zero key; carries only expected/received lengths and a fixed reason.
 - `Cipher.DecryptionFailed`: malformed transport encoding uses `invalid envelope encoding`; wrong keys, wrong field lengths, and modified ciphertext use `authentication failed`.
@@ -79,12 +81,25 @@ For 96-bit random nonces, keep message counts per AES key well below 2^32. Noble
 
 These use `Data.TaggedError` and retain no key/plaintext material or primitive causes. Use `Effect.catchTag`; protocols own outward error representations. Treat authentication failures uniformly.
 
-## Verification and examples
+## Examples
+
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [Encryption and decryption](./examples/01-encrypt-decrypt.ts)
+- [Algorithm comparison](./examples/02-algorithm-comparison.ts)
+
+## Verification
 
 Independent Wycheproof and RFC 8452 known answers cover all algorithms. Tests cover seeded byte-preservation properties, JSON codecs, independent buffer ownership, invalid fields, key boundaries, entropy failure, lazy acquisition, and interruption/finalization. Noble's audits cover the primitives, not application protocol policy.
 
-See [examples](./examples/), [tests](./test/), [contributing](../../CONTRIBUTING.md), and [security](../../SECURITY.md).
+## Status
 
-This package is pre-1.0; minor releases may change APIs. See the [changelog](./CHANGELOG.md) when upgrading.
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
+
+## License
 
 [MIT](./LICENSE). Copyright 2026 Scene Systems.

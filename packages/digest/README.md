@@ -8,9 +8,11 @@ Hash bytes and text, identify structured content, and derive keys in [Effect](ht
 bun add @scenesystems/digest effect
 ```
 
-Requires Effect `^4.0.0`. Import namespaces from the root or matching subpaths, such as `@scenesystems/digest/ContentDigest`. Operations return lazy Effects with typed validation failures.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/digest/ContentDigest`.
 
-## Hash bytes or text
+## Basic use
+
+Hash UTF-8 text with BLAKE3. Operations return lazy Effects with typed validation failures.
 
 ```ts typecheck
 import { Digest, Utf8 } from "@scenesystems/digest"
@@ -54,12 +56,12 @@ For a canonical byte budget, use `fromSchemaWithByteLimit`:
 
 ```ts typecheck
 import { ContentDigest } from "@scenesystems/digest"
-import { Schema } from "effect"
+import { Number, Schema } from "effect"
 
 const Payload = Schema.Struct({ id: Schema.String, tags: Schema.Array(Schema.String) })
 
 export const identifyBounded = (payload: typeof Payload.Type) =>
-  ContentDigest.fromSchemaWithByteLimit(Payload, payload, 64 * 1024)
+  ContentDigest.fromSchemaWithByteLimit(Payload, payload, Number.multiply(64, 1024))
 ```
 
 This returns the digest and `canonicalByteLength`, or a typed limit failure. The inclusive limit bounds emitted canonical bytes, not Schema work, input traversal, or key sorting. Apply structural limits to untrusted inputs too. See [`ContentDigest`](./src/ContentDigest.ts) for result models and exact operation contracts.
@@ -84,15 +86,28 @@ export const authenticate = (key: Uint8Array, body: string) =>
 
 Supply a securely managed key. Compare authenticators with the protocol's constant-time comparison and bind algorithm, key identity, and message domain there. Applications own key storage, rotation, and output-length limits.
 
-## Examples and verification
+## Examples
 
-Runnable examples cover [content hashing](./examples/01-content-hashing.ts), [webhook HMAC](./examples/02-webhook-verification.ts), [content addressing](./examples/03-content-addressing.ts), and [streaming](./examples/04-streaming-digest.ts). The [public API](./src/index.ts) lists all concerns.
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [Content hashing](./examples/01-content-hashing.ts)
+- [Webhook HMAC](./examples/02-webhook-verification.ts)
+- [Content addressing](./examples/03-content-addressing.ts)
+- [Streaming](./examples/04-streaming-digest.ts)
+
+## Verification
 
 Conformance tests use RFC 8785, BLAKE3, FIPS 180-4, HMAC, and HKDF references, including NIST and Wycheproof vectors. [Fixture provenance](./test/fixtures/external/sources.manifest.json) records revisions, licenses, and transformations. From this package, `bun run fixtures:verify` checks source hashes and conformance tests.
 
 For local throughput measurements, run `OUTPUT=.tmp/digest-throughput.jsonl bash packages/digest/benchmark/throughput.sh node bun` from the repository root on an idle host. The [runner](./benchmark/throughput.sh) writes raw samples and candidate/oracle ratios and exits nonzero when a ratio exceeds 1. The whole-preimage oracle does less admission and cooperative work; its ratio is diagnostic, not a comparison with a published release.
 
-This package is pre-1.0. Pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
+## Status
+
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## License
 

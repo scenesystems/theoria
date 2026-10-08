@@ -8,9 +8,11 @@ Evaluate known inputs and record their outcomes for later replay in [Effect](htt
 bun add @scenesystems/effect-study effect
 ```
 
-Requires Effect `^4.0.0`. Import concern namespaces from the root or matching subpaths, such as `@scenesystems/effect-study/Evaluation`.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-study/Evaluation`.
 
-## Evaluate known inputs
+## Basic use
+
+Evaluate a batch of strings and retain the structured observations in trial history.
 
 ```ts typecheck
 import { Array, Effect, Schema, String } from "effect"
@@ -100,18 +102,26 @@ export const ReadingEnvelope = Artifact.Envelope(Producer, Lineage, Payload)
 
 Use [artifact persistence](./examples/artifact-persistence.ts) for transformed payload codecs, delivery, and checkpoints. [`Journal`](./src/Journal.ts) supplies lower-level JSON-lines persistence when no run recording is needed.
 
-## Lifecycle and examples
+## Lifecycle
 
 [`Study`](./src/Study.ts) owns scoped lifecycle and trial history. [`Stop`](./src/Stop.ts) supplies cooperative stop decisions; [`Lifecycle`](./src/Lifecycle.ts) describes valid transitions. These are useful when building a runner, rather than evaluating a fixed batch with `Evaluation`.
 
-Run the [examples](./examples/) from a repository checkout with `bun packages/effect-study/examples/<file>.ts`. They use local data and need no provider credentials:
+## Examples
 
-- [evaluation](./examples/evaluation.ts): evaluation and schema-encoded observations.
-- [structured evaluation](./examples/structured-evaluation.ts): caller grading, typed failure, and missing costs.
-- [recorded evaluation](./examples/recorded-evaluation.ts): observer failure, checkpoints, and reopening a recording.
-- [artifact persistence](./examples/artifact-persistence.ts): payload codecs and delivery.
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs. Run them from a repository checkout with `bun packages/effect-study/examples/<file>.ts`; they use local data and need no provider credentials.
 
-See the [public API](./src/index.ts) for all modules and the [changelog](./CHANGELOG.md) when upgrading. This package is pre-1.0; minor releases may change APIs.
+- [Evaluation](./examples/evaluation.ts): evaluation and schema-encoded observations.
+- [Structured evaluation](./examples/structured-evaluation.ts): caller grading, typed failure, and missing costs.
+- [Recorded evaluation](./examples/recorded-evaluation.ts): observer failure, checkpoints, and reopening a recording.
+- [Artifact persistence](./examples/artifact-persistence.ts): payload codecs and delivery.
+
+## Status
+
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## License
 

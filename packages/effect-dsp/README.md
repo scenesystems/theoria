@@ -11,12 +11,16 @@ error and service requirements.
 bun add @scenesystems/effect-dsp effect
 ```
 
-Requires Effect `^4.0.0`. Supply a layer for `effect/ai/LanguageModel` to run
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-dsp/Signature`.
+
+Supply a layer for `effect/ai/LanguageModel` to run
 the examples. For provider setup, see
 [`effect-inference`](../effect-inference/README.md#configured-text-providers);
 for local tests, use the mock layer below.
 
-## Typed programs
+## Basic use
+
+Define a typed question-answering program with `Signature.make` and `Module.predict`.
 
 ```ts typecheck
 import { Effect, Schema } from "effect"
@@ -103,11 +107,13 @@ backend to `Cache.layer`. Request identity comes from the input and parameter
 codecs' encoded values plus module/runtime fingerprints; change the fingerprints
 when their meaning changes. Failed computations are not cached.
 
-## Errors and testing
+## Errors
 
 `DspError.DspError` is the schema union of package-owned tagged failures. Native
 Schema, provider, platform, effect-search, and user callback failures remain in
 their original channels when an operation exposes them separately.
+
+## Testing
 
 Testing code imports the flat `MockLanguageModel` subpath:
 
@@ -124,9 +130,21 @@ export const layer = MockLanguageModel.layer(
 Use `MockLanguageModel.fromFunction` for effectful prompt-dependent behavior,
 `sequence` for ordered responses, and `fail` for checked provider failure tests.
 
-See the [public API](./src/index.ts) for all modules, including parameter
-persistence and ensembles. Import namespaces from the root or matching
-PascalCase subpaths, such as `@scenesystems/effect-dsp/Signature`.
+## Examples
+
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [Live classification](./examples/03-basic-classify-live-openai.ts): requires provider credentials.
+- [Search integration](./examples/06-effect-search-interop.ts): runs locally without a provider.
+- [ReAct optimization](./examples/08-react-tool-use-optimized.ts): requires provider credentials.
+
+## Status
+
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## Attribution
 

@@ -1,22 +1,23 @@
 # @scenesystems/sign
 
-Effect-native digital signatures, X25519 key agreement, X-Wing hybrid encapsulation, and RS256 JWT verification. Cryptographic primitives come from Noble Curves, Hashes, and Post-Quantum. Applications own key authentication, message framing, authorization, storage, and secret destruction.
+Sign messages, agree on shared secrets, and verify RS256 JWTs in [Effect](https://effect.website) programs. Cryptographic primitives come from Noble Curves, Hashes, and Post-Quantum. Applications manage key authentication, message framing, authorization, storage, and secret destruction.
 
-## Installation and imports
+## Installation
 
 ```sh
 bun add @scenesystems/sign effect
 ```
 
-Requires Effect `^4.0.0`. Import namespaces from the root or matching,
-case-sensitive subpaths, such as `@scenesystems/sign/Ed25519`.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/sign/Ed25519`.
 
 Choose the suite explicitly: Ed25519, secp256k1, ML-DSA, and SLH-DSA support
 signing and verification; P256 and RSA support verification only. Use X25519
 for agreement, X-Wing for hybrid encapsulation, and `Jwt` for RS256 token policy.
 Use `Hex`, `Base64`, and `Base64Url` from `effect/encoding` for wire encodings.
 
-## Sign and verify with an authenticated key
+## Basic use
+
+Generate an Ed25519 key pair, sign a message, and verify the signature.
 
 ```ts typecheck
 import { Bytes, Ed25519, Entropy } from "@scenesystems/sign"
@@ -155,14 +156,30 @@ export const authenticate = (token: Redacted.Redacted<string>, trustedJwks: unkn
 
 Authenticate the JWKS for the configured issuer before calling `verifyRs256`; the package performs no network lookup. Verification enforces issuer, audience, issuance, expiry, and maximum lifetime using Effect's Clock, with no clock skew. Application claims are decoded only after signature and policy checks pass. `Jwt.Rejected` retains no token material; backend unavailability remains distinct. JWKS input is limited to 100 keys and compact tokens to 8,876 characters. See [`Jwt`](./src/Jwt.ts) for the admitted header and claims profile.
 
-## Data and failure boundaries
+## Errors and validation
 
 Use `Schema.decodeUnknownEffect` for untrusted data. Decoding a [`KeyPair`](./src/KeyPair.ts) or [`Signature`](./src/Signature.ts) model checks its representation, not cryptographic validity. Models do not redact or make mutable key bytes immutable. Select a wire codec explicitly for JSON transport; suite operations own cryptographic admission and verification.
 
-## Verification and examples
+## Examples
+
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [Ed25519 signing and verification](./examples/01-sign-verify.ts)
+- [X25519 key agreement](./examples/02-key-agreement.ts)
+- [ML-DSA-65 and X-Wing](./examples/03-post-quantum.ts)
+
+## Verification
 
 Tests use retained RFC, ACVP, Wycheproof, and independent OpenSSL inputs, plus boundary/admission tests, deterministic entropy substitution, and a seeded X25519 agreement law. `bun run --filter @scenesystems/sign fixtures:check` validates retained payload schemas and fingerprints. After building, `bun run --filter @scenesystems/sign test:packed` runs public root/subpath APIs from an isolated tarball installation in Bun and native workerd without Node compatibility. See [fixture provenance](./test/fixtures/RSA-PROVENANCE.md) for sources and measurement limitations.
 
-Runnable examples demonstrate [Ed25519](./examples/01-sign-verify.ts), [X25519](./examples/02-key-agreement.ts), and [ML-DSA-65 with X-Wing](./examples/03-post-quantum.ts). API contracts live on the [public declarations](./src/index.ts).
+## Status
 
-This package is pre-1.0; minor releases may change APIs. See the [changelog](./CHANGELOG.md), [contributing guide](../../CONTRIBUTING.md), and [security policy](../../SECURITY.md). [MIT](./LICENSE). Copyright 2026 Scene Systems.
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
+
+## License
+
+[MIT](./LICENSE). Copyright 2026 Scene Systems.

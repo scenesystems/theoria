@@ -10,10 +10,11 @@ configured providers or supply their own runtime resolver.
 bun add @scenesystems/effect-inference effect
 ```
 
-Requires Effect `^4.0.0`. Import namespaces from the root or matching subpaths,
-such as `@scenesystems/effect-inference/Runtime`.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-inference/Runtime`.
 
-## Runtime resolution
+## Basic use
+
+Resolve an OpenAI-compatible model route for a local Ollama server.
 
 ```ts typecheck
 import { Effect } from "effect"
@@ -137,8 +138,22 @@ usage observer.
 
 `InferenceError.InferenceError` is the schema and type for `InvalidRuntimeConfig`, `CapabilityMismatch`, `UnsupportedRoute`, and `RuntimeNotImplemented`. Provider transport failures remain in the native `effect/ai/AiError` channel, with semantic failures under `error.reason`. API keys are never stored in requests, resolutions, or evidence.
 
-See the [public API](./src/index.ts) for provider configuration and observation
-contracts, and the [changelog](./CHANGELOG.md) when upgrading.
+## Examples
+
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [OpenAI-compatible route evidence](./examples/01-openai-compatible-static-runtime.ts)
+- [Hugging Face routed models](./examples/02-hugging-face-routed-runtime.ts)
+- [Configuration decoding](./examples/03-runtime-config-decoding.ts)
+- [Hugging Face endpoints](./examples/04-hugging-face-endpoint-runtime.ts)
+
+## Status
+
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## License
 
