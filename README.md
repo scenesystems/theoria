@@ -72,7 +72,7 @@ Save this as `optimize.ts` and run `bun optimize.ts`. The minimum is zero at `x 
 
 ## Documentation and examples
 
-Package READMEs supply the [docs-site guides](https://theoria.scenesystems.io/docs); public TSDoc supplies the API reference. Runnable programs live in each package's `examples/` directory. Research references, standards, and provenance belong to the package that implements them.
+Package READMEs supply the [docs-site guides](https://theoria.scenesystems.io/docs); public TSDoc supplies the API reference. Each package's `examples/` directory contains runnable programs.
 
 Packages are pre-1.0 and versioned independently. Minor releases may change APIs. Pin a compatible version and read the package's `CHANGELOG.md` when upgrading.
 

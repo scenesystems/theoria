@@ -57,7 +57,7 @@ export const restoredIdentity = Effect.gen(function* () {
 
 Invalid seed material fails with `Ed25519.InvalidSeed`, which retains no material. Backend derivation failures use `KeyPair.GenerationFailed` with a fixed diagnostic.
 
-## Entropy is a dependency, not a hidden default
+## Entropy
 
 Provide [`Entropy.layer`](./src/Entropy.ts) at the application boundary for key generation, randomized signing, and encapsulation. It uses the runtime CSPRNG through Noble, not Effect's seedable `Random` service. Key generators are lazy Effect values: yield them directly, without `()`. Each execution draws fresh entropy.
 
@@ -65,7 +65,7 @@ Provide [`Entropy.layer`](./src/Entropy.ts) at the application boundary for key 
 
 Tests may substitute deterministic providers with `Effect.provideService`. **Never use test providers for production secrets.** This service controls generated key and signature material, not Noble's internal blinding randomness.
 
-## Agreement and encapsulation produce raw secrets
+## Key agreement and encapsulation
 
 ```ts typecheck
 import { Bytes, Entropy, X25519 } from "@scenesystems/sign"
@@ -86,7 +86,7 @@ export const agree = Effect.gen(function* () {
 
 Apply a protocol-bound KDF before using either output as a symmetric key. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation; [`@scenesystems/seal`](../seal/README.md) encrypts under derived keys.
 
-## Strict verification distinguishes rejection from nonmatch
+## Strict verification
 
 `Ed25519.verify`, `P256.verify`, `MlDsa.verify65`, and `Rsa.verify` use a common contract:
 
@@ -110,7 +110,7 @@ Each linked suite reference specifies admitted encodings, lengths, and key const
 
 The RSA scheme composes Noble public arithmetic with SHA-256 from `@scenesystems/digest`. **This Theoria composition is not covered by Noble's audits.** Independent OpenSSL fixtures and all 259 cases of a pinned Wycheproof corpus provide conformance evidence, not an audit.
 
-## Post-quantum signing keeps context and entropy explicit
+## Post-quantum signing
 
 ```ts typecheck
 import { Bytes, Entropy, MlDsa } from "@scenesystems/sign"
@@ -132,7 +132,7 @@ export const signDocument = Effect.gen(function* () {
 
 The non-strict secp256k1, ML-DSA-44/87, and SLH-DSA verifiers return false for nonmatches and `Signature.VerificationFailed` for backend exceptions. These diagnostics may contain backend text; they are not the strict material-free failure contract.
 
-## JWT policy is separate from cryptographic verification
+## JWT verification
 
 ```ts typecheck
 import { Jwt } from "@scenesystems/sign"

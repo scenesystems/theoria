@@ -215,7 +215,7 @@ See [the calibration example](./examples/05-calibration-search.ts) for a seeded 
 
 `Text.prepare` and `Text.prepareWithSegments` fail with `TextMeasurer.Failed` when measurement does not return a finite non-negative advance. `Text.prepareUnknown` can additionally fail with `Text.DecodeError`. Layout projections have no error channel once preparation succeeds.
 
-This is a bounded manual layout engine, not a CSS layout implementation:
+Layout has the following limits:
 
 - line breaking is greedy and supports only the documented whitespace modes;
 - callers supply line height, fonts, font readiness, and the measurement host;
@@ -236,8 +236,7 @@ root namespace and a subpath such as `@scenesystems/effect-text/Text`.
 Run `bun run packages/effect-text/benchmarks/run.ts` from the repository root to
 measure the public projections and warm-cache preparation. The report is written
 to `.tmp/effect-text-benchmark.json`. It records nanosecond durations, operation
-outputs, and Effect dispatch overhead; timings are host-specific, not conformance
-expectations or comparisons with obsolete implementations.
+outputs, and Effect dispatch overhead. Timings depend on the host.
 
 ## Status
 

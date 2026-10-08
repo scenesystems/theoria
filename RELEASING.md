@@ -52,7 +52,7 @@ publish placeholder versions. Before use, an administrator must configure the
 A sole reviewer must be allowed to approve their own run.
 
 1. Select a successful finalized staging candidate as above.
-2. Create a short-lived npm granular token with **Packages and scopes → Read and
+2. Create a short-lived npm granular token with **Packages and scopes -> Read and
    write** and **Bypass 2FA**, restricted to the target scope. Store it only as the
    protected environment secret `NPM_BOOTSTRAP_TOKEN`.
 3. Run **Bootstrap Packages** on `main` with the candidate's `run_id` and an

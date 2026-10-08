@@ -81,7 +81,7 @@ const modelLayer = HuggingFaceEmbeddingModel.layerFetch(
 )
 
 export const embedding = Effect.flatMap(EmbeddingModel.EmbeddingModel, (model) =>
-  model.embed("One concern has one owner.")
+  model.embed("The station opens at six in the morning.")
 ).pipe(Effect.provide(modelLayer))
 ```
 

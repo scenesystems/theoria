@@ -40,8 +40,8 @@ Run Python fixture generators with `uv run` to use their declared dependencies.
 
 ## Pull requests
 
-Submit PRs against `main`. Explain the problem, conceptual change, and actual
-verification—not a file inventory or implementation diary. Omit empty sections.
+Submit PRs against `main`. Explain the problem and the change, and report the
+checks you ran. Omit empty sections.
 
 Keep commits signed, focused, and independently reviewable. Use Conventional
 Commits: `type(scope): concise change`, with the scope naming the affected owner.

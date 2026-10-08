@@ -2,7 +2,7 @@
 
 Authenticated encryption for Effect v4, backed by Noble Ciphers. Effect `^4.0.0` is a required peer dependency.
 
-`Cipher` owns the injectable backend and the byte-valued `Cipher.Encrypted` model. `Envelope` owns its base64url transport codec. Identity, authorization, key storage, rotation, and algorithm policy belong to the application.
+`Cipher` provides an injectable encryption backend and the byte-valued `Cipher.Encrypted` model. `Envelope` encodes encrypted values for base64url transport. Applications manage identity, authorization, and key lifecycle, and select the encryption algorithm.
 
 ## Installation
 
@@ -12,7 +12,7 @@ bun add @scenesystems/seal effect
 
 Import `Cipher` and `Envelope` from the package root or their matching public subpaths, such as `@scenesystems/seal/Cipher`.
 
-## Encrypt bytes, encode at the boundary
+## Encrypt and decrypt
 
 ```ts typecheck
 import { Cipher, Envelope } from "@scenesystems/seal"
@@ -33,9 +33,9 @@ export const program = Effect.gen(function* () {
 
 `Cipher.encrypt` returns fresh nonce and ciphertext buffers; `Cipher.decrypt` returns fresh plaintext. Neither mutates its inputs. Keep caller-owned bytes unchanged until an operation completes. Decryption checks exact nonce length and minimum tag length before authenticating, and does not acquire entropy.
 
-## Transport uses Effect's byte codecs
+## Encode for transport
 
-`Envelope.Envelope` is a codec, not a second model class. Its decoded value is `Cipher.Encrypted`; its encoded value (`Envelope.Encoded`) contains the same field names with base64url strings. Encoding emits unpadded base64url. Decoding validates encoding and allocates fresh byte fields, but does not authenticate or enforce algorithm-specific lengths.
+`Envelope.Envelope` decodes to `Cipher.Encrypted`; its encoded value (`Envelope.Encoded`) contains the same field names with base64url strings. Encoding emits unpadded base64url. Decoding validates encoding and allocates fresh byte fields, but does not authenticate or enforce algorithm-specific lengths.
 
 Count cryptographic payload bytes as nonce length plus ciphertext length, not JSON length.
 

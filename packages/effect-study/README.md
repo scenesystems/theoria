@@ -1,6 +1,6 @@
 # @scenesystems/effect-study
 
-Evaluate known inputs, retain trial outcomes, and record evidence for later replay in [Effect](https://effect.website) programs. Observations can be structured values, not just scores. Use [`effect-search`](../effect-search/README.md) instead when you need search spaces, samplers, ranking, or pruning.
+Evaluate known inputs and record their outcomes for later replay in [Effect](https://effect.website) programs. Observations can contain structured values. Use [`effect-search`](../effect-search/README.md) when you need search spaces, samplers, ranking, or pruning.
 
 ## Installation
 
@@ -32,13 +32,13 @@ export const program = Effect.gen(function* () {
 
 Use `Evaluation.runSettled` to retain expected evaluator failures as `Trial.Failed` records alongside completed values. Defects and interruption still terminate the Effect. Empty input is valid. The caller decides how to grade outcomes and whether the dataset is sufficient.
 
-[`History`](./src/History.ts) keeps the current record for each trial number. `History.values` returns those records in trial order; `History.costs` distinguishes reported, missing, and invalid costs rather than inventing a total for missing evidence.
+[`History`](./src/History.ts) keeps the current record for each trial number. `History.values` returns those records in trial order; `History.costs` reports missing and invalid costs separately from known costs.
 
 ## Observe a run
 
 `Evaluation.runWithEvents(inputs, evaluate, options, observe)` adds an Effectful observer to settled evaluation. Events describe the plan, trial starts, outcomes, and completion. Observer calls are serialized and awaited; slow observers apply backpressure. A failed observer stops admission and interrupts active local evaluations without turning the storage failure into a trial result.
 
-An observer's successful Effect acknowledges the event. Await the durability boundary your application needs—for a transactional backend, that means the outer commit, not merely an append inside the transaction. A start without an acknowledged outcome remains unresolved after interruption or process loss.
+An observer's successful Effect acknowledges the event. Await the durability boundary your application needs. For a transactional backend, await the outer commit. A start without an acknowledged outcome remains unresolved after interruption or process loss.
 
 For streams, pass the emitter from [`Emitter.toStream`](./src/Emitter.ts) to `runWithEvents`. The bridge uses an unbounded queue, so queue insertion is neither durable storage nor backpressure. Stopping consumption interrupts the producer and waits for finalization.
 

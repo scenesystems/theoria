@@ -56,7 +56,7 @@ the [shared documentation model](../../packages/docs-model/src/docs-data.ts),
 which the [docs views](./app/web/view/docs/) render. Edit the source README or
 TSDoc rather than generated files under `public/docs-data`.
 
-## How it is organized
+## Directory structure
 
 - `server.ts` serves the app with Bun; `worker.ts` serves the same app as a
   Cloudflare Worker.

@@ -16,8 +16,6 @@ Effect `^4.0.0` is a required peer dependency.
 
 ## Basic use
 
-The example below uses a base operation for an internal calculation and a validated variant where the vectors arrive as untrusted input.
-
 ```ts typecheck
 import { Chunk, Effect } from "effect"
 import { dot, dotValidated } from "@scenesystems/effect-math/LinearAlgebra"
@@ -63,7 +61,7 @@ Choose a numerical domain below; each link opens its API reference.
 
 Vectors and matrices use immutable `Chunk<number>` carriers. A matrix is a row-major chunk accompanied by row and column counts, so `matvec(matrix, 2, 3, x)` multiplies a 2×3 matrix by a 3-vector. `LinearAlgebra.add(a, b)` adds vectors and `LinearAlgebra.scale(vector, alpha)` scales one. Distribution functions use suffixes such as `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
 
-Distribution evaluation and probability-mass operations have separate owners:
+Use `Distribution` for distribution functions and `Probability` for entropy:
 
 ```ts typecheck
 import { Chunk } from "effect"
