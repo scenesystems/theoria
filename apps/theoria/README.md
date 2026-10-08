@@ -5,6 +5,15 @@ in this repository. The home page runs the Imagined Place demo, a small
 composition built on the packages themselves, and `/docs` serves the generated
 API reference and guides for every published package.
 
+Press a mark in the demo to read its answer. Answers stay within the viewport
+and avoid the discs, including their invisible touch targets. Long answers
+scroll internally; their prose remains selectable and their links stay active.
+If there is no free reading region at least 96px high at the answer's width,
+the answer still opens, covering the fewest discs and preferring those farther
+from the pressed mark. Press Escape or outside the answer to reach a covered
+disc. This last-resort placement is exposed as `data-answer-placement="fallback"`;
+unobstructed placements use `"free"`.
+
 ## Run it locally
 
 From the repository root:
