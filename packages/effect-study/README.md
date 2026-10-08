@@ -1,6 +1,6 @@
 # @scenesystems/effect-study
 
-Evaluate known inputs and record their outcomes for later replay in [Effect](https://effect.website) programs. Observations can contain structured values. Use [`effect-search`](../effect-search/README.md) when you need search spaces, samplers, ranking, or pruning.
+Study evaluates a supplied dataset in [Effect](https://effect.website) and records the results, including structured observations and expected failures. It also supports recording events for later replay. For optimization over a search space, use [`effect-search`](../effect-search/README.md).
 
 ## Installation
 
@@ -32,15 +32,15 @@ export const program = Effect.gen(function* () {
 
 `Evaluation.run` returns completed trials in input order, with zero-based trial numbers and durations in milliseconds. Omit `concurrency` for sequential execution. An evaluator failure interrupts its siblings and waits for their finalizers; it does not return partial history.
 
-Use `Evaluation.runSettled` to retain expected evaluator failures as `Trial.Failed` records alongside completed values. Defects and interruption still terminate the Effect. Empty input is valid. The caller decides how to grade outcomes and whether the dataset is sufficient.
+Use `Evaluation.runSettled` when you need a record of expected evaluator failures alongside successful results. It stores those failures as `Trial.Failed`; defects and interruption still terminate the Effect. Both operations accept empty input. Grading and dataset selection are up to the caller.
 
 [`History`](./src/History.ts) keeps the current record for each trial number. `History.values` returns those records in trial order; `History.costs` reports missing and invalid costs separately from known costs.
 
 ## Observe a run
 
-`Evaluation.runWithEvents(inputs, evaluate, options, observe)` adds an Effectful observer to settled evaluation. Events describe the plan, trial starts, outcomes, and completion. Observer calls are serialized and awaited; slow observers apply backpressure. A failed observer stops admission and interrupts active local evaluations without turning the storage failure into a trial result.
+`Evaluation.runWithEvents(inputs, evaluate, options, observe)` reports progress through an Effectful observer. It waits for each observer call before delivering the next event. If the observer fails, evaluation stops accepting inputs and interrupts active local work; the observer failure remains separate from trial results.
 
-An observer's successful Effect acknowledges the event. Await the durability boundary your application needs. For a transactional backend, await the outer commit. A start without an acknowledged outcome remains unresolved after interruption or process loss.
+An observer that records events must wait for storage to confirm the write before succeeding. With a transactional backend, that means waiting for the outer commit. After interruption or process loss, a trial with a recorded start but no acknowledged outcome remains unresolved.
 
 For streams, pass the emitter from [`Emitter.toStream`](./src/Emitter.ts) to `runWithEvents`. The bridge uses an unbounded queue, so queue insertion is neither durable storage nor backpressure. Stopping consumption interrupts the producer and waits for finalization.
 
@@ -48,7 +48,7 @@ See [`Evaluation`](./src/Evaluation.ts) for event types and termination semantic
 
 ## Record and replay events
 
-[`StudyStorage`](./src/StudyStorage.ts) records events under caller-owned schemas and a definition identity. The same interface supports memory and filesystem storage. Both encode writes and decode reads, retaining the codecs' service requirements.
+[`StudyStorage`](./src/StudyStorage.ts) records events in memory or on the filesystem. You supply the event and checkpoint schemas, along with an identity for their definition. Storage uses those schemas on both writes and reads, so any services required by their codecs must also be provided.
 
 ```ts typecheck
 import { Effect, Number, Schema } from "effect"
@@ -80,7 +80,7 @@ This returns `3`. Provide the storage layer once around operations that share a 
 
 Keep append identities stable when retrying. An identical encoded retry returns its original receipt; reusing an ID with different content fails. New events must match the expected tail cursor. Change the definition identity when event encoding or interpretation changes.
 
-Replay reduces stored evidence without executing the evaluator. Checkpoints must contain state reduced through their stated cursor; the latest **written** checkpoint wins, even if its cursor is lower. Retain event history and coordinate checkpoint writers. Filesystem recording requires one owning service per location and does not promise fsync or cross-process locking.
+Replay computes state from recorded events without running the evaluator again. A checkpoint must contain the state computed through its cursor. The most recently written checkpoint takes precedence, even when it has a lower cursor, so coordinate writers and retain the event history. Use a single storage service for each filesystem location; filesystem storage provides neither fsync nor cross-process locking.
 
 The [storage reference](./src/StudyStorage.ts) specifies retry identity, cursor rules, codec requirements, and backend responsibilities. Persistence failures use [`PersistenceError.Failure`](./src/PersistenceError.ts), separate from evaluator failures.
 
@@ -98,7 +98,7 @@ const Payload = Schema.TaggedStruct("Reading", { payload: Schema.Finite })
 export const ReadingEnvelope = Artifact.Envelope(Producer, Lineage, Payload)
 ```
 
-[`Artifact`](./src/Artifact.ts) composes these schemas; it does not authenticate producers. [`ArtifactContext`](./src/ArtifactContext.ts) allocates identities and [`ArtifactSink`](./src/ArtifactSink.ts) delivers encoded artifacts. Retain the allocated identity when retrying delivery. Allocation and delivery are separate operations, and fanout does not make independent sinks atomic.
+[`Artifact`](./src/Artifact.ts) combines these schemas without authenticating the producer. Use [`ArtifactContext`](./src/ArtifactContext.ts) to allocate an identity, then [`ArtifactSink`](./src/ArtifactSink.ts) to deliver the encoded artifact. Keep that identity when retrying delivery. Delivery to several sinks can partially succeed; fanout is not a transaction.
 
 Use [artifact persistence](./examples/artifact-persistence.ts) for transformed payload codecs, delivery, and checkpoints. [`Journal`](./src/Journal.ts) supplies lower-level JSON-lines persistence when no run recording is needed.
 

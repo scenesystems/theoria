@@ -1,6 +1,6 @@
 # @scenesystems/digest
 
-Hash bytes and text, identify structured content, and derive keys in [Effect](https://effect.website) programs. The package combines strict UTF-8, RFC 8785 canonical JSON, BLAKE3, SHA-256, HMAC, and HKDF using [Noble Hashes](https://paulmillr.com/noble/).
+Digest provides hashing and key derivation for [Effect](https://effect.website) programs using [Noble Hashes](https://paulmillr.com/noble/). It can hash exact bytes or identify structured data through a Schema and RFC 8785 canonical JSON. Text encoding rejects malformed Unicode.
 
 ## Installation
 
@@ -48,9 +48,9 @@ export const identify = (document: typeof Document.Type) =>
   ContentDigest.fromSchema(Document, document).pipe(Effect.map(ContentDigest.toString))
 ```
 
-`fromSchema` encodes the value, canonicalizes the encoded representation, and hashes it with BLAKE3-256 by default. It retains the codec's encoding requirements and failures. The result is an algorithm-tagged model; `toString` produces `<algorithm>:<base64url>` for protocol boundaries.
+`fromSchema` hashes the Schema's encoded value as canonical JSON, using BLAKE3-256 by default. In this example, the date becomes a string before hashing. Schema encoding failures and service requirements remain in the returned Effect. `toString` includes the algorithm in the result: `<algorithm>:<base64url>`.
 
-The Schema determines identity fields and transformations. Only encoded data contributes to identity; Schema identifiers are not added automatically. Changing the encoded representation changes its digest. Use `fromBytes` when identity is over exact bytes rather than structured data.
+Choose the Schema's fields and transformations to match the content you want to identify. Schema identifiers do not contribute to the digest. Use `fromBytes` to hash exact bytes without encoding or canonicalization.
 
 For a canonical byte budget, use `fromSchemaWithByteLimit`:
 
@@ -64,7 +64,7 @@ export const identifyBounded = (payload: typeof Payload.Type) =>
   ContentDigest.fromSchemaWithByteLimit(Payload, payload, Number.multiply(64, 1024))
 ```
 
-This returns the digest and `canonicalByteLength`, or a typed limit failure. The inclusive limit bounds emitted canonical bytes, not Schema work, input traversal, or key sorting. Apply structural limits to untrusted inputs too. See [`ContentDigest`](./src/ContentDigest.ts) for result models and exact operation contracts.
+The result includes the digest and `canonicalByteLength`. Values exceeding the inclusive byte limit fail with a typed error. Because encoding and key sorting can consume resources before bytes are emitted, untrusted inputs also need structural limits. See [`ContentDigest`](./src/ContentDigest.ts) for the result and error types.
 
 ## Canonical JSON
 
@@ -84,7 +84,7 @@ export const authenticate = (key: Uint8Array, body: string) =>
   Utf8.encode(body).pipe(Effect.flatMap((message) => Hmac.sha256(key, message)))
 ```
 
-Supply a securely managed key. Compare authenticators with the protocol's constant-time comparison and bind algorithm, key identity, and message domain there. Applications own key storage, rotation, and output-length limits.
+Store and rotate keys securely, and compare authenticators in constant time. Your protocol must bind the algorithm and key identity to the message's intended use. Set output-length limits appropriate to that protocol.
 
 ## Examples
 

@@ -1,8 +1,6 @@
 # @scenesystems/seal
 
-Encrypt and authenticate bytes in [Effect](https://effect.website) programs using Noble Ciphers.
-
-`Cipher` provides an injectable encryption backend and the byte-valued `Cipher.Encrypted` model. `Envelope` encodes encrypted values for base64url transport. Applications manage identity, authorization, and key lifecycle, and select the encryption algorithm.
+Seal provides authenticated encryption for [Effect](https://effect.website) using Noble Ciphers. Encrypt bytes through `Cipher`, then use `Envelope` to encode the result for transport. Your application chooses the algorithm and manages keys, including who may use them.
 
 ## Installation
 
@@ -31,9 +29,9 @@ export const program = Effect.gen(function* () {
 }).pipe(Effect.provide(Cipher.layer))
 ```
 
-`Cipher.Encrypted` has `algorithm`, `nonce`, and `ciphertext` fields. The byte-valued ciphertext includes its authentication tag. Construction validates shape, not lengths or authenticity, and borrows supplied byte buffers rather than copying them. Effect's structural equality is not a constant-time secret comparison.
+`Cipher.Encrypted` contains the algorithm, nonce, and ciphertext, including the authentication tag. Constructing this model checks its shape and borrows its byte buffers; decryption checks lengths and authenticity. Keep input bytes unchanged until an operation completes.
 
-`Cipher.encrypt` returns fresh nonce and ciphertext buffers; `Cipher.decrypt` returns fresh plaintext. Neither mutates its inputs. Keep caller-owned bytes unchanged until an operation completes. Decryption checks exact nonce length and minimum tag length before authenticating, and does not acquire entropy.
+Encryption and decryption leave their inputs untouched and return fresh output buffers. Only encryption needs entropy. Use a constant-time comparison for secrets; Effect's structural equality does not provide one.
 
 ## Encode for transport
 
@@ -56,7 +54,11 @@ export const sealForTransport = (key: Uint8Array, plaintext: Uint8Array) =>
 export const openTyped = (key: Uint8Array, stored: Envelope.Encoded) => Envelope.decrypt(stored, key)
 ```
 
-`Envelope.encrypt` combines encryption and encoding; `Envelope.decrypt` combines decoding and authentication, also supporting pipeable `Envelope.decrypt(key)`. Both preserve the `Cipher.Cipher` requirement. Unknown input should go through schema admission, whose schema errors are distinct from Cipher's sanitized failures; do not expose input-bearing schema diagnostics to an untrusted peer.
+`Envelope.encrypt` encrypts and encodes in one operation. `Envelope.decrypt`
+decodes and authenticates, and also supports pipeable `Envelope.decrypt(key)`.
+Both require `Cipher.Cipher`. For unknown input, use Schema decoding as in
+`openStored` above. Schema errors can contain input data, so keep those
+diagnostics private even though Cipher's own failures are sanitized.
 
 The algorithm field is metadata, **not authenticated AAD**. Enforce the protocol's chosen algorithm before decryption. There is no AAD or caller-supplied nonce API.
 
@@ -90,7 +92,9 @@ See the [API reference](./src/index.ts) for all modules and the [examples direct
 
 ## Verification
 
-Independent Wycheproof and RFC 8452 known answers cover all algorithms. Tests cover seeded byte-preservation properties, JSON codecs, independent buffer ownership, invalid fields, key boundaries, entropy failure, lazy acquisition, and interruption/finalization. Noble's audits cover the primitives, not application protocol policy.
+Tests compare every algorithm with independent Wycheproof or RFC 8452 known
+answers and check round trips, buffer ownership, and failure handling. Noble's
+audits cover the underlying primitives; applications still need protocol review.
 
 ## Status
 

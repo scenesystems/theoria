@@ -1,10 +1,9 @@
 # Theoria app
 
-The [Theoria website](https://theoria.scenesystems.io/) introduces the packages
-in this repository. The home page runs the
-[Imagined Place demo](./docs/imagined-place-landing-demo.md), a composition built
-on the packages themselves, and `/docs` serves the generated
-API reference and guides for every published package.
+The [Theoria website](https://theoria.scenesystems.io/) contains the package
+guides and API reference under `/docs`. Its home page demonstrates the libraries
+with [Imagined Place](./docs/imagined-place-landing-demo.md), which lays out a
+description around a drawing and lets readers accept signed proposals for changes.
 
 ## Run it locally
 
@@ -23,8 +22,7 @@ existing web build; it does not start Vite.
 Set `PORT` for the API server and the matching `THEORIA_PORT` for Vite to use
 another backend port. No provider keys are needed for the local demo.
 
-Production configuration is documented separately in the
-[deployment guide](./DEPLOYMENT.md).
+For production configuration, see the [deployment guide](./DEPLOYMENT.md).
 
 ## Development workflow
 
@@ -60,13 +58,11 @@ TSDoc rather than generated files under `public/docs-data`.
 
 - `server.ts` serves the app with Bun; `worker.ts` serves the same app as a
   Cloudflare Worker.
-- `app/contracts` defines the schemas shared by the server and browser: the
-  package cards, docs routes, the Imagined Place request and result, the
-  response envelope, and the text and theme tokens.
-- `app/server` serves static assets and the typed API: health, version,
-  sitemap, and `POST /api/imagined-place/build`.
-- `app/web` contains the React views and core Effect reactivity state, with
-  `@effect/atom-react` bindings, for the home page and the docs pages.
+- `app/contracts` defines shared schemas, including docs routes and the Imagined
+  Place request and result.
+- `app/server` handles API requests and serves static assets.
+- `app/web` contains React views and Effect reactivity state, connected through
+  `@effect/atom-react`.
 
 ## Verify changes
 

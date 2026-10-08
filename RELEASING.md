@@ -1,8 +1,9 @@
 # Releasing packages
 
-Maintainers publish staged candidates through GitHub Actions. Do not publish
-locally, move candidate tags, or bypass content and provenance checks. Website
-deployment is a [separate promotion](apps/theoria/DEPLOYMENT.md#promote-staging-to-production).
+Publish packages through GitHub Actions using a successful staging candidate.
+Keep candidate tags immutable and leave content and provenance checks enabled.
+Local publication is unsupported. Publishing packages leaves the website
+unchanged; promote it through the [deployment workflow](apps/theoria/DEPLOYMENT.md#promote-staging-to-production).
 
 ## Publish a version
 
@@ -26,11 +27,12 @@ first. For `reviewed_run_id` and website promotion ordering, follow the
 
 ## Package content
 
-An existing npm version must match the candidate's prepared package content.
-Changed content requires a changeset and a versioned candidate, even when the
-public API is unchanged. The [content comparison](scripts/release/Npm.ts) excludes
-root package `README.md`, `CHANGELOG.md`, and descriptive manifest metadata.
-Use a patch changeset to republish those updates intentionally.
+Before publication, the workflow compares each package with its existing npm
+version. If the prepared content differs, add a changeset and stage a new
+version, even if the API is unchanged. The
+[comparison](scripts/release/Npm.ts) excludes the package's root `README.md`,
+`CHANGELOG.md`, and descriptive manifest metadata. Add a patch changeset if
+those updates need to reach npm.
 
 ## Publishing setup
 
@@ -76,12 +78,14 @@ A sole reviewer must be allowed to approve their own run.
 
 ## Recovery
 
-Inspect registry state and logs before retrying. Correct the cause and make a
-fresh dispatch; do not rerun a failed publishing job from stale prerequisites.
-If bootstrap partially published, configure Trusted Publishing for those names
-and bootstrap only names still absent. If publication succeeded but recording
-failed, wait for registry propagation and run **Publish Packages** with the same
-candidate. If artifacts expired, select a new successful staging run.
+Check the registry and job logs before retrying a failed publication. After
+correcting the cause, dispatch the workflow again so it rechecks prerequisites.
+Do not use GitHub's job rerun action.
+
+If bootstrap published only some packages, configure Trusted Publishing for
+those names and bootstrap the ones still absent. If publication succeeded but
+recording failed, wait for registry propagation and run **Publish Packages**
+with the same candidate. Expired artifacts require a new successful staging run.
 
 Investigate content or provenance mismatches rather than bypassing checks.
 Published versions cannot be replaced or have provenance added retroactively.

@@ -1,8 +1,9 @@
 # @scenesystems/effect-inference
 
-Configure language models and embeddings for `effect/ai`, resolve model routes,
-and retain provider response and usage evidence. Applications can use the
-configured providers or supply their own runtime resolver.
+Inference configures language models and embeddings for `effect/ai`. It records
+which model you requested, which route was selected, and what the provider
+reported in its response. Use the included provider configuration or supply
+your own runtime resolver.
 
 ## Installation
 
@@ -32,12 +33,11 @@ export const resolution = Runtime.resolve({
 }).pipe(Effect.provide(Runtime.layer))
 ```
 
-`Capabilities.Requirements` treats omitted and false booleans as no constraint. Structured output is graded `none < best-effort < strict`; `minimumContextTokens` requires a declared context limit.
-
-Resolution selects a route and executable model layers; it does not call the
-model. Use [`Runtime.layerWith`](./src/Runtime.ts) to install your own resolver.
-The request records what the caller wants, the resolution records the route
-chosen, and response evidence records what the provider actually reports.
+Resolution selects a route and model layers without calling the model. Add
+`Capabilities.Requirements` to constrain the selection: omitted or false
+booleans impose no constraint, structured output is ordered
+`none < best-effort < strict`, and `minimumContextTokens` requires a declared
+context limit. Use [`Runtime.layerWith`](./src/Runtime.ts) to install your own resolver.
 
 ## Configured text providers
 
@@ -52,7 +52,14 @@ export const program = LanguageModel.generateText({
 }).pipe(Effect.provide(TextProvider.layerConfig()))
 ```
 
-`DSP_PROVIDER` selects `openai`, `anthropic`, or `openrouter` and defaults to `openai`. Provider-specific `OPENAI_*`, `ANTHROPIC_*`, and `OPENROUTER_*` values override generic `DSP_PROVIDER_*` values; explicit `TextProvider.Options` override both. Credentials remain `Redacted`. `TextProvider.fromConfig` acquires validated config, `resolve` returns provider identity, request intent, and a language-model layer, and `layerConfig` exposes the configured layer directly.
+Set `DSP_PROVIDER` to `openai`, `anthropic`, or `openrouter`; the default is
+`openai`. Provider-specific variables such as `OPENAI_*` take precedence over
+`DSP_PROVIDER_*`, and explicit `TextProvider.Options` take precedence over both.
+Credentials use `Redacted`.
+
+`layerConfig` provides the configured language-model layer directly, as above.
+If you need to inspect the configuration or resolution first, use
+[`TextProvider.fromConfig` and `resolve`](./src/TextProvider.ts).
 
 ## Hugging Face
 
@@ -110,7 +117,8 @@ Provider metadata accepts JSON values only. `RuntimeEvidence.decodeUnknown` maps
 
 ## Usage observation
 
-Each native integration is independently imported and exports `observe` plus its related `Observation` model where provider reports have a serializable projection:
+Wrap a provider client with its usage observer to record reports before Effect
+interprets the response:
 
 ```ts typecheck
 import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
@@ -123,9 +131,16 @@ export const observed = Effect.gen(function* () {
 })
 ```
 
-Observers execute in the invoking fiber before native response interpretation. Streams remain lazy and interruptible. Missing reports remain unknown, explicit zeros remain zero, cumulative stream snapshots are not summed, and transport failures do not invent observations.
+Observers run in the calling fiber, and streams remain lazy and interruptible.
+Use one observation integration per invocation to avoid counting the same usage
+at both the raw-client and canonical-response levels.
 
-Canonical usage follows Effect v4's nested `inputTokens` and `outputTokens` structure. Provider-reported totals remain distinct from cache and reasoning details. Derived counters remain absent when their components are missing or inconsistent; raw reports retain provider-specific totals and costs. Anthropic observations preserve their source tag and cumulative state when serialized. Use one observation integration per invocation to avoid recording both raw-client and canonical-finish usage.
+Usage follows Effect v4's nested `inputTokens` and `outputTokens` structure.
+Missing reports remain unknown, explicit zeros remain zero, and cumulative
+stream snapshots are not added together. Derived counters are omitted when
+their components are missing or inconsistent. Raw reports retain the provider's
+totals and costs; serialized Anthropic observations also preserve their source
+tag and cumulative state. A transport failure without a report produces no observation.
 
 For Gemini, use OpenRouter or an OpenAI-compatible service with the matching
 usage observer.

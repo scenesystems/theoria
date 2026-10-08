@@ -1,10 +1,8 @@
 # @scenesystems/effect-search
 
-Optimize configurations with black-box search in [Effect](https://effect.website) programs. Use it when you can evaluate a configuration but cannot express its quality as a closed-form or differentiable function: benchmark scores, model quality, operating cost, or the outcome of an experiment.
+Search finds configurations by evaluating them in [Effect](https://effect.website). It is useful when a measurement, such as a benchmark score or operating cost, is easier to obtain than a formula you can minimize directly.
 
-A `SearchSpace` describes the valid configurations and infers their TypeScript type. An `Optimization` asks a `Sampler` for a configuration, runs your Effect objective, records the resulting `Trial`, and returns that history to the sampler before its next suggestion. Because the optimization owns trial states, sampler checkpoints, and search-space identity, it can be inspected, snapshotted, and resumed.
-
-The samplers compute with [`@scenesystems/effect-math`](../effect-math/README.md). Cached objective inputs and search artifacts get stable content identities from [`@scenesystems/digest`](../digest/README.md). [`@scenesystems/effect-dsp`](../effect-dsp/README.md) builds its prompt optimizers on this package.
+Define the valid configurations with `SearchSpace` and supply an Effect that measures each one. `Optimization` asks a sampler for configurations and returns the recorded trials to it for subsequent suggestions. You can inspect a run, save a snapshot, and resume it later. For prompt optimization built on Search, see [`effect-dsp`](../effect-dsp/README.md).
 
 For fixed-input evaluation or non-numeric observations without search, use
 [`@scenesystems/effect-study`](../effect-study/README.md) directly.
@@ -117,9 +115,9 @@ export const program = Effect.gen(function* () {
 
 Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Optimization.run` as the `scheduler` option in place of a `sampler`.
 
-Joint categorical TPE supports at most 65,536 combinations across its dimensions. Larger products fail with checked `InvalidSamplerConfig` before the joint domain is allocated. `nEiCandidates` limits candidate draws, not domain size. This limit applies when model-driven joint categorical sampling begins; random startup does not enumerate the domain.
+Joint categorical TPE supports at most 65,536 combinations across its dimensions. A larger product fails with `InvalidSamplerConfig` when model-driven sampling begins, even if random startup succeeded. Lowering `nEiCandidates` does not reduce the domain size. See [`Sampler`](./src/Sampler.ts) for configuration limits.
 
-A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The optimization as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
+A seed reproduces suggestions for the same ordered trial history and compatible checkpoint. Reproducing a whole run also requires repeatable objectives and external services. Timing and concurrent completion order can change the observations presented to the sampler.
 
 Seeded sequences and checkpoints are implementation-dependent. Check the [changelog](./CHANGELOG.md) before resuming a study across upgrades; start a new run when the checkpoint or random sequence is incompatible.
 
@@ -131,7 +129,7 @@ TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or 
 
 - Stopping: `trials`, `maxDuration`, `maxCost`, `targetValue`, or `noImprovementWindow`, combined by `stopMode`.
 - Concurrency: `concurrency` runs trials in parallel while the sampler keeps suggesting from imputed pending results.
-- Robustness: `trialTimeout`, a `retrySchedule`, and a `pruningPolicy`.
+- Trial handling: `trialTimeout`, a `retrySchedule`, and a `pruningPolicy`.
 - Warm starts: `priorTrials` and `priorWeight` seed the history; `evaluationsPerTrial` averages noisy objectives.
 
 With several `directions`, the objective returns a vector and the result is `MultiObjective` with a `paretoFront`. The `Pareto` module provides dominance checks, front extraction, and two-dimensional hypervolume for comparing runs.
@@ -176,7 +174,7 @@ export const program = Effect.gen(function* () {
 
 `Optimization.snapshot` captures the trials, the next trial number, the sampler checkpoint, and compatibility metadata from a result or an open handle. `OptimizationSnapshot.OptimizationSnapshot` is the schema, so encode it for storage and decode it later. `Optimization.resume` validates the space and settings against the snapshot before continuing.
 
-Completed results capture the sampler's final state. Interruption cancels outstanding reservations before saving a checkpoint; restoring an open handle's snapshot likewise cancels reservations whose workers no longer exist. Completed observations and trial numbers are retained, and new trials receive new numbers. Restore rejects duplicate or invalid identities, inconsistent counters, and invalid configurations before invoking sampler restoration. `OptimizationSnapshot.decodeUnknown` can normalize stale derived diagnostics, but never repairs trial identities.
+Snapshots retain completed observations and their trial numbers. Pending reservations are cancelled on interruption or when restoring an open handle's snapshot; new trials receive new numbers. Restore rejects invalid trial identities and configurations. See [`OptimizationSnapshot`](./src/OptimizationSnapshot.ts) for validation and diagnostic normalization.
 
 ```ts typecheck
 import { Effect, Number as Num, Schema } from "effect"
@@ -221,13 +219,13 @@ Use one storage location per optimization and coordinate which process resumes i
 
 To emit artifacts independently of checkpoints, use Study's [`ArtifactContext`](../effect-study/src/ArtifactContext.ts) and [`ArtifactSink`](../effect-study/src/ArtifactSink.ts). See [artifact persistence](../effect-study/examples/artifact-persistence.ts) for allocation and delivery.
 
-Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the optimization lifecycle. Construct `new ObjectiveCache.Options({ scope })` and install `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The lower-level `Cache` module owns schema-keyed cache descriptors and backend services; it fingerprints schema-encoded keys with the canonical identity implementation from `@scenesystems/digest`.
+To reuse an objective's result for an input, construct `new ObjectiveCache.Options({ scope })` and provide `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The cache identifies inputs by their content digest. It does not replace storage of the optimization's history. See [`Cache`](./src/Cache.ts) for custom schema-keyed caches.
 
 When `evaluationsPerTrial` is greater than one, optimization bypasses the objective cache for every sample, including repeated configurations across trials. These independent evaluations produce the reported mean and variance; cached configuration values cannot estimate noise.
 
 ## Ask and tell
 
-When another process owns evaluation, such as a job queue or a remote worker, the optimization can hand out configurations instead of running the objective itself. `Optimization.open` creates a scoped handle and acquires its sampler; closing the scope releases it. `Optimization.ask` reserves the next typed configuration, and `Optimization.tell` or `Optimization.fail` completes that reservation. `Optimization.cancel` closes the handle and cancels every pending reservation. Prior observations do not consume the fresh trial budget. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Optimization.result`.
+Use ask-and-tell when a job queue or remote worker evaluates configurations. Open a scoped handle with `Optimization.open`, request a configuration with `ask`, then report its result with `tell` or `fail`. The handle assigns trial numbers and updates the sampler. Closing its scope releases the sampler; `Optimization.cancel` closes the handle and cancels pending reservations. Prior observations do not consume the new run's trial budget.
 
 ```ts typecheck
 import { Effect, Number as Num } from "effect"
@@ -262,8 +260,6 @@ export const program = Effect.scoped(
 ## Errors
 
 Failures surface in the Effect error channel as `Schema.TaggedError` values, so `Effect.catchTag` and `Effect.catchTags` work on them directly. `InvalidSearchSpace` and `InvalidOptimizationConfig` reject definitions before any trial runs. `InvalidSamplerConfig`, `SamplerSearchSpaceUnsupported`, and `SamplerObjectiveUnsupported` report a sampler that cannot serve the space or the objective shape. `TrialError` wraps an objective failure with its trial number, `NoSuccessfulTrials` means a completed optimization has no best trial to report, and `SamplerExhausted` means a finite sampler has nothing left to suggest.
-
-The package owns the search loop and its state. It does not own the objective's resources, retries beyond the schedule you pass, or the durability of the directory or database behind storage and caches. Reproducibility of the objective itself remains your responsibility.
 
 ## Examples
 

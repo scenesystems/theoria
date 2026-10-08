@@ -1,9 +1,9 @@
 # @scenesystems/effect-dsp
 
-Build typed language-model programs, evaluate their answers, and optimize
-their instructions and demonstrations in Effect. You supply the model; DSP
-handles schema-checked inputs and outputs while preserving your program's
-error and service requirements.
+DSP uses schemas to define the inputs and outputs of language-model programs
+in Effect. Once a program works, you can evaluate it against examples and
+optimize its instructions or demonstrations. You supply the model layer;
+provider failures and service requirements remain part of the program's type.
 
 ## Installation
 
@@ -37,10 +37,10 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-`Module.predict`, `chainOfThought`, `react`, `bestOfN`, `refine`, and `compose`
-preserve schema-decoded input/output types and generic Effect channels. Stable
-module names identify parameters in traces, discovery graphs, saved state, and
-optimizer candidates.
+The schemas determine the types accepted and returned by `qa.forward`.
+Keep module names stable: DSP uses them to identify parameters when tracing,
+optimizing, or restoring saved state. See [`Module`](./src/Module.ts) for
+tool-using programs and composition with `react`, `bestOfN`, and other modules.
 
 ## Evaluation and optimization
 
@@ -92,14 +92,14 @@ reports into search objectives.
 
 ## Traces, payloads, and cache
 
-`Trace.withTracing`, `withCalls`, and `withUsageTracking` create isolated lexical
-scopes inherited by child fibers. Calls retain native `Response.Usage`; missing
-counters stay unknown and total tokens are never synthesized. Put
-`Effect.exit(program)` inside a trace scope when failure evidence must survive.
+Wrap a program in `Trace.withTracing`, `withCalls`, or `withUsageTracking` to
+collect its calls, including calls in child fibers. Each scope has its own
+records. Usage comes from the provider's `Response.Usage`; missing counters
+remain unknown, and DSP does not calculate a total when the provider omits it.
+To retain traces when a program fails, put `Effect.exit(program)` inside the scope.
 
-[`Payload`](./src/Payload.ts) encodes trace and demonstration data through
-their schemas. Use the owning codec so domain transformations and encoded
-values survive persistence correctly.
+Use the codecs in [`Payload`](./src/Payload.ts) to store traces and
+demonstrations. They preserve the transformations defined by your schemas.
 
 [`Cache`](./src/Cache.ts) memoizes successful language-model results.
 Use `Cache.layerMemory` for local memoization, or supply an effect-search cache
@@ -115,7 +115,7 @@ their original channels when an operation exposes them separately.
 
 ## Testing
 
-Testing code imports the flat `MockLanguageModel` subpath:
+Provide `MockLanguageModel` to test a program without calling a provider:
 
 ```ts typecheck
 import * as LanguageModel from "effect/ai/LanguageModel"

@@ -1,6 +1,6 @@
 # @scenesystems/sign
 
-Sign messages, agree on shared secrets, and verify RS256 JWTs in [Effect](https://effect.website) programs. Cryptographic primitives come from Noble Curves, Hashes, and Post-Quantum. Applications manage key authentication, message framing, authorization, storage, and secret destruction.
+Sign provides digital signatures and key agreement for [Effect](https://effect.website), with RS256 JWT verification for token-based authentication. It uses Noble's cryptographic primitives. Your application must authenticate keys and define the protocol that uses them, including message framing and authorization. Key storage and destruction also remain the application's responsibility.
 
 ## Installation
 
@@ -32,17 +32,21 @@ export const program = Effect.gen(function* () {
 }).pipe(Effect.provide(Entropy.layer))
 ```
 
-Every verifier takes a public key explicitly. Verification proves that bytes
-match a key, not that the key belongs to an identity. A `Signature.Signature`
-carries algorithm, signature bytes, and the supplied public key; it is not a
-trusted identity or self-verifying envelope. Ed25519 signing checks the key
-pair, but other signers may retain a supplied public key without proving it
-matches the secret. Bind algorithm, context, and message framing in your
-protocol. See the suite references for input admission and snapshot rules.
+Every verifier requires a public key that you have authenticated separately.
+A successful verification proves that the signed bytes match that key.
+The `Signature.Signature` returned by signing includes a public key, but the
+model does not establish who owns it. Ed25519 signing checks that the supplied
+keys form a pair; other signers may retain the public key without that check.
+Your protocol must bind the algorithm and context to the message being signed.
+See each suite's reference for its input validation and byte-copying behavior.
 
 ### Restore an Ed25519 identity
 
-`Ed25519.keyPairFromSeed` validates and snapshots an exact 32-byte RFC 8032 seed on execution. It accepts neither an expanded 64-byte secret key nor a serialized key container. It returns independent caller-owned secret/public arrays without drawing key-generation entropy. `Ed25519.Seed` exposes the same size refinement as a branded Schema.
+Pass a 32-byte RFC 8032 seed to `Ed25519.keyPairFromSeed` to restore a key pair.
+The operation validates and copies the seed when executed, then returns fresh
+secret and public key arrays without acquiring entropy. Expanded 64-byte secret
+keys and serialized key containers are not accepted. Use `Ed25519.Seed` when
+you need the size check as a branded Schema.
 
 ```ts typecheck
 import * as Ed25519 from "@scenesystems/sign/Ed25519"
@@ -98,7 +102,12 @@ Apply a protocol-bound KDF before using either output as a symmetric key. [`@sce
 | Malformed, noncanonical, wrong-length, or unsupported input | `Verification.InvalidInput` |
 | Admitted input reaches a backend that cannot execute        | `Verification.Unavailable`  |
 
-Both errors retain no input material, algorithm, key, message, context, or backend diagnostic. Inputs are admitted and copied on every execution; mutation between executions is validated again. `Verification.maxMessageBytes` is 8,192, inclusive. **This resource bound is Theoria policy, not an algorithm or wire-format limit.** Cryptographic primitives execute synchronously and cannot be preempted by an Effect timeout.
+Neither error contains input data or backend diagnostics. Each execution
+validates and copies its inputs, so changes between executions are checked
+again. Theoria limits messages to `Verification.maxMessageBytes` (8,192 bytes,
+inclusive) to bound resource use. **The limit comes from Theoria, not the
+cryptographic algorithm.** An Effect timeout cannot interrupt a synchronous
+cryptographic operation.
 
 [`Bytes.fromString`](./src/Bytes.ts) encodes UTF-8, replacing malformed UTF-16 with U+FFFD. Use digest's `Utf8.encode` when malformed text must fail. `Bytes.collect` buffers a byte stream within the 8,192-byte message limit; it does not perform incremental signing or prehashing.
 
@@ -158,7 +167,10 @@ Authenticate the JWKS for the configured issuer before calling `verifyRs256`; th
 
 ## Errors and validation
 
-Use `Schema.decodeUnknownEffect` for untrusted data. Decoding a [`KeyPair`](./src/KeyPair.ts) or [`Signature`](./src/Signature.ts) model checks its representation, not cryptographic validity. Models do not redact or make mutable key bytes immutable. Select a wire codec explicitly for JSON transport; suite operations own cryptographic admission and verification.
+Use `Schema.decodeUnknownEffect` to check the representation of untrusted
+[`KeyPair`](./src/KeyPair.ts) or [`Signature`](./src/Signature.ts) data, then use
+the suite operations for cryptographic verification. The models leave key bytes
+mutable and unredacted. Choose a wire codec explicitly when transporting them as JSON.
 
 ## Examples
 

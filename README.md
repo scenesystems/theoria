@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Theoria is an open-source TypeScript library collection for [Effect](https://effect.website): scientific computation, evaluation, black-box optimization, language model programming, text layout, and cryptography. Install the libraries you need; each is published independently under `@scenesystems` and requires Effect `^4.0.0`.
+Theoria is an open-source collection of TypeScript libraries built with [Effect](https://effect.website). The packages cover scientific computation and optimization, language-model programming, text layout, and cryptography. Each is published independently under `@scenesystems` and requires Effect `^4.0.0`.
 
 Start with the [documentation](https://theoria.scenesystems.io/docs) or a package README below. The libraries are developed by [Scene Systems](https://scenesystems.io/).
 
@@ -22,9 +22,12 @@ Start with the [documentation](https://theoria.scenesystems.io/docs) or a packag
 | [`@scenesystems/seal`](./packages/seal/README.md)                         | Authenticated encryption and transport codecs                                           |
 | [`@scenesystems/sign`](./packages/sign/README.md)                         | Digital signatures, key agreement, hybrid key encapsulation, and RS256 JWT verification |
 
-Use `effect-study` when you already know the inputs to evaluate; use `effect-search` when you need to discover a configuration. Search builds on Study and Math; DSP uses Search for prompt optimization and accepts an Effect `LanguageModel` layer, including one supplied by Inference. Text prepares measurements once and reuses them across layout widths.
-
-For retained results, Digest identifies content, Sign binds bytes to an authenticated key, and Seal encrypts bytes. Applications own identity, authorization, key lifecycle, and protocol policy; the cryptography READMEs explain those boundaries.
+Use `effect-study` when you already know the inputs to evaluate, or
+`effect-search` to find a configuration by trying candidates. DSP uses Search
+to optimize language-model programs and accepts any Effect `LanguageModel`
+layer, including those supplied by Inference. The cryptography packages can
+identify, sign, and encrypt results; their READMEs explain the key management
+and protocol decisions your application must make.
 
 ## Run an optimization
 
@@ -68,7 +71,11 @@ const program = Effect.gen(function* () {
 BunRuntime.runMain(program)
 ```
 
-Save this as `optimize.ts` and run `bun optimize.ts`. The minimum is zero at `x = 2`, `y = -1`; a finite search returns an approximation. The seed makes sampling repeatable for the same ordered observations and compatible implementation. External services, nondeterministic objectives, and concurrent completion order can change a real study's results.
+Save this as `optimize.ts` and run `bun optimize.ts`. The function has a minimum
+of zero at `x = 2`, `y = -1`; the search returns an approximation. With a seeded
+sampler, repeatability also depends on the observations and their order. See
+Search's [sampler guidance](./packages/effect-search/README.md#samplers-and-schedulers)
+before relying on a seed to reproduce a run.
 
 ## Documentation and examples
 

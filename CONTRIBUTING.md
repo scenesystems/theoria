@@ -12,22 +12,24 @@ bun run --filter @scenesystems/effect-search check
 bun run --filter @scenesystems/effect-search test
 ```
 
-Broaden verification with the change's reach. Root commands are `bun run check:all`,
+For changes that affect several packages, run the root checks: `bun run check:all`,
 `bun run lint`, `bun run test`, and `bun run build`. Documentation-only changes do
-not require a production build. Report failures and unverified behavior; do not
-weaken checks or bypass failing hooks.
+not need a production build. Include any failures or checks you could not run in
+the pull request; leave checks and hooks enabled.
 
 ## Making changes
 
-- Use [Effect](https://effect.website/docs/v4/) public APIs throughout TypeScript,
-  including pure computations, callbacks, tests, and tooling.
-- Make the smallest coherent change. Add abstractions only to remove demonstrated
-  duplication or complexity. Keep refactoring separate from behavior changes.
-- Use `@effect/vitest` and the existing test setup to catch plausible behavioral
-  defects. Prefer direct regression tests over new harnesses or contract-testing
-  layers. Do not test guidance, file inventories, or naming conventions.
-- Update the owning documentation when public behavior or setup changes. Link to
-  canonical information rather than duplicating it.
+Use [Effect](https://effect.website/docs/v4/) public APIs throughout TypeScript,
+including pure computations, callbacks, tests, and tooling. Keep each change
+focused on its purpose, and separate refactoring from behavior changes. Add an
+abstraction when it removes duplication or complexity already present in the code.
+
+Tests should catch plausible defects in behavior. Use `@effect/vitest` with the
+existing setup, adding a regression test to the relevant suite rather than a new
+harness. Guidance, file inventories, and naming conventions do not need tests.
+
+When public behavior or setup changes, update the document that describes it.
+Link to that document from other places that need the information.
 
 For documentation examples, run `bun run docs` and inspect affected guides using
 the [docs application workflow](apps/theoria/README.md#edit-documentation).
@@ -56,8 +58,8 @@ prepared package content. Unpackaged tests, guidance, and tooling with no
 published impact need no changeset. Documentation-only updates need one when
 they should be republished; see the [release content rules](RELEASING.md#package-content).
 
-Write one conceptual note for consumers: what changes, why it matters, and any
-required caller action. Choose patch for compatible fixes and improvements,
+Write the changeset for someone upgrading the package. Describe the change and
+any action they need to take. Choose patch for compatible fixes and improvements,
 minor for added capabilities, and major for breaking changes. For packages below
 1.0, use minor for breaking changes.
 

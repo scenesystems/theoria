@@ -1,8 +1,6 @@
 # @scenesystems/effect-text
 
-Measure text in [Effect](https://effect.website) programs and reuse the measurements for greedy multiline layout at different widths. Use it for canvas renderers, virtualized views, diagrams, and other applications that need deterministic line geometry without invoking a browser layout engine.
-
-Preparation is an `Effect`: it segments text, measures runs, optionally applies dictionary hyphenation, and captures a text-engine profile. Every projection after preparation is synchronous and pure.
+Text measures a string once and reuses those measurements to lay it out at different widths. It is intended for canvas renderers and other applications that need line geometry without browser layout. Preparation runs in [Effect](https://effect.website); the resulting handle supports synchronous, pure layout operations with greedy line breaking.
 
 ## Installation
 
@@ -46,9 +44,8 @@ export const program = Effect.gen(function* () {
 - `Text.prepareWithSegments` returns `Text.WithSegments`, which also supports line materialization, ranges, cursors, and streams.
 - `Text.prepareUnknown` strictly decodes unknown input before preparing it.
 
-Prepared handles expose pure projection operations, not their measurement tables
-or mutable cursor hints. They have no encoding or content-based equality contract;
-use `PreparationKey` when an application needs a structural cache identity.
+Use `PreparationKey` to identify cached preparations. Prepared handles have no
+encoding or content-based equality contract.
 
 | Function                | Handle                  | Result                                                  |
 | ----------------------- | ----------------------- | ------------------------------------------------------- |
@@ -87,9 +84,11 @@ export const program = Effect.gen(function* () {
 
 ## Services and layers
 
-Preparation requires `Text.Segmenter`, `Text.CurrentProfile`, and `MeasurementCache.MeasurementCache`. The cache owns successful measurement memoization and requires a `TextMeasurer.TextMeasurer` when its scoped layer is built. Hyphenation is optional: when no `Hyphenation.Hyphenation` service is present, explicit soft hyphens still work but dictionary breaks do not.
-
-`TextMeasurer.layer` is the deterministic estimator used by `Text.layer`. Compose the individual layers to select a profile or disable dictionary hyphenation.
+To customize preparation, provide a segmenter, a profile, and a measurement
+cache, as below. The cache needs a `TextMeasurer` when its layer is built;
+`TextMeasurer.layer` supplies the deterministic estimator used by `Text.layer`.
+Dictionary hyphenation is optional. Without a `Hyphenation.Hyphenation` service,
+explicit soft hyphens still work.
 
 ```ts typecheck
 import { Effect, Layer } from "effect"
@@ -118,11 +117,8 @@ export const program = Text.prepare({
 )
 ```
 
-Each scoped acquisition of `MeasurementCache.layer` owns a fresh cache. Its
-`TextMeasurer` dependency is supplied while constructing the cache layer, as in
-the example above; consumers of the resulting services do not need to provide
-the measurer again. Reacquire the cache layer after font availability changes
-rather than retaining widths measured against stale fonts.
+Each acquisition of `MeasurementCache.layer` creates a fresh cache. Reacquire
+it after font availability changes so preparation uses the newly loaded fonts.
 
 ## Canvas measurement and profiles
 
@@ -205,7 +201,12 @@ export const program = Text.prepareWithSegments({
 
 ## Calibration
 
-`Calibration` evaluates named `Text.Profile` candidates against expected summaries and optional exact lines. `Calibration.evaluate` and `Calibration.optimize` are Effects because they prepare and measure text; `Calibration.score` is a pure weighted-sum projection of an existing report. `Calibration.searchSpace` compiles the concise `Calibration.Search` dimensions used by the optimizer. Optimization returns the selected profile and report together with `optimizationResult` and `OptimizationArtifacts`: a per-invocation event log and cumulative resumable snapshot. Supply `optimizationStorage` to persist those trials and checkpoints.
+Use `Calibration.evaluate` to compare profiles against expected summaries or
+exact lines, and `Calibration.optimize` to search for a suitable profile. Both
+prepare and measure text in Effect. `Calibration.score` scores an existing
+report without further measurement. Optimization returns the selected profile
+and its report, along with events and a resumable snapshot. Provide
+`optimizationStorage` to persist trials and checkpoints.
 
 See [the calibration example](./examples/05-calibration-search.ts) for a seeded search and [the live fixtures](./examples/live/calibrationFixtures.ts) for complete case, profile, service, and search models.
 
@@ -213,16 +214,15 @@ See [the calibration example](./examples/05-calibration-search.ts) for a seeded 
 
 `Text.prepare` and `Text.prepareWithSegments` fail with `TextMeasurer.Failed` when measurement does not return a finite non-negative advance. `Text.prepareUnknown` can additionally fail with `Text.DecodeError`. Layout projections have no error channel once preparation succeeds.
 
-Layout has the following limits:
+You supply the fonts and line height, and wait for fonts to load before measuring.
+The default measurer estimates advances without shaping fonts. Canvas measurement
+uses the host's shaping for each measured string; Text still controls line breaks
+and visual-line assembly. Check the output with every browser and font you support,
+since it can differ from DOM layout.
 
-- line breaking is greedy and supports only the documented whitespace modes;
-- callers supply line height, fonts, font readiness, and the measurement host;
-- `TextMeasurer.layer` estimates advances and does not shape fonts;
-- canvas measurement uses host shaping for measured strings, but this package still controls breaking and visual-line assembly;
-- mixed-direction text and paired punctuation are handled for the supported line-local model, but bidi embedding/control semantics and full UAX #9 behavior are outside the support envelope;
-- inline styling, vertical writing, justification, and browser layout equivalence are out of scope.
-
-Validate canvas output against every target browser and font. The package guarantees deterministic projection for a prepared set of measurements, not pixel parity with DOM layout.
+Mixed-direction text and paired punctuation use a line-local model. Full UAX #9
+behavior, including bidi embedding and control semantics, is unsupported, as are
+inline styling, vertical writing, and justification.
 
 ## Examples
 

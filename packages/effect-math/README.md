@@ -1,10 +1,6 @@
 # @scenesystems/effect-math
 
-Compute numerical results in [Effect](https://effect.website) programs, including scalar and vector operations, calculus, and probability.
-
-Base operations are synchronous functions for trusted values. `Validated` variants decode unknown input and return an `Effect` with typed errors. `WithPolicies` variants use services supplied through a Layer to configure numerical behavior.
-
-[`@scenesystems/effect-search`](../effect-search/README.md) builds its samplers on this package, and [`@scenesystems/effect-text`](../effect-text/README.md) uses it to score layout calibration. Content identities for cached numerical inputs come from [`@scenesystems/digest`](../digest/README.md).
+Math provides numerical operations for [Effect](https://effect.website), including linear algebra, calculus, and probability. Call the synchronous functions with trusted values, or use their `Validated` variants to check unknown input and receive typed errors. Operations with a `WithPolicies` variant also let you configure numerical behavior through Effect services.
 
 ## Installation
 
@@ -35,7 +31,7 @@ export const checked = dotValidated({
 
 ## Domains
 
-Choose a numerical domain below; each link opens its API reference.
+The module references describe each operation's inputs and numerical behavior.
 
 | Concern                                   | Consumer role                                                                                                                                                                         |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -100,7 +96,7 @@ An operation appears under its base name and, when its behavior needs them, with
 
 The base operation assumes its documented preconditions and returns a plain value. Where IEEE 754 defines a result, such as `-Infinity` for `log(0)`, scalar operations return that result. Use a validated operation when invalid input should enter the typed error channel; see [`Numeric`](./src/Numeric.ts) for numerical behavior and operation-specific alternatives.
 
-The validated variant takes `unknown`, decodes it against the operation's input schema with excess properties rejected, checks structural preconditions such as matching lengths, and runs the operation. Errors have concise module-local names such as `DecodeError`, `ParameterError`, and `ShapeMismatchError`; their established wire tags remain stable. Use validated operations at API boundaries, on deserialized data, and anywhere bad input should remain in the typed error channel.
+Use the validated variant for deserialized data or other unknown input. It rejects excess properties and checks preconditions such as matching vector lengths before running the operation. Failures use module-local errors such as `DecodeError`, `ParameterError`, and `ShapeMismatchError`.
 
 The policy-aware variant takes typed input and reads the runtime-policy services described below. It reports non-finite results as domain violations under a strict precision policy, consults backend preferences where documented, and emits diagnostics when they are enabled.
 
@@ -132,7 +128,7 @@ export const program = Effect.gen(function* () {
 
 ## Runtime policies
 
-Policy-aware operations declare their configuration as `Context.Service` services from [`Policy`](./src/Policy.ts), and an Effect that calls one keeps those services in its requirements until a Layer provides them. Service payloads retain the `{ policy: ... }` shape.
+Provide the services from [`Policy`](./src/Policy.ts) to configure `WithPolicies` operations. Each service carries a `{ policy: ... }` value, and the operation's Effect type records which services it needs.
 
 | Service              | Policy values                                    | Effect on policy-aware operations                                        |
 | -------------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
@@ -141,17 +137,15 @@ Policy-aware operations declare their configuration as `Context.Service` service
 | `Policy.Backend`     | `scalar` or `compensated`                        | Selects the documented backend preference for operations that consult it |
 | `Policy.Diagnostics` | `enabled` or `disabled`                          | Enables or disables policy-aware diagnostic logging                      |
 
-`Policy.layerDeterministic` and `Policy.layerNondeterministic` build a Layer with all four services. `Policy.snapshot` reads them into `Policy.Settings`. Supply a single service with `Layer.succeed` when an operation needs only part of the set. Policies affect only operations with the `WithPolicies` suffix; base and validated operations never read them, so a policy Layer cannot change code that did not opt in.
+`Policy.layerDeterministic` and `Policy.layerNondeterministic` provide the full set. Use `Layer.succeed` when you need an individual service, and `Policy.snapshot` to read the current settings. Base and validated operations do not read these services.
 
 For `Numeric.sumWithPolicies`, `compensated` selects Kahan-compensated accumulation over an immutable `Chunk`. The `scalar` policy selects ordinary iteration-order accumulation. This preference does not imply a different algorithm for every operation: `LinearAlgebra.dotWithPolicies`, for example, records the preference in diagnostics while using its documented dot-product algorithm.
 
 ## Computation planning
 
-The planning modules describe how a numerical computation should run without executing its kernel. [`Scalar`](./src/Scalar.ts) selects an available Float64 or BigDecimal lane. [`Precision`](./src/Precision.ts) evaluates convergence and escalation. [`Backend`](./src/Backend.ts) resolves a backend compatible with the selected lane. [`Autodiff`](./src/Autodiff.ts) chooses forward or reverse mode, or an allowed finite-difference fallback. [`Uncertainty`](./src/Uncertainty.ts) defines lane-specific result envelopes.
+[`Computation`](./src/Computation.ts) plans a computation without executing it. The plan selects a scalar representation and compatible backend, then records precision, differentiation, and uncertainty decisions. `Computation.plan` decodes an untrusted request; `planWithAuthorities` accepts an already decoded request. Provide `Computation.layer` for the default planner and its services.
 
-[`Computation`](./src/Computation.ts) composes those decisions. `Computation.plan` decodes untrusted requests through the configured `Computation` service; `Computation.planWithAuthorities` accepts a decoded request and reads the individual authority services. `Computation.layer` provides the default planner and authorities. This planning layer records selections and provenance; it does not execute a numerical operation.
-
-`Policy.Precision` is the strict/relaxed runtime policy read by numerical `WithPolicies` operations. `Precision.Precision` is a separate computation-planning service for convergence and scalar escalation. Their qualified names make that distinction explicit.
+The planner's `Precision.Precision` service handles convergence and scalar escalation. It is separate from `Policy.Precision`, which sets strict or relaxed behavior for numerical `WithPolicies` operations.
 
 ## Errors
 

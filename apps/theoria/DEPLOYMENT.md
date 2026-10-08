@@ -1,10 +1,8 @@
 # Deploying the Theoria app
 
-This runbook is for maintainers of the public Theoria website. Local users do
-not need any of this configuration.
-
-The site runs on Cloudflare Workers. `apps/theoria/server.ts` serves the app
-with Bun for local development.
+The public Theoria website runs on Cloudflare Workers. Maintainers deploy a
+tested staging build, then promote that build to production. For local
+development with Bun, follow the [app README](./README.md#run-it-locally).
 
 ## Cloudflare Workers
 
@@ -18,8 +16,7 @@ with per-route metadata, and the built web bundle in `dist/` as static assets.
 | staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `production`    |
 | preview    | `theoria-pr-<N>`  | `theoria-pr-<N>.staging.scenesystems.io` | `preview`       |
 
-Staging mirrors the production surface so it is a faithful rehearsal; previews
-differ only in `RELEASE_STAGE`, which the server uses for indexing policy.
+Staging uses the production release stage; previews use `preview` for indexing policy.
 Every hostname other than `theoria.scenesystems.io` is served with
 `X-Robots-Tag: noindex`: the Worker adds it to its own responses
 (`app/server/indexing-policy.ts`) and [`public/_headers`](./public/_headers)
@@ -44,25 +41,21 @@ Browser test files run sequentially to avoid interference with motion and
 layout measurements. CI distributes them across runners with
 `bun run test:worker -- --shard=i/n`; each runner tests the Build job's artifact.
 
-The vitals and environment suites (`home-vitals.test.ts`,
-`home-environment.test.ts`) profile the site under test, which is the harness
-unless `THEORIA_SITE_URL` names a deployment: `bun run test:worker:profile`
-runs them on the harness, `bun run test:worker:staging` runs them against
-staging, and `THEORIA_SITE_URL=https://theoria-pr-<N>.staging.scenesystems.io
-bun run test:worker:profile` against a preview. A deployment's runtime logs are
-not readable from outside it, so a failure report against one names the
-browser's side only.
+Run `bun run test:worker:profile` to measure vitals and environment behavior
+against the local test server. Use `bun run test:worker:staging` for staging,
+or set `THEORIA_SITE_URL=https://theoria-pr-<N>.staging.scenesystems.io` with
+`bun run test:worker:profile` for a preview. Remote failure reports contain
+browser observations only; inspect Workers Logs separately for server failures.
 
 Cache lifetimes for directly served assets come from `public/_headers`;
 lifetimes for Worker responses come from `cacheControlForPath`. Cloudflare
 compresses responses at the edge, so the build ships assets uncompressed.
 
-The HTML shell is rendered per request in the reader's colour mode: the
-Worker reads the `theoria-color-mode` cookie (`contracts/color-mode.ts`) and
-serves `<html class="dark">` for a reader who chose dark, so the first frame
-needs no script. The shell response therefore carries `Vary: Cookie`; a cache
-in front of the Worker must honour it or exclude the shell from caching. The
-cookie holds a preference only; never use it for authentication or authorization.
+The Worker reads the `theoria-color-mode` cookie and renders the HTML shell in
+the reader's chosen colour mode before scripts run. Shell responses carry
+`Vary: Cookie`; any cache in front of the Worker must honour that header or
+exclude the shell. This cookie stores a display preference and must never be
+used for authentication or authorization.
 
 ### Variables and secrets
 
@@ -139,43 +132,38 @@ single misbehaving client.
 
 ### Analytics
 
-Each analytics provider is enabled by a public identifier declared
-in the production `vars` of `wrangler.jsonc` (`app/server/config/analytics.ts`
-reads them; an empty value disables that provider, a malformed one stops the
-Worker from starting):
+Set each analytics provider's public identifier in the production `vars` of
+`wrangler.jsonc`. An empty value disables the provider; a malformed value
+prevents the Worker from starting.
 
 | Variable                 | Provider                 | Where to find the value                                                                                               |
 | ------------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `GA_MEASUREMENT_ID`      | Google Analytics 4       | GA4 Admin -> Data streams -> the web stream's Measurement ID (`G-...`).                                               |
 | `CF_WEB_ANALYTICS_TOKEN` | Cloudflare Web Analytics | Cloudflare dashboard -> Web Analytics -> add the site with **manual** setup and copy the `token` from the JS snippet. |
 
-The Worker emits the tags into the HTML shell only for requests on
-`theoria.scenesystems.io`, so staging and previews never report traffic even
-though they run the same bundle, and the Content Security Policy widens by
-exactly the hosts each configured provider needs (`app/server/security-headers.ts`).
-Nothing is inline: Google's `gtag.js` is bootstrapped by
-[`public/analytics/gtag-init.js`](./public/analytics/gtag-init.js), which sets
-region-scoped Consent Mode v2 defaults: advertising storage is _denied_
-everywhere (the site runs no ads), and analytics storage is _granted_ everywhere
-except the EEA, the United Kingdom, and Switzerland, where it is _denied_.
-Outside those regions GA4 sets its first-party cookie and reports observed
-pageviews and users (`gcs=G101`); inside them it receives cookieless pings only
-(`gcs=G100`), which GA4 uses for modeling, not reporting, so those visitors
-appear in Cloudflare Web Analytics but not in GA4. Do not default analytics
-storage to _denied_ globally without a consent UI: GA4 then reports nothing at
-all, because behavioral modeling needs thousands of consented users to train.
-Cloudflare Web Analytics is cookieless by design. In-app navigation is a `pushState`, which
-GA4 reports through enhanced measurement ("Page changes based on browser
-history events", on by default for the web stream); do not add manual
-`page_view` events or pages count twice. The manual site must be the only
-Web Analytics site on the zone. A zone-wide site with automatic setup (the API
-reports it under `/accounts/{account}/rum/site_info/list` with
-`auto_install: true`) makes the edge inject a second beacon with its own token
-into every HTML response: production then reports into two dashboards, and
-staging and previews, whose CSP does not allow `static.cloudflareinsights.com`,
-log a CSP violation on every page load, which `bun run test:worker:profile`
-reports as a console failure. Delete such a site rather than only disabling its
-automatic setup, so nothing outside `wrangler.jsonc` can re-enable it.
+The Worker adds analytics tags only on `theoria.scenesystems.io`. Its Content
+Security Policy permits the hosts needed by enabled providers; staging and
+previews contain no analytics tags.
+
+[`public/analytics/gtag-init.js`](./public/analytics/gtag-init.js) loads Google's
+`gtag.js` and sets Consent Mode v2 defaults. Advertising storage is denied
+everywhere. Analytics storage is denied in the EEA, United Kingdom, and
+Switzerland, and granted elsewhere. GA4 receives cookieless pings in the denied
+regions (`gcs=G100`) and reports observed pageviews and users elsewhere
+(`gcs=G101`). Cloudflare Web Analytics uses no cookies and includes visitors
+from both groups. Changing analytics storage to denied globally without a
+consent UI removes the consented observations GA4 needs for reporting and modeling.
+
+Leave GA4's enhanced measurement for browser history events enabled. It records
+in-app navigation through `pushState`; manual `page_view` events would count
+those views twice.
+
+Keep only the manually configured Cloudflare Web Analytics site on the zone.
+A site with `auto_install: true` in `/accounts/{account}/rum/site_info/list`
+injects another beacon into every HTML response. That duplicates production
+reporting and causes CSP failures on staging and previews, detectable with
+`bun run test:worker:profile`. Remove duplicate automatically configured sites
+rather than leaving them available for reactivation outside `wrangler.jsonc`.
 
 ### Search and sharing metadata
 
@@ -220,22 +208,17 @@ production config appears indexable locally while `--env staging` and
 
 ## Automated deployments
 
-The [Theoria workflow](../../.github/workflows/theoria.yml) builds the site once
-per commit. It first runs the app's typecheck and unit tests (`bun run
-check:apps`, `bun run test:apps`), so an artifact never comes from a tree that
-fails its own checks even though the Check workflow runs separately. It then
-builds the website and publishable packages (`bun run build` from the repository
-root, then `wrangler deploy --dry-run` to bundle
-`worker.ts` for workerd), checks the output with
-[`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
-and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. The
-Test jobs each download that artifact, check it
-again, and run their shard of the workerd and Chromium suite against it (`bun
-run test:worker -- --shard=i/n`, see above). Every deployment then uploads that
-exact artifact with `wrangler deploy --no-bundle`, so staging, production, and
-previews serve byte-identical builds of a commit, and none is deployed before
-every shard has passed. Main builds also retain `packages/*/dist` in
-`theoria-packages-<sha>` for later publication without rebuilding.
+The [Theoria workflow](../../.github/workflows/theoria.yml) runs `check:apps`
+and `test:apps`, then builds the website and packages with `bun run build`.
+Wrangler bundles `worker.ts` in a dry run, and
+[`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml)
+checks the output. The workflow uploads `dist/` and `.wrangler-out/` as
+`theoria-<sha>` for the workerd and Chromium test jobs.
+
+After every test shard passes, deployment uploads that artifact with
+`wrangler deploy --no-bundle`. Staging, production, and previews therefore use
+the same build for a commit. Main builds also retain `packages/*/dist` in
+`theoria-packages-<sha>` for publication without rebuilding.
 
 | Event                                   | Job         | Target                                                          |
 | --------------------------------------- | ----------- | --------------------------------------------------------------- |
@@ -290,11 +273,10 @@ gh workflow run publish.yml --ref main -f run_id=STAGING_RUN_ID
 gh workflow run theoria-production.yml --ref main -f run_id=STAGING_RUN_ID
 ```
 
-**Staging ahead, npm published, website promotion pending** is a supported
-state. A later staging deployment does not alter the selected release. A
-website-only candidate can skip Publish Packages if its package content matches
-the versions already on npm. Publishing never promotes the website, and
-website promotion never publishes packages.
+Packages can be published while website promotion is still pending. A later
+staging deployment does not alter the selected release. For website-only
+changes, skip Publish Packages if the package content matches npm. Website
+promotion does not publish packages.
 
 To retry publication or production, use **Run workflow** on `main` again with
 the same `run_id` and optional `reviewed_run_id`. Do not use GitHub's **Re-run
@@ -340,78 +322,43 @@ or staging checks.
 
 ### Package compatibility and publication records
 
-`scripts/release.ts` composes `@effect/cli`, Effect Schema and platform services.
-Its modules separate candidate evidence, Git/version comparison, npm content,
-GitHub transport, and website deployment. YAML retains GitHub triggers, job
-dependencies, permissions, environments and vendor Actions. No Bash or jq
-implements release policy. The CLI runs on Linux/Bun (including GitHub's Ubuntu
-runners); argument acquisition uses procfs. GitHub CLI handles paginated API
-responses and artifact downloads. The repository-pinned Wrangler handles
-Cloudflare deployment.
+Promotion verifies each npm package's content and registry-hosted provenance
+against the staging candidate. A mismatch, missing provenance, or registry
+error blocks promotion. The [release runbook](../../RELEASING.md#package-content)
+defines which content changes require a new package version and how to recover
+from publication failures.
 
-The npm check validates registry-hosted provenance against the published
-tarball's SHA-512 integrity, this repository, and `publish.yml` or `bootstrap.yml`. It downloads
-the tarball, verifies the bytes against that integrity, rejects unsafe archive
-paths, links and special files, and compares its content with the staged
-packages. GNU tar and sha512sum run through scoped Effect commands with checked
-exit status; the downloaded package code is never executed.
+The verifier downloads published tarballs and checks their SHA-512 integrity
+before comparing content. It rejects unsafe archive entries and never executes
+downloaded package code. Publication and production workflows retain their
+JSON evidence for 90 days; later releases verify npm provenance again, regardless
+of Actions artifact retention.
 
-Content identity covers the actual shipped files: JavaScript, declarations,
-source, maps, exports, dependency ranges and other manifest fields. Only root
-README/changelog and descriptive manifest fields (description, homepage,
-repository, bugs, keywords) are excluded. Website-only and README changes need
-no npm release when the package content is unchanged. A compiler or dependency
-change matters when it changes shipped output; there is no manually maintained
-inventory of possible build inputs.
-
-An already published version with different content blocks both publishing and
-promotion: add a changeset, merge the version PR, and stage the resulting
-candidate. Missing provenance or registry errors also fail closed. Packages
-already on npm can be reused only when their provenance and package content
-match. The publication and production workflows retain JSON evidence for 90
-days. Subsequent releases verify npm provenance independently of Actions
-artifact retention.
-
-The publisher runs on the immutable candidate tag because npm provenance and
-the Changesets action's GitHub tags use the workflow **event SHA**, not merely
-the checked-out SHA. The main dispatcher never publishes. The tag run checks
-its event SHA and tag name against the selected staging record before any npm
-credentials are requested. It downloads the staged package output, runs checks,
-verifies that output still matches the candidate, then packs it without rebuilding.
-Packing uses pinned npm with lifecycle scripts disabled. The packed artifact is
-downloaded and its tarball integrity and content checked against staging before
-the OIDC publish job can start. Publication verifies the registry afterwards.
-If registry propagation or recording fails after publish,
-dispatch **Publish Packages** on `main` again with the same candidate inputs.
-It reuses the immutable tag but creates a new run and repeats validation:
-existing matching versions are checked and not republished. Never move a
-`theoria-candidate-*` tag.
+Publication runs on an immutable `theoria-candidate-*` tag so npm provenance
+records the candidate's commit. The tag run checks that commit against the
+staging record before requesting credentials, then packs the staged output
+without rebuilding or running lifecycle scripts. It checks the tarball against
+staging before publishing and verifies the registry afterwards. Never move a
+candidate tag.
 
 ### Pull request previews
 
 The [preview workflow](../../.github/workflows/theoria-preview.yml) runs from
-trusted `main` on `workflow_run`. An unprivileged `resolve` job first finds the
-single open pull request from this repository into `main` whose head is the
-built commit (it does not trust the event's `pull_requests` list, whose order
-is not guaranteed); the deploy job then re-checks the artifact, confirms the
-pull request still points at that commit, and deploys it with the
-`wrangler.jsonc` from `main` (a pull request that changes `wrangler.jsonc` sees
-that change only after merge). Pull request code never runs with Cloudflare
-credentials, and pull requests from forks are not previewed. Updating a pull
-request replaces its preview; closing it deletes the Worker and its managed DNS
-record, then deletes the Advanced Certificate Cloudflare issued for the preview
-hostname (Cloudflare does not remove it with the Custom Domain, and each zone
-has a certificate limit). A build that completes after its pull request closed
-waits for that cleanup rather than cancelling it, then skips. The first
-deployment of a pull request waits up to ten minutes for the certificate to be
-issued before the verification checks run.
+`main` after a build completes. It locates the open pull request for that commit,
+checks the artifact and current PR head, then deploys with `wrangler.jsonc` from
+`main`. Changes to that configuration take effect after merge. Forks do not
+receive previews, and pull request code never runs with Cloudflare credentials.
 
-Because the deploy job runs on `main`, GitHub records its `staging` deployment
-against `main` rather than the pull request, so the pull request page does not
-show the deployment URL. After verification passes, the job posts a single
-"Theoria preview" comment on the pull request (created once, then edited on each
-redeploy, and edited again to say the preview was removed when the pull request
-closes) with the hostname, the deployed commit, and the run that deployed it.
+Updating a pull request replaces its preview. Closing it removes the Worker,
+managed DNS record, and Advanced Certificate. The certificate needs explicit
+cleanup because Cloudflare retains it after Custom Domain removal. A build
+that finishes after closure waits for cleanup and skips deployment. Initial
+deployments allow up to ten minutes for certificate issuance before verification.
+
+Find the hostname and deployed commit in the PR's "Theoria preview" comment.
+The workflow updates this comment after each verified deployment and when the
+preview is removed. GitHub associates the deployment with `main`, so its usual
+PR deployment link is unavailable.
 
 The preview and manual production workflows must exist on `main` to be
 triggered. Changes to them take effect after merge, not from the pull request.
@@ -541,9 +488,9 @@ with reverted code.
 
 Previews never need a rollback: push a fix to the pull request or close it.
 
-What a rollback cannot fix: a broken route or Custom Domain (routing is not
-part of a version; fix `wrangler.jsonc` and deploy) and certificate or DNS
-problems (see [Taking over a hostname](#taking-over-a-hostname)).
+Routing is outside the Worker version, so a rollback cannot fix a broken route
+or Custom Domain. Correct `wrangler.jsonc` and deploy. For certificate or DNS
+problems, see [Taking over a hostname](#taking-over-a-hostname).
 
 ## Previews are public, pull-request-controlled code
 
