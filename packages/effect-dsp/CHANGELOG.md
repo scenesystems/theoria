@@ -1,5 +1,120 @@
 # effect-dsp
 
+## 0.7.0
+
+### Minor Changes
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Remove format-version fields from resolved route provenance, module saved state, and example reports. `Route.Resolved.schemaVersion`, `Route.provenanceVersion`, `Route.ProvenanceVersion`, and `Module.SavedState.version` are removed. Saved state retains optional caller metadata. These contracts describe the current shape only; no compatibility decoders or migration APIs are provided.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add stable predictor paths, shared predictors, trainable and frozen parameters, immutable parameter snapshots, scoped execution overlays, bound programs, and explicit parameter installation. Introduce the generic Optimized.Result contract for algorithm-specific reports.
+
+  Modules and predictors expose their parameter references as `parameters`; bound program defaults use `boundParameters`. Cache requests use `parameters` and cache keys use `parametersHash`.
+
+  Breaking: the module structure vocabulary is renamed without aliases. `Module.Node` is now `Module.Structure` (`moduleId` → `id`, `params` → `parameters`, `NodeSignature` → `Signature.Text`); `Module.Declaration` is now `Module.SubModule` (`declaredId`/`child` → `name`/`module`); `Module.nodeGraph` is now `Module.structure`; `Module.Registration` (tag `ModuleRegistration`) is now `Module.Discovered` (tag `ModuleDiscovered`); `Module.NodeSignature` is removed; `ComposeForwardContext.subModuleNodes` is now `subModules`.
+
+  Composition rejects empty/dotted aliases, colliding canonical paths and conflicting bound defaults for one shared predictor with CompositionError. Equivalent defaults are accepted independently of alias order; outer bound maps resolve any alias of a predictor. Immutable parameter updates omit absent generation settings rather than producing undefined-valued cache identity fields.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Replace Example.output with optional raw labels and explicit or content-derived identity. Add Prediction and Module.call with invocation trace and usage. Metrics now receive the example, prediction, and phase context and return a finite Score with optional feedback. Add DSPy-normalized answer equality and token-boundary passage matching.
+
+  Breaking: `Metric.make`, `Metric.fromEffect`, `Metric.Result` and `Metric.PureFn` are removed. Use `Metric.fromSync` for synchronous label/output scorers and `Metric.withFeedback` for an effectful `Metric.Fn` over `(example, prediction, context)` returning `Metric.Score` (finite `value`, optional `feedback`). `Metric.Fn` keeps its name with that new signature. `Example.output` is replaced by optional raw `labels`. No aliases or adapters for the previous metric shape are provided.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add ordered expected-failure collection with a failure budget that drains active evaluations. Evaluate reports explicit Scored and Failed outcomes, fraction units, and a failure-inclusive average; failed examples contribute failureScore instead of disappearing from the denominator. Add maxErrors and TooManyErrors, and project the report average into default scalar search objectives. The previous ExampleResult/results report shape is removed.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - GEPA uses training examples for reflection and validation examples to select its best program, following the recorded DSPy 3.4.0 / GEPA 0.1.4 behavior. It checks the metric budget at iteration boundaries, so a run can exceed that budget. Reports count targeted feedback calls separately. Reflection uses critic settings and retains the predictor's actual input and raw output when reporting format failures.
+
+  Serializable checkpoints let `GEPA.resume` reproduce an uninterrupted Theoria run with the same module, datasets, options, metric and model responses. Invalid checkpoints fail with `GEPAError` before restoring randomness or evaluating examples. Custom `componentSelector`s that return unknown or frozen predictor paths also fail with `GEPAError`.
+
+  Checkpoint and proposer types are public GEPA models: `ProgramCandidate`, `PredictorInstruction`, `ParetoSnapshot`, `ExampleFrontierHolding`, `ParentSelectionWeight`, `BatchState` and `ReflectiveExample` replace internal-path schemas in `GEPA.State` and in the `instructionProposer` signature, so custom proposers and checkpoint tooling can name them.
+
+  Breaking: GEPA requires exactly one of `auto`, `maxMetricCalls` or `maxFullEvals`; `maxIterations` is now an optional absolute iteration boundary rather than the required budget. Defaults follow DSPy 3.4.0's GEPA signature (seed 0, merges enabled with 5 invocations, skipPerfectScore, failure/perfect scores 0/1).
+
+  Aggregate selection and acceptance decisions use CPython-compatible compensated sums so accumulation errors do not turn equal scores into improvements. Weighted random selection retains Python's ordinary cumulative addition.
+
+  Instruction extraction handles multiple or incomplete fences, Python whitespace and empty replies. Empty proposals no longer fall back to the original instruction. Structured and ReAct format failures produce targeted reflective samples. Feedback-metric, critic and custom-proposer failures abort without retry or parameter mutation; upstream skips failed proposals. Reflection prompts use Theoria's representation and are not byte-identical to Python's.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Return immutable optimized programs, predictor parameter snapshots, and serializable algorithm reports from all optimizers. Candidate evaluation and Refine retries use fiber-local overlays; caller parameters remain unchanged on success, failure, and interruption. Use Module.install for explicit installation.
+
+  SavedState now carries leaf-predictor ParameterSet entries with optional metadata. Loading validates canonical paths and all demonstrations before installation. Composed roots and wrapper parameters are not persisted. Refine feedback now reaches every executed leaf of composed programs; per-predictor advice dictionaries remain planned.
+
+  Breaking: optimizer summaries are algorithm reports on `Optimized.Result.report`. `BootstrapFewShot.EventSummary`, `MIPROv2.EventSummary` and `GEPA.EventSummary` are replaced by each module's `Report` (new schema identifiers); `summarizeEvents` folds events into that `Report`. `GEPA.OutcomeSummary`, `GEPA.summarizeOutcome`, `MIPROv2.OutcomeSummary` and `MIPROv2.summarizeOutcome` are removed. `DspError.BootstrapFailed` is removed: bootstrap collection reports `TeacherTrace.IncompatibleTeacher` and `TeacherTrace.TooManyErrors`, and checked module, metric and provider failures keep their own channels. Optimizers no longer leave the caller module in the winning state; install a result explicitly with `Module.install`. No aliases are provided.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - MIPROv2 uses dataset summaries, program descriptions and teacher-generated demonstrations to propose instructions, following DSPy 3.4.0's recorded proposal sequence. Proposal zero is generated before being replaced by the original instruction. Settings and rollout IDs control proposal generation and caching.
+
+  Program descriptions use `Module.Structure` predictor paths and signature text. Predictor descriptions include effective instructions and field metadata in a JSON document. They omit the input/output field list used by DSPy's Python signature representation, so these prompts are not byte-identical to upstream.
+
+  Breaking: `MIPROv2.Options.tipVocabulary` and `MIPROv2.TipVocabulary` are removed; `tipAwareProposer` draws upstream tips from the shared seeded stream. `MIPROv2Candidates.InstructionCandidate.cacheBustMarker` is removed; proposals carry `rolloutId` instead. No aliases are provided.
+
+  Persisted demonstrations require an `augmented` boolean; the constructor defaults it to false. Only teacher-generated evidence sets it to true. Demonstration equivalence still compares encoded inputs and outputs. Direct `ParameterSet` imports can round-trip this demonstration shape.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Build MIPROv2 demonstration candidates through BootstrapFewShot and TeacherTrace instead of relabeling training examples. Preserve original instructions, teacher settings, metric thresholds, and error budgets without mutating the input program. Use the CPython-compatible MIPRO stream for successive shuffles and demonstration caps, including the shuffled candidate at catalog index one when labeled demonstrations are disabled. Zero-shot mode still collects teacher evidence for instruction proposals.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - MIPROv2 follows DSPy 3.4.0's compile defaults, automatic budgets, validation split and seeded multivariate TPE scheduling. Budgets count sampled trials separately from the baseline and inserted full-validation rows. The optimizer selects checkpoints by mean minibatch score and returns the best full-validation program. Events and reports expose the trial results. Zero-shot optimization retains demonstrations for instruction proposals while searching only instructions. Invalid datasets, invalid options and exhausted checkpoint combinations fail with typed MIPROv2 errors.
+
+  Checkpoint means use the exact percentages supplied to TPE, computed in DSPy's multiply/divide/round order from CPython-compatible sums. This preserves equal-mean ties. Public evaluation scores remain fractions.
+
+  Evaluate report means, per-example metric means and Metric.compose use the same CPython-compatible reduction. Evaluate retains unrounded fractions; MIPRO separately applies the upstream percentage operation order.
+
+  An absent or none `maxErrors` resolves to DSPy's default of 10 for bootstrap and search evaluations in both MIPROv2 and MIPROv2Search. An evaluation that reaches the limit is logged with its cause and scored zero. During search, expected module or metric failures are logged with the example input. Set `provideTraceback: true` to include the failure cause and stack; the default logs a hint instead. This setting changes neither events and reports nor bootstrap and proposal logging. Defects and interruption propagate.
+
+  Update callers for these breaking changes; the previous option names have no aliases:
+
+  - Rename `trialBudget` to `numTrials` and `fullEvalEvery` to `minibatchFullEvalSteps`.
+  - Remove `numInstructions`; instruction count derives from `numCandidates`. Choose either `numCandidates` or `auto`, which defaults to `"light"`.
+  - Replace the `diversityTemperature` prompt hint with `initTemperature`, which sets the proposer temperature.
+  - Supply `valset` explicitly to keep using the whole trainset for validation. The default uses the upstream 80% split. `minibatchSize` now defaults to 35 freshly sampled rows instead of a 50-row prefix.
+  - Read `MIPROv2.TrialEvaluation` fields from `TrialEvaluated` events.
+  - Use `MIPROv2Search.Result.program` and `parameters` instead of `module`, and rename `MIPROv2Candidates.DemoCandidate.params` to `parameters`.
+
+  New options include `auto`, `minibatch`, `teacher`, `teacherSettings`, `metricThreshold`, `maxErrors`, `numThreads`, `proposerSettings`, the four awareness flags, `viewDataBatchSize` and `provideTraceback`.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add provider-independent model settings, semantic roles, and scoped model binding. Predictors apply their settings and invocation overrides to text and structured calls; ReAct applies predictor settings to tool calls. Optimizer model calls carry teacher, proposer, and critic roles. Mock language models and the reference recorder retain settings and rollout identity.
+
+  Hosted inference adds `ModelBinder.layer`, which selects `TextProvider.Runtime`s by role with task fallback and maps settings to provider configuration without replacing omitted defaults. Unsupported supplied settings fail with `AiError.InvalidRequestError` before transport runs: OpenAI Responses rejects stop and seed, Anthropic Messages rejects seed, and OpenRouter supports all declared settings. The direct `TextProvider` language-model layer applies the same contract to configured defaults: an unsupported default makes every operation of that layer fail with `InvalidRequestError` before HTTP instead of being silently dropped.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add predictor request caching partitioned by model identity, settings, role, rollout, predictor path, effective signature and parameters. Automatic caching warns and continues on cache failures; explicit cache operations retain typed errors. ModelIdentity declares provider/model identity for durable reuse. Runtimes without a declared identity are partitioned by language-model and binder object identity only for the lifetime of the `Cache.layer` scope, which releases those identities when it closes; a Cache service installed without that layer memoizes only declared identities, and no identity is invented per call.
+
+  TextProvider.Runtime now accepts only a validated Config and derives model identity, defaults, request intent and its language-model layer from it; callers no longer supply independent model layers or settings. TextProvider configuration accepts defaults directly or through DSP_MODEL_SETTINGS. The binder resolves defaults, ambient provider configuration and invocation overrides in that order and exposes the resolved settings through ModelSettings.Current. A supplied HttpClient service replaces only the transport, not model configuration. Auto-caching applies at every temperature; rollout IDs partition sampling requests and cache: "never" opts out.
+
+  Retain parse attempts and failed response evidence under a per-invocation execution ID. Module.call returns selected completed entries separately from attempts and accounts for every model call. Cache hits do not count as new provider usage.
+
+  Add output-only signatures and immutable instruction, field prefix and field description edits. Persist editable field metadata inside ModuleParameters so parameter overlays, snapshots and load/save share one state channel. Saved parameters and trace entries use the new shapes directly.
+
+  Breaking: structured output schema failures now use ParseOutputError with actual predictor/input/raw-response evidence, like text parsing; unrelated provider failures remain AiError. ReAct terminal parse failures carry the same context. Demonstration codecs project away extra input/output record keys before strict field validation, and prompts omit demos with no recognized output field instead of emitting an empty assistant turn. Partial demos retain native ordering and rendering.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - `TeacherTrace` runs a teacher program and records its predictions for demonstration selection. It checks signature compatibility, supports acceptance thresholds and error budgets, and exposes execution events through callbacks or a stream. Teacher execution leaves the caller's parameters unchanged. `Signature.digest` includes instruction and field overrides when identifying compatible teachers and cached predictions.
+
+  LabeledFewShot, BootstrapFewShot and BootstrapRS return bound programs with parameter snapshots and reports. LabeledFewShot resets demonstrations and samples independently per trainable predictor. BootstrapFewShot retains cross-example trace duplicates, prepares uncompiled teachers with labeled examples, and fills remaining labeled capacity from rows that did not produce bootstrapped demonstrations. Bound teachers retain their compiled demonstrations.
+
+  BootstrapRS evaluates zero-shot, labeled, unshuffled bootstrap and seeded shuffled candidates in that order. It averages the full validation set, including failed examples, and keeps the earliest winner on ties. Reports retain each candidate's parameters and evaluation, plus `winnerSeed`.
+
+  Ranking and `stopAtScore` use unrounded fractions in [0, 1]. DSPy's rounded percentages can select a different winner when unequal fractions round to the same value, or stop sooner near a threshold. An absent or none `maxErrors` defaults to 10 for each bootstrap compilation and validation pass.
+
+  Update callers for these breaking option and report changes; the previous names have no aliases:
+
+  - Rename `threshold` to `metricThreshold`. Pass a Module as `teacher` instead of a `LanguageModel` Layer; `teacherSettings` are routed through `ModelBinder`.
+  - Remove `fallbackToLabeledFewShot` and `fallbackLabeledDemoCount`. Synthetic teacher instruction changes and labeled-fallback switches and events are removed.
+  - Check demonstration budgets: BootstrapFewShot defaults to 4 bootstrapped demos, 16 labeled slots and 1 round.
+  - Rename BootstrapRS `numCandidates` to `numCandidatePrograms` (default 16). Remove explicit `seeds` lists and read seed-based candidate history instead of label/index-based reports.
+  - Run the returned bound program, or call `Module.install` explicitly to install its parameters in the original module.
+
+  Breaking: BootstrapRS no longer runs candidates through effect-search `Optimization.maximize`. It evaluates the seed catalog directly, as DSPy does, so a provided `OptimizationStorage`, `ObjectiveCache` or optimization event stream no longer applies: BootstrapRS candidates are not persisted, cached as objectives, or resumable through effect-search storage. Its report retains every candidate's parameters and evaluation report instead.
+
+  `Evaluate.maxErrors` aborts when the failure count reaches the limit. Study's `maxFailures` continues to count allowed failures and stops only when that count is exceeded.
+
+  LabeledFewShot, bootstrap labeled fill and BootstrapRS use CPython-compatible seeded sampling. LabeledFewShot defaults to seed 0. Successive predictor samples share a stream in stable predictor-path order, so differently ordered DSPy declarations can produce different samples. BootstrapRS shuffle and cap draws use separate streams with the same candidate seed, matching DSPy's call order.
+
+  Interruption after an accepted trace retains partial events and emits no completion. TeacherTrace retains every invocation; BootstrapFewShot selects the first invocation per predictor per example. DSPy's selection uses a seed derived from Python pickle bytes and can choose a different invocation.
+
+  BootstrapFewShot retries an example before moving to the next. It preserves existing default-teacher demonstrations when no preparation is requested and treats a zero acceptance threshold as absent. Teacher role, settings and retry rollout affect cache identity. `RoundStarted` fires when an example first reaches that round; `RoundCompleted` follows traversal and includes cumulative counts through that round. Conditional programs stop when every trainable predictor has enough demonstrations, which can collect more examples than DSPy's accepted-example limit.
+
+### Patch Changes
+
+- Updated dependencies [[`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee)]:
+  - @scenesystems/effect-study@0.3.0
+  - @scenesystems/effect-lm@0.1.0
+  - @scenesystems/effect-math@0.6.0
+  - @scenesystems/effect-search@0.9.0
+
 ## 0.6.1
 
 ### Patch Changes
