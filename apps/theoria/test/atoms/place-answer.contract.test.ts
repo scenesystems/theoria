@@ -1,6 +1,7 @@
 import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 
 import { PlaceAnswer, type PlaceMark, placeSourceId } from "../../app/contracts/demo/imagined-place-provenance.js"
 import {
@@ -11,6 +12,8 @@ import {
   placeFocusAtom,
   placeMarkLeftAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
+import { placeRenderFrameAtom, placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
+import { placeBuildAtom } from "../../app/web/atoms/imagined-place.js"
 import { describeOnStage, onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /**
@@ -82,6 +85,44 @@ describeOnStage("the answer under a press", (it) => {
 })
 
 describeOnStage("answer lifetime", (it) => {
+  it.effect("replacing the drawing retains the popup's words synchronously, before the lifetime stream runs", () =>
+    Effect.gen(function*() {
+      const { build, other, showingTrial, trial } = yield* onStage
+      const name = (yield* Effect.fromOption(Arr.head(trial.projection.markers))).name
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          Registry.make({
+            initialValues: [
+              [placeBuildAtom, Result.success(other.build)],
+              [placeShownFrameAtom, Result.success(showingTrial)],
+              [placeRenderFrameAtom, Result.success(other.showing)]
+            ]
+          })
+        ),
+        (registry) => Effect.sync(() => registry.dispose())
+      )
+      registry.mount(placeBuildAtom)
+      registry.mount(placeRenderFrameAtom)
+      registry.mount(placeShownFrameAtom)
+      registry.mount(placeAnswerOnShowAtom)
+      registry.set(
+        placeAnswerAtom,
+        Option.some(
+          new PlaceAnswer({
+            triggerId: "d",
+            mark: { _tag: "Disc", name, source: placeSourceId(build) }
+          })
+        )
+      )
+      const shown = registry.get(placeAnswerOnShowAtom)
+      expect(Option.map(shown, (provenance) => provenance.title)).toEqual(Option.some(name))
+      registry.refresh(placeShownFrameAtom)
+      expect(registry.get(placeAnswerAtom)).toEqual(Option.none())
+      expect(registry.get(placeAnswerOnShowAtom)).toEqual(shown)
+      registry.set(placeAnswerAtom, Option.none())
+      expect(registry.get(placeAnswerOnShowAtom)).toEqual(shown)
+    }))
+
   it.effect("an answer opened on the drawing outlives the next build, and is gone once its drawing is replaced", () =>
     Effect.gen(function*() {
       const { build, other, showingTrial, trial } = yield* onStage
