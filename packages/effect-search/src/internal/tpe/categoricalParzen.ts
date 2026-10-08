@@ -1,6 +1,7 @@
 import {
   Array as Arr,
   Boolean as Bool,
+  Chunk,
   Effect,
   Equal,
   Match,
@@ -12,7 +13,7 @@ import {
   Tuple
 } from "effect"
 
-import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
+import { isFinite, logStrict, sumPairwise } from "@scenesystems/effect-math/Numeric"
 import { Choice } from "../../Distribution.js"
 import { InvalidSamplerConfig } from "../../SearchError.js"
 import { exp } from "../exponential.js"
@@ -62,11 +63,6 @@ export const CategoricalParzenSchema = Schema.Struct({
 
 export type CategoricalParzen = Schema.Schema.Type<typeof CategoricalParzenSchema>
 
-const sum = (valuesInput: Iterable<number>): number => {
-  const values = Arr.fromIterable(valuesInput)
-  return Arr.reduce(values, 0, (total, value) => Num.sum(total, value))
-}
-
 const valueAt = <A>(valuesInput: Iterable<A>, index: number, fallback: A): A => {
   const values = Arr.fromIterable(valuesInput)
   return Arr.get(values, index).pipe(
@@ -90,7 +86,7 @@ const asFiniteDistance = (value: number): number =>
 const normalize = (weightsInput: Iterable<number>) => {
   const weights = Arr.fromIterable(weightsInput)
 
-  const total = sum(weights)
+  const total = sumPairwise(Chunk.fromIterable(weights))
 
   return Match.value(Num.isLessThanOrEqualTo(total, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
@@ -234,7 +230,8 @@ export const buildCategoricalParzen = (
   options: CategoricalParzenOptions | {
     readonly priorWeight?: number
     readonly distance?: (observed: Choice, candidate: Choice) => number
-  } = {}
+  } = {},
+  predeterminedWeights: Option.Option<ReadonlyArray<number>> = Option.none()
 ): Effect.Effect<CategoricalParzen, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
   const observations = Arr.fromIterable(observationsInput)
@@ -262,7 +259,12 @@ export const buildCategoricalParzen = (
               )),
             priorKernel(Arr.length(choices))
           )
-          const kernelWeights = normalize(Arr.append(defaultWeights(Arr.length(observations)), priorWeight))
+          const kernelWeights = normalize(
+            Arr.append(
+              Option.getOrElse(predeterminedWeights, () => defaultWeights(Arr.length(observations))),
+              priorWeight
+            )
+          )
 
           return {
             choices,

@@ -1,9 +1,10 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { minimumTouchTarget } from "../../app/contracts/demo/imagined-place-flow.js"
+import { minimumTouchTarget, placeMarkers, stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
+import { placeScenarioRecordings } from "../../app/contracts/imagined-place.js"
 
 import {
   act,
@@ -21,7 +22,7 @@ import {
   visible
 } from "./browser.js"
 import { drawn, searchSettlesWithin } from "./demo.js"
-import { discTouchTargets, drawnForColumn, scrollElementTo } from "./platform/in-page.js"
+import { boxOf, discTouchTargets, drawnForColumn, scrollElementTo } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 /**
@@ -34,6 +35,67 @@ import { SiteLive } from "./site.js"
  */
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
+    it.effect.prop("an open answer leaves the next disc touchable across valid arrangements", {
+      width: Schema.Int.check(Schema.isBetween({ minimum: 240, maximum: 900 })),
+      top: Schema.Finite.check(Schema.isBetween({ minimum: 0.04, maximum: 0.6 }))
+    }, ({ top, width }) =>
+      Effect.gen(function*() {
+        const { page } = yield* openPage({ hasTouch: true, viewport: { width: 390, height: 844 } })
+        yield* goto(page, "/")
+        yield* drawn(page)
+        const paper = page.locator("[data-place-stage='paper']")
+        const discs = paper.locator("[data-place-marker]:not([data-place-marker-leaving])")
+        const features = placeScenarioRecordings["unfinished-light"].composition.features
+        const paperBox = yield* act(() => paper.evaluate(boxOf))
+        // Exercise real geometry independently of which candidate the seeded optimizer keeps.
+        // Scale the drawing to the phone paper, as a wider retained drawing is displayed there.
+        yield* Effect.forEach(Arr.make({ width, top }, { width: 240, top: 0.04 }, { width: 900, top: 0.6 }), (sample) =>
+          Effect.gen(function*() {
+            const scale = Num.divideUnsafe(paperBox.width, sample.width)
+            const markers = placeMarkers(
+              features,
+              Arr.map(features, () =>
+                Option.none()),
+              stageFor(sample.width),
+              {
+                edge: 0.7,
+                swing: 0,
+                phase: 0,
+                turns: 1,
+                step: 0.03,
+                top: sample.top
+              }
+            )
+            yield* Effect.forEach(markers, (marker, index) =>
+              act(() =>
+                discs.nth(index).evaluate(
+                  (element, style) => element.setAttribute("style", style),
+                  `translate: ${Num.multiply(Num.subtract(marker.x, marker.radius), scale)}px ${
+                    Num.multiply(Num.subtract(marker.y, marker.radius), scale)
+                  }px; width: ${Num.multiply(Num.multiply(marker.radius, 2), scale)}px; height: ${
+                    Num.multiply(Num.multiply(marker.radius, 2), scale)
+                  }px;`
+                )
+              ))
+            yield* act(() => paper.evaluate(scrollElementTo, 0))
+            yield* act(() => discs.first().tap())
+            yield* visible(page.locator("[data-place-provenance]"))
+            const second = yield* act(() => discs.nth(1).evaluate(boxOf))
+            const receivesTouch = yield* act(() =>
+              discs.nth(1).evaluate(
+                (element, point) => element.contains(element.ownerDocument.elementFromPoint(point.x, point.y)),
+                {
+                  x: Num.sum(second.left, Num.divideUnsafe(second.width, 2)),
+                  y: Num.sum(second.top, Num.divideUnsafe(second.height, 2))
+                }
+              )
+            )
+            expect(receivesTouch, `width=${sample.width}, top=${sample.top}`).toBe(true)
+            yield* press(page, "Escape")
+            yield* hidden(page.locator("[data-place-provenance]"))
+          }))
+      }), { arbitrary: { runs: 3, maxShrinks: 0 } })
+
     it.effect("every disc answers to a touch 44 px across on the narrowest phones", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })

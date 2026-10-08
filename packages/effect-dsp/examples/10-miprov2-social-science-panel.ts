@@ -14,7 +14,8 @@
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Option, Ref, Schema } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -33,10 +34,10 @@ const trainset = Arr.make(
         "Residents skip local elections because they believe turnout is always low and nobody in their block votes.",
       inferredConstruct: "pluralistic ignorance around civic participation norms"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       justification: "Public norm signals can correct false beliefs about what peers actually do."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -44,20 +45,20 @@ const trainset = Arr.make(
         "Gig workers ignore retirement enrollment because fee disclosures are hard to compare and terms are confusing.",
       inferredConstruct: "information frictions and low institutional clarity"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       justification: "Simplified, trusted explanations reduce comprehension barriers."
-    }
+    })
   }),
   new Example.Example({
     input: {
       fieldNote: "Households sharply reduced home-energy conservation once the rebate expired.",
       inferredConstruct: "high sensitivity to immediate financial rewards"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       justification: "Behavior tracks immediate costs and rewards, so incentives dominate."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -65,10 +66,10 @@ const trainset = Arr.make(
         "Students attend peer tutoring consistently only after team captains publicly commit to weekly attendance.",
       inferredConstruct: "peer accountability and visible commitment cues"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       justification: "Visible commitments create social expectation pressure."
-    }
+    })
   })
 )
 
@@ -78,20 +79,20 @@ const evalset = Arr.make(
       fieldNote: "Clinic attendance rose when neighborhoods published weekly participation rates by block.",
       inferredConstruct: "behavior responds to descriptive norm visibility"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       justification: "Public participation signals shift expectations about common behavior."
-    }
+    })
   }),
   new Example.Example({
     input: {
       fieldNote: "Workers only completed optional training when a completion bonus was added to the monthly paycheck.",
       inferredConstruct: "short-term compensation salience"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       justification: "Immediate rewards increase uptake when time costs are salient."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -99,10 +100,10 @@ const evalset = Arr.make(
         "Parents delayed vaccine appointments because reminder letters used technical language and unclear scheduling instructions.",
       inferredConstruct: "instructional complexity and comprehension barriers"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       justification: "Clear, concrete instructions reduce decision friction."
-    }
+    })
   })
 )
 
@@ -179,7 +180,7 @@ const program = Effect.gen(function*() {
   })
 
   const metrics = { exactMatch: Metric.exactMatch("intervention") }
-  const baselineParams = yield* Ref.get(planner.params)
+  const baselineParameters = yield* Ref.get(planner.parameters)
 
   yield* logExampleStage("baseline-evaluation-started", {
     evalExampleCount: evalset.length
@@ -200,21 +201,32 @@ const program = Effect.gen(function*() {
     maxBootstrappedDemos: 3
   })
 
-  const bootstrapEventsChunk = yield* BootstrapFewShot.stream(
+  const bootstrapLog = yield* Ref.make(Arr.empty<BootstrapFewShot.Event>())
+  const binder = yield* ModelBinder.Current
+  const bootstrapped = yield* BootstrapFewShot.runWithEvents(
     new BootstrapFewShot.Options({
       module: planner,
       trainset,
       metric: Metric.exactMatch("intervention"),
       maxRounds: 1,
       maxBootstrappedDemos: 3,
-      threshold: 1,
-      teacher: teacherLayer
+      metricThreshold: Option.some(1)
+    }),
+    (event) =>
+      Ref.update(bootstrapLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("bootstrapFewShot", BootstrapFewShot.formatEvent(event).text))
+      )
+  ).pipe(ModelBinder.withBinder(
+    new ModelBinder.Binder({
+      bind: (request) =>
+        Bool.match(request.role === "teacher", {
+          onTrue: () => (effect) => effect.pipe(Effect.provide(teacherLayer)),
+          onFalse: () => binder.bind(request)
+        })
     })
-  ).pipe(
-    BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
-    Stream.runCollect
-  )
-  const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
+  ))
+  yield* Module.install(planner, bootstrapped.parameters)
+  const bootstrapEvents = yield* Ref.get(bootstrapLog)
   const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
 
   yield* logExampleStage("bootstrap-warm-start-completed", {
@@ -223,37 +235,38 @@ const program = Effect.gen(function*() {
     roundsCompleted: bootstrapSummary.roundsCompleted,
     traceAcceptedCount: bootstrapSummary.traceAcceptedCount,
     traceRejectedCount: bootstrapSummary.traceRejectedCount,
-    fallbackActivatedSeen: bootstrapSummary.fallbackActivatedSeen,
-    fallbackCompletedSeen: bootstrapSummary.fallbackCompletedSeen,
-    fallbackUsed: bootstrapSummary.fallbackUsed,
+    labeledCount: bootstrapSummary.labeledCount,
     totalDemos: bootstrapSummary.totalDemos,
     roundsUsed: bootstrapSummary.roundsUsed
   })
 
   yield* logExampleStage("miprov2-stream-started", {
     numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
+    numTrials: 6,
+    minibatch: false,
     seed: 17
   })
 
-  const miproEventsChunk = yield* MIPROv2.stream(
+  const miproLog = yield* Ref.make(Arr.empty<MIPROv2.Event>())
+  const compiled = yield* MIPROv2.runWithEvents(
     new MIPROv2.Options({
       module: planner,
       trainset,
       valset: evalset,
       metric: Metric.exactMatch("intervention"),
       numCandidates: 4,
-      numInstructions: 4,
-      trialBudget: 6,
+      auto: Option.none(),
+      minibatch: false,
+      numTrials: 6,
       seed: 17
-    })
-  ).pipe(
-    MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(miproLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("miprov2", MIPROv2.formatEvent(event).text))
+      )
   )
-
-  const miproEvents = Arr.fromIterable(miproEventsChunk)
+  yield* Module.install(planner, compiled.parameters)
+  const miproEvents = yield* Ref.get(miproLog)
   const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
@@ -263,17 +276,19 @@ const program = Effect.gen(function*() {
       concurrency: 1
     })
   )
-  const optimizedParams = yield* Ref.get(planner.params)
+  const optimizedParameters = yield* Ref.get(planner.parameters)
 
   const baselineScore = baseline.overallScores.exactMatch ?? 0
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
-  const outcomeSummary = MIPROv2.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    demoCountBefore: baselineParams.demos.length,
-    demoCountAfter: optimizedParams.demos.length,
-    events: miproEventSummary
-  })
+  const outcomeSummary = {
+    eventSummary: miproEventSummary,
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: optimizedScore - baselineScore,
+    demoCountBeforeOptimization: baselineParameters.demos.length,
+    demoCountAfterOptimization: optimizedParameters.demos.length,
+    demosLearnedDuringMIPROv2: optimizedParameters.demos.length - baselineParameters.demos.length
+  }
   const plannerSavedState = yield* Module.save(planner)
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,
@@ -292,22 +307,22 @@ const program = Effect.gen(function*() {
       bootstrap: {
         maxRounds: 1,
         maxBootstrappedDemos: 3,
-        threshold: 1
+        metricThreshold: 1
       },
       miprov2: {
         numCandidates: 4,
-        numInstructions: 4,
-        trialBudget: 6,
+        numTrials: 6,
+        minibatch: false,
         seed: 17
       }
     },
     trainsetSize: trainset.length,
     valsetSize: evalset.length,
     evalsetSize: evalset.length,
-    instructionBefore: baselineParams.instructions,
-    instructionAfter: optimizedParams.instructions,
-    demoCountBefore: baselineParams.demos.length,
-    demoCountAfter: optimizedParams.demos.length,
+    instructionBefore: baselineParameters.instructions,
+    instructionAfter: optimizedParameters.instructions,
+    demoCountBefore: baselineParameters.demos.length,
+    demoCountAfter: optimizedParameters.demos.length,
     demosLearnedDuringOptimization: outcomeSummary.demosLearnedDuringMIPROv2,
     extras: {
       baseline,
@@ -352,7 +367,7 @@ const program = Effect.gen(function*() {
     demoCountBeforeOptimization: outcomeSummary.demoCountBeforeOptimization,
     demoCountAfterOptimization: outcomeSummary.demoCountAfterOptimization,
     demosLearnedDuringMIPROv2: outcomeSummary.demosLearnedDuringMIPROv2,
-    bootstrapFallbackUsed: bootstrapSummary.fallbackUsed,
+    bootstrapLabeledCount: bootstrapSummary.labeledCount,
     trialEvaluatedCount: outcomeSummary.eventSummary.trialEvaluatedCount,
     fullEvalCompletedCount: outcomeSummary.eventSummary.fullEvalCompletedCount,
     phase3ConfiguredTrials: outcomeSummary.eventSummary.phase3ConfiguredTrials,

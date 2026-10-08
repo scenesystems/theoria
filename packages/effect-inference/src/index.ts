@@ -20,6 +20,8 @@ export * as Runtime from "./Runtime.js"
 export * as RuntimeEvidence from "./RuntimeEvidence.js"
 /** Configured hosted language-model providers. @since 0.5.0 @category configuration */
 export * as TextProvider from "./TextProvider.js"
+/** Per-role model settings binding. @since 0.5.0 @category configuration */
+export * as ModelBinder from "./ModelBinder.js"
 /** Compatible-server transport plans and model layers. @since 0.5.0 @category providers */
 export * as OpenAiCompatible from "./OpenAiCompatible.js"
 /** Configured Hugging Face runtime resolution. @since 0.5.0 @category providers */

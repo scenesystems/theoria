@@ -2,7 +2,8 @@
  * Error recovery: Schema.TaggedError yieldability and discrimination.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { BootstrapFailed, ParseOutputError, SignatureError } from "@scenesystems/effect-dsp/DspError"
+import { ParseOutputError, SignatureError } from "@scenesystems/effect-dsp/DspError"
+import { TooManyErrors } from "@scenesystems/effect-dsp/TeacherTrace"
 import { Effect, Exit, Option } from "effect"
 
 describe("Errors", () => {
@@ -29,21 +30,10 @@ describe("Errors", () => {
         expect(Exit.isFailure(exit)).toBe(true)
       }))
 
-    it.effect("BootstrapFailed is yieldable", () =>
+    it.effect("TooManyErrors is yieldable", () =>
       Effect.gen(function*() {
         const exit = yield* Effect.exit(
-          new BootstrapFailed({
-            message: "no demos",
-            roundsAttempted: 5,
-            totalTraces: 0,
-            threshold: 1,
-            acceptedTraces: 0,
-            rejectedTraces: 0,
-            evaluatedExamples: 0,
-            bestScoreSeen: false,
-            bestScore: 0,
-            averageScore: 0
-          })
+          new TooManyErrors({ count: 1, limit: 1 })
         )
         expect(Exit.isFailure(exit)).toBe(true)
       }))
@@ -58,21 +48,10 @@ describe("Errors", () => {
         expect(result).toBe("test")
       }))
 
-    it.effect("can catch BootstrapFailed by tag", () =>
+    it.effect("can catch TooManyErrors by tag", () =>
       Effect.gen(function*() {
-        const result = yield* new BootstrapFailed({
-          message: "no demos",
-          roundsAttempted: 3,
-          totalTraces: 0,
-          threshold: 1,
-          acceptedTraces: 0,
-          rejectedTraces: 1,
-          evaluatedExamples: 1,
-          bestScoreSeen: true,
-          bestScore: 0,
-          averageScore: 0
-        }).pipe(
-          Effect.catchTag("BootstrapFailed", (error) => Effect.succeed(error.roundsAttempted))
+        const result = yield* new TooManyErrors({ count: 3, limit: 3 }).pipe(
+          Effect.catchTag("TooManyErrors", (error) => Effect.succeed(error.count))
         )
         expect(result).toBe(3)
       }))

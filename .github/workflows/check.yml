@@ -18,6 +18,19 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  fixtures-verify:
+    name: Pinned DSPy and Optuna evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+      - run: uv run --locked packages/effect-dsp/scripts/verify-dspy-fixtures.py --check
+      - run: uv run --locked packages/effect-search/scripts/generate-optuna-fixtures.py --check
+      - uses: ./.github/actions/setup
+      - name: Verify SciPy fixture schemas, hashes, and full portable byte regeneration
+        run: bun run --filter @scenesystems/effect-math fixtures:verify
+
   check:
     name: Typecheck
     runs-on: ubuntu-latest

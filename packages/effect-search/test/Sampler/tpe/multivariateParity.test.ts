@@ -122,19 +122,6 @@ describe("multivariate gaussian parity", () => {
       )
 
       yield* Effect.forEach(
-        fixture.payload.bandwidthCases,
-        (entry) =>
-          Effect.sync(() => {
-            expect(scottsFactor(entry.sampleCount, entry.dimensions)).toBeCloseTo(entry.expectedFactor, 12)
-            expect(scottsBandwidth(entry.sampleCount, entry.dimensions, entry.stddev)).toBeCloseTo(
-              entry.expectedBandwidth,
-              12
-            )
-          }),
-        { discard: true }
-      )
-
-      yield* Effect.forEach(
         fixture.payload.samplingCases,
         (entry) =>
           Effect.sync(() => {

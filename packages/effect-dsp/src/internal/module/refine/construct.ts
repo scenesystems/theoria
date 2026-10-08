@@ -7,8 +7,10 @@
 import type { Schema } from "effect"
 import { Effect, Record, Ref, Semaphore } from "effect"
 import type { CompositionError } from "../../../DspError.js"
-import { ComposeGraphOptions, Module, type RefineOptions } from "../../../Module.js"
+import { ComposableModule, ComposeGraphOptions, Module, type RefineOptions } from "../../../Module.js"
+import { predictors } from "../../../ModuleGraph.js"
 import { make as makeDefaultModuleParameters } from "../../../ModuleParameters.js"
+import { withPredictors } from "../../parameterBinding.js"
 import { buildCompositionGraph } from "../compose/graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "../compose/runtime.js"
 import { makeRefineForward } from "./runtime.js"
@@ -19,20 +21,18 @@ import { makeRefineForward } from "./runtime.js"
  * @remarks
  * The wrapper runs and scores the inner module sequentially up to `N`
  * times. It stops after a score reaches `threshold`; otherwise it
- * appends accumulated reward feedback to the inner module's instructions
- * before the next attempt. The greatest-scoring output is returned.
- * Calls through the same wrapper are serialized while the inner module's
- * parameters contain refinement feedback. The original snapshot is restored on
- * every exit. Direct use or optimization of the inner module during a refinement
- * run is unsafe because those operations do not use the wrapper's lock.
+ * appends accumulated reward feedback to each leaf predictor's instructions
+ * in a fiber-local overlay before the next attempt. The greatest-scoring
+ * output is returned. Calls through the same wrapper are serialized; direct
+ * use and optimization of the inner module remain isolated from the feedback.
  *
  * The wrapper has a separate parameter Ref that this execution path does not
- * read. Its validated child graph exposes the inner owner and all descendants
+ * read. Its validated child graph exposes the inner module and all descendants
  * to discovery, optimization, and persistence. Wrapper and child names must be
  * distinct; invalid graphs fail with `CompositionError`.
  * Reward failures and requirements are composed with the inner module's
- * channels without recovery or conversion to defects. The parameter snapshot
- * is restored after either source fails and after interruption.
+ * channels without recovery or conversion to defects. Base parameters remain
+ * unchanged after success, failure, and interruption.
  *
  * @typeParam I - Inner module input fields.
  * @typeParam O - Inner module output fields.
@@ -68,7 +68,7 @@ export const refine = <
         subModules: Record.singleton("inner", options.module)
       })
     )
-    const paramsRef = yield* Ref.make(
+    const parametersRef = yield* Ref.make(
       makeDefaultModuleParameters(options.module.signature.instructions)
     )
     const forwardLock = yield* Semaphore.make(1)
@@ -77,17 +77,27 @@ export const refine = <
     return new Module({
       name: options.name,
       signature: options.module.signature,
-      params: paramsRef,
-      subModules: composition.subModuleNodesById,
+      parameters: parametersRef,
+      subModules: composition.subModulesById,
+      declarations: composition.declarations,
       forward: makeComposeForward(
         new ComposeForwardOptions({
           moduleName: options.name,
           signature: options.module.signature,
-          paramsRef,
+          parametersRef,
           rootChildIds: composition.rootChildIds,
           graph: composition.graph,
-          subModuleNodes: composition.subModuleNodesById,
-          forward: ({ input }) => refineForward(input)
+          subModules: composition.subModulesById,
+          forward: ({ input }) =>
+            refineForward(input).pipe(withPredictors(predictors(
+              new ComposableModule({
+                name: options.name,
+                signature: options.module.signature,
+                parameters: parametersRef,
+                subModules: composition.subModulesById,
+                declarations: composition.declarations
+              })
+            )))
         })
       )
     })

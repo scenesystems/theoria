@@ -115,11 +115,13 @@ export const program = Effect.gen(function* () {
 
 Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Optimization.run` as the `scheduler` option in place of a `sampler`.
 
-Joint categorical TPE supports at most 65,536 combinations across its dimensions. A larger product fails with `InvalidSamplerConfig` when model-driven sampling begins, even if random startup succeeded. Lowering `nEiCandidates` does not reduce the domain size. See [`Sampler`](./src/Sampler.ts) for configuration limits.
+TPE samples dimensions independently by default (`multivariate: false`). Set `multivariate: true` for joint categorical kernels, which draw mixture components and per-dimension choices without enumerating the Cartesian product. `nEiCandidates` limits candidate draws, not the domain size. Pending trials are ignored unless `constantLiar: true` places them in the above (less promising) group; they do not count toward startup.
 
 A seed reproduces suggestions for the same ordered trial history and compatible checkpoint. Reproducing a whole run also requires repeatable objectives and external services. Timing and concurrent completion order can change the observations presented to the sampler.
 
-Seeded sequences and checkpoints are implementation-dependent. Check the [changelog](./CHANGELOG.md) before resuming a study across upgrades; start a new run when the checkpoint or random sequence is incompatible.
+Random and TPE use continuing NumPy-compatible random streams, with separate startup and model streams for TPE. Reusing a sampler continues its stream; use a fresh sampler with the same seed for a fresh trajectory, or restore its checkpoint to continue. Snapshots and per-trial journal checkpoints retain stream positions.
+
+Only current persistence shapes are supported, and seeded sequences and checkpoints are implementation-dependent. Check the [changelog](./CHANGELOG.md) before resuming a study across upgrades; start a new run when the checkpoint or random sequence is incompatible.
 
 TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or a custom `Acquisition.Acquisition` created with `Acquisition.make`. Use `Acquisition.isAcquisition` when narrowing unknown extension values.
 
@@ -128,7 +130,7 @@ TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or 
 `Optimization.minimize` and `Optimization.maximize` run a single-objective optimization to completion. `Optimization.run` takes an explicit `direction` or a `directions` array and accepts a `scheduler`. All three share the same options:
 
 - Stopping: `trials`, `maxDuration`, `maxCost`, `targetValue`, or `noImprovementWindow`, combined by `stopMode`.
-- Concurrency: `concurrency` runs trials in parallel while the sampler keeps suggesting from imputed pending results.
+- Concurrency: `concurrency` runs trials in parallel. Pending reservations remain separate from completed observations; TPE uses them only with `constantLiar: true`.
 - Trial handling: `trialTimeout`, a `retrySchedule`, and a `pruningPolicy`.
 - Warm starts: `priorTrials` and `priorWeight` seed the history; `evaluationsPerTrial` averages noisy objectives.
 
@@ -216,6 +218,8 @@ export const program = Effect.gen(function* () {
 For filesystem persistence, import `StudyStorage` from `@scenesystems/effect-study/StudyStorage` and install `OptimizationStorage.layerFileSystem(StudyStorage.fileSystemOptions(directory))`. Provide the platform `FileSystem` and `Path` services through `@effect/platform-bun` or `@effect/platform-node`. Continue with `Optimization.resumeFromStorage` or `Optimization.resumeFromStorageStream`; see the [storage resume example](./examples/11-storage-resume.ts) and [`OptimizationStorage` reference](./src/OptimizationStorage.ts).
 
 Use one storage location per optimization and coordinate which process resumes it. Retain the complete trial log for recovery. Identical append retries are deduplicated; conflicting contents fail.
+
+Recovery replays the log against the exact snapshot it loaded, so a concurrently appended snapshot cannot hide intervening trials. Each journal event pairs a trial with its sampler checkpoint; replay restores the last retained event's stream position instead of repeating draws from the older snapshot. Sequential Random and TPE runs reproduce uninterrupted suggestions across recovery, including TPE's startup and model phases. This guarantee does not extend to the evaluation trajectory of unfinished concurrent reservations, and storage does not provide distributed ownership of an optimization.
 
 To emit artifacts independently of checkpoints, use Study's [`ArtifactContext`](../effect-study/src/ArtifactContext.ts) and [`ArtifactSink`](../effect-study/src/ArtifactSink.ts). See [artifact persistence](../effect-study/examples/artifact-persistence.ts) for allocation and delivery.
 

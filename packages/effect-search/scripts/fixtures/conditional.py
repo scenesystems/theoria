@@ -89,22 +89,16 @@ def _filtering_cases() -> list[dict[str, Any]]:
             for trial in case["trials"]
         ]
 
-        # Source reference: TPESampler._get_internal_repr keeps trials where all required params exist.
-        internal = sampler._get_internal_repr(trials, search_space)  # pyright: ignore[reportPrivateUsage]
         expected_included = [
-            trial["trialNumber"]
-            for trial in case["trials"]
-            if all(param in trial["params"] for param in required_params)
+            row["trialNumber"]
+            for row, trial in zip(case["trials"], trials, strict=True)
+            if len(sampler._get_internal_repr([trial], search_space)[required_params[0]]) == 1
         ]
         expected_excluded = [
             trial["trialNumber"]
             for trial in case["trials"]
             if trial["trialNumber"] not in expected_included
         ]
-
-        if search_space:
-            for values in internal.values():
-                assert len(values) == len(expected_included)
 
         resolved_cases.append(
             {

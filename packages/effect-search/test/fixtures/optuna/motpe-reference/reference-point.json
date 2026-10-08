@@ -3,27 +3,44 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
     "cases": [
       {
-        "directions": ["minimize", "minimize"],
-        "expectedReferencePoint": [4.4, 3.3000000000000003],
+        "directions": [
+          "minimize",
+          "minimize"
+        ],
+        "expectedReferencePoint": [
+          4.4,
+          3.3000000000000003
+        ],
         "id": "positive",
-        "worstPoint": [4, 3]
+        "worstPoint": [
+          4,
+          3
+        ]
       },
       {
-        "directions": ["minimize", "minimize"],
-        "expectedReferencePoint": [1e-12, 1e-12],
+        "directions": [
+          "minimize",
+          "minimize"
+        ],
+        "expectedReferencePoint": [
+          1e-12,
+          1e-12
+        ],
         "id": "zero",
-        "worstPoint": [0, 0]
+        "worstPoint": [
+          0,
+          0
+        ]
       }
     ],
     "epsilon": 1e-12

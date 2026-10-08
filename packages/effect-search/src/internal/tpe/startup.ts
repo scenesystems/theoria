@@ -3,7 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Effect, Equal, HashMap, Match, Number as Num, Option, Record } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Equal,
+  HashMap,
+  Match,
+  Number as Num,
+  Option,
+  Order,
+  Record,
+  String as Str
+} from "effect"
 
 import type * as Acquisition from "../../Acquisition.js"
 import type * as Rng from "../../internal/rng.js"
@@ -12,8 +24,6 @@ import type { TrialSplit } from "../../internal/tpe/splitTrials.js"
 import type { Constraint, Context, Sampler } from "../../Sampler.js"
 import type { InvalidSamplerConfig, SearchError } from "../../SearchError.js"
 import * as SearchSpace from "../../SearchSpace.js"
-import { rngByTrial } from "../sampler/rngByTrial.js"
-import { enrichCompletedTrialsWithConstraints } from "./constraints/enrich.js"
 import {
   categoricalDimensions,
   suggestCategoricalParameter,
@@ -22,8 +32,8 @@ import {
 import { suggestFloatParameter } from "./dimensions/float.js"
 import { suggestIntParameter } from "./dimensions/int.js"
 import { GroupedMixedSettings, suggestGroupedMixedJoint } from "./groupedMixed.js"
-import { suggestMixedJoint } from "./mixed.js"
-import { splitByObjective } from "./split.js"
+import { splitHistory } from "./historySplit.js"
+import type { CategoricalDimension } from "./multivariateCategorical.js"
 
 const suggestIndependentParameter = (
   rng: Rng.Rng,
@@ -102,7 +112,7 @@ const hasConditionalParameters = (space: SearchSpace.SearchSpace): boolean =>
   Arr.some(space.params, (parameter) => Num.isGreaterThan(Arr.length(parameter.activeWhen), 0))
 
 const suggestModelDriven = (
-  seed: number,
+  random: Effect.Effect<Rng.Rng, InvalidSamplerConfig>,
   nCandidates: number,
   multivariate: boolean,
   groupDimensions: boolean,
@@ -114,10 +124,12 @@ const suggestModelDriven = (
 ): Effect.Effect<unknown, InvalidSamplerConfig> => {
   const constraints = Arr.fromIterable(constraintsInput)
   return Effect.gen(function*() {
-    const completed = yield* enrichCompletedTrialsWithConstraints(context.completed, constraints)
-    const rng = yield* rngByTrial("tpe", seed, context.nextTrialNumber)
-    const split = splitByObjective(completed, context.objectiveSpec, context.epsilon)
-    const dimensions = categoricalDimensions(space)
+    const split = yield* splitHistory(context, constraints)
+    const rng = yield* random
+    const dimensions = Arr.sort(
+      categoricalDimensions(space),
+      Order.mapInput(Str.Order, (dimension: CategoricalDimension) => dimension.name)
+    )
     const containsConditionalParameters = hasConditionalParameters(space)
     const groupedSettings = new GroupedMixedSettings({
       multivariate,
@@ -129,7 +141,11 @@ const suggestModelDriven = (
       Bool.not(containsConditionalParameters)
     ))
       .pipe(
-        Match.when(true, () => suggestMultivariateCategorical(rng, nCandidates, space, split, dimensions, acquisition)),
+        Match.when(true, () =>
+          Bool.match(multivariate, {
+            onFalse: () => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition),
+            onTrue: () => suggestMultivariateCategorical(rng, nCandidates, space, split, dimensions, acquisition)
+          })),
         Match.orElse(() =>
           Match.value(multivariate).pipe(
             Match.when(true, () =>
@@ -147,12 +163,8 @@ const suggestModelDriven = (
                   )
                 )
               )),
-            Match.orElse(() =>
-              Match.value(containsConditionalParameters).pipe(
-                Match.when(true, () => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
-                Match.orElse(() => suggestMixedJoint(rng, nCandidates, space, split, noiseOptions, acquisition))
-              )
-            )
+            // Optuna's default `multivariate=False` samples every parameter independently.
+            Match.orElse(() => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition))
           )
         )
       )
@@ -173,8 +185,8 @@ const suggestModelDriven = (
  * @category sampling
  */
 export const suggestWithStartup = (
-  randomSampler: Sampler,
-  seed: number,
+  randomSuggest: Sampler["suggest"],
+  random: Effect.Effect<Rng.Rng, InvalidSamplerConfig>,
   startupTrials: number,
   nCandidates: number,
   multivariate: boolean,
@@ -186,11 +198,15 @@ export const suggestWithStartup = (
   context: Context
 ): Effect.Effect<unknown, SearchError> => {
   const constraints = Arr.fromIterable(constraintsInput)
-  return Match.value(Num.isLessThan(Arr.length(context.completed), startupTrials)).pipe(
-    Match.when(true, () => randomSampler.suggest(space, context)),
+  const observedCount = Num.sum(
+    Arr.length(context.completed),
+    Option.fromNullishOr(context.pruned).pipe(Option.map(Arr.length), Option.getOrElse(() => 0))
+  )
+  return Match.value(Num.isLessThan(observedCount, startupTrials)).pipe(
+    Match.when(true, () => randomSuggest(space, context)),
     Match.orElse(() =>
       suggestModelDriven(
-        seed,
+        random,
         nCandidates,
         multivariate,
         groupDimensions,

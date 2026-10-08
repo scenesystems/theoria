@@ -20,7 +20,8 @@ const SIGMA_TOLERANCE = 1e-10
 const SCORE_TOLERANCE = 1e-9
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number): void => {
-  expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected)), `actual=${actual}, upstream=${expected}`)
+    .toBeLessThanOrEqual(tolerance)
 }
 
 const numberAt = (valuesInput: Iterable<number>, index: number): number => {
@@ -48,6 +49,13 @@ const absoluteDistance = (left: unknown, right: unknown): number =>
   Numeric.abs(Num.subtract(asDistanceInput(Option.fromNullishOr(left)), asDistanceInput(Option.fromNullishOr(right))))
 
 describe("fixture-backed parity", () => {
+  it.effect("retains the earliest candidate among exactly equal acquisition maxima", () =>
+    Effect.gen(function*() {
+      expect(argmax([-9, 4, 4, 3])).toBe(1)
+      expect(argmax([4, 4, -9])).toBe(0)
+      expect(argmax([-9, 4, 4.000000000000001, 4])).toBe(2)
+    }))
+
   it.effect("replays categorical parzen probabilities, kernel weights, and candidate rolls", () =>
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("categorical-parzen.").pipe(Effect.provide(FixtureRegistryLive))
@@ -96,7 +104,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = Option.getOrThrow(Arr.get(parzen.kernels, kernelIndex))
+                  const actualKernel = yield* Effect.fromOption(Arr.get(parzen.kernels, kernelIndex))
 
                   yield* Effect.forEach(
                     expectedKernel,
@@ -178,7 +186,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = Option.getOrThrow(Arr.get(parzen.kernels, kernelIndex))
+                  const actualKernel = yield* Effect.fromOption(Arr.get(parzen.kernels, kernelIndex))
 
                   expectWithinTolerance(actualKernel.mean, expectedKernel.mean, SCORE_TOLERANCE)
                   expectWithinTolerance(actualKernel.sigma, expectedKernel.sigma, SIGMA_TOLERANCE)

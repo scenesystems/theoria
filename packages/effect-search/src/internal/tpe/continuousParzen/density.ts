@@ -5,7 +5,7 @@ import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type { ContinuousKernel, ContinuousParzen } from "../continuousParzen.js"
 import { logPdf as truncatedLogPdf, logPdfEffect as truncatedLogPdfEffect } from "../truncatedNormal.js"
 import { TruncatedNormalParams } from "../truncatedNormal.js"
-import { prepareLogPdf } from "../truncatedNormal/truncated.js"
+import { logGaussMass, prepareLogPdf } from "../truncatedNormal/truncated.js"
 import { samplerMathError } from "./errors.js"
 
 const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams =>
@@ -29,6 +29,29 @@ export const logDensity = (parzen: ContinuousParzen, value: number): number => {
   )
 
   return logSumExp(Chunk.fromIterable(componentScores))
+}
+
+/** Constants belong to this candidate batch's model, never to later trial histories. */
+export const prepareKernelLogDensity = (parzen: ContinuousParzen): (value: number) => Array<number> => {
+  const components = Arr.map(parzen.kernels, (kernel) => prepareLogPdf(paramsForKernel(parzen, kernel)))
+  return (value) => Arr.map(components, (score) => score(value))
+}
+
+/** Discrete kernels integrate over each grid cell, rather than evaluating its center density. */
+export const prepareKernelLogMass = (parzen: ContinuousParzen, step: number): (value: number) => Array<number> => {
+  const components = Arr.map(parzen.kernels, (kernel) => {
+    const standardize = (value: number) => Num.divideUnsafe(Num.subtract(value, kernel.mean), kernel.sigma)
+    const denominator = logGaussMass(standardize(parzen.low), standardize(parzen.high))
+    return (value: number) =>
+      Num.subtract(
+        logGaussMass(
+          standardize(Num.subtract(value, Num.divideUnsafe(step, 2))),
+          standardize(Num.sum(value, Num.divideUnsafe(step, 2)))
+        ),
+        denominator
+      )
+  })
+  return (value) => Arr.map(components, (score) => score(value))
 }
 
 /** Constants belong to this candidate batch's model, never to later trial histories. */

@@ -1,52 +1,47 @@
-"""End-to-end TPE + MOTPE study trace fixture generation."""
+"""Seeded categorical studies executed by Optuna's TPESampler."""
 
-from __future__ import annotations
-
-from typing import Any
+import optuna
 
 from ._common import metadata
 
 
-def generate(generated_at: str) -> list[dict[str, Any]]:
-    return [
-        _tpe_categorical_replay(generated_at),
-    ]
+def run_study(settings, *, multi=False):
+    study = optuna.create_study(
+        directions=["minimize", "minimize"] if multi else ["minimize"],
+        sampler=optuna.samplers.TPESampler(
+            seed=settings["seed"], n_startup_trials=settings["nStartupTrials"],
+            n_ei_candidates=settings["nEiCandidates"],
+        ),
+    )
+
+    def objective(trial):
+        instruction = trial.suggest_categorical("instruction", ["baseline", "rewrite", "counterexample", "socratic"])
+        demos = trial.suggest_categorical("demos", ["none", "few", "curated"])
+        scoring = trial.suggest_categorical("scoring", ["strict", "balanced", "recall"])
+        if multi:
+            latency = ({"baseline": .3, "rewrite": .9, "counterexample": 1.5, "socratic": 2.1}[instruction]
+                       + {"none": .1, "few": .6, "curated": 1.3}[demos]
+                       + {"recall": .2, "balanced": .5, "strict": 1.1}[scoring])
+            loss = ({"baseline": 2, "rewrite": 1.2, "counterexample": .8, "socratic": .5}[instruction]
+                    + {"none": 1.8, "few": .9, "curated": .2}[demos]
+                    + {"recall": 1.4, "balanced": .9, "strict": .4}[scoring])
+            return latency, loss - (.2 if (instruction, demos, scoring) == ("socratic", "curated", "strict") else 0)
+        return ({"baseline": .9, "rewrite": 0, "counterexample": .35, "socratic": .6}[instruction]
+                + {"none": .55, "few": .25, "curated": 0}[demos]
+                + {"strict": .45, "balanced": 0, "recall": .2}[scoring]
+                - (.25 if (instruction, demos, scoring) == ("rewrite", "curated", "balanced") else 0))
+
+    study.optimize(objective, n_trials=settings["trials"], n_jobs=1)
+    return study
 
 
-def _tpe_categorical_replay(generated_at: str) -> dict[str, Any]:
-    return {
-        "fixture": "tpe-categorical-study.replay",
-        "file": "tpe-categorical-study.replay.json",
+def generate(generated_at):
+    settings = {"seed": 73, "nStartupTrials": 8, "nEiCandidates": 48, "trials": 18}
+    study = run_study(settings)
+    return [{
+        "fixture": "tpe-categorical-study.replay", "file": "tpe-categorical-study.replay.json",
         "metadata": metadata(generated_at),
-        "payload": {
-            "sampler": {
-                "seed": 73,
-                "nStartupTrials": 8,
-                "nEiCandidates": 48,
-                "trials": 18,
-            },
-            "expected": {
-                "bestValue": -0.25,
-                "configTrace": [
-                    {"instruction": "rewrite", "demos": "few", "scoring": "recall"},
-                    {"instruction": "socratic", "demos": "none", "scoring": "strict"},
-                    {"instruction": "socratic", "demos": "few", "scoring": "recall"},
-                    {"instruction": "socratic", "demos": "curated", "scoring": "recall"},
-                    {"instruction": "counterexample", "demos": "none", "scoring": "recall"},
-                    {"instruction": "baseline", "demos": "none", "scoring": "recall"},
-                    {"instruction": "counterexample", "demos": "curated", "scoring": "strict"},
-                    {"instruction": "baseline", "demos": "curated", "scoring": "recall"},
-                    {"instruction": "rewrite", "demos": "few", "scoring": "recall"},
-                    {"instruction": "rewrite", "demos": "none", "scoring": "balanced"},
-                    {"instruction": "rewrite", "demos": "few", "scoring": "recall"},
-                    {"instruction": "rewrite", "demos": "few", "scoring": "recall"},
-                    {"instruction": "socratic", "demos": "curated", "scoring": "balanced"},
-                    {"instruction": "counterexample", "demos": "few", "scoring": "strict"},
-                    {"instruction": "rewrite", "demos": "none", "scoring": "recall"},
-                    {"instruction": "rewrite", "demos": "few", "scoring": "recall"},
-                    {"instruction": "baseline", "demos": "curated", "scoring": "balanced"},
-                    {"instruction": "rewrite", "demos": "curated", "scoring": "balanced"},
-                ],
-            },
-        },
-    }
+        "payload": {"sampler": settings, "expected": {
+            "bestValue": study.best_value, "configTrace": [trial.params for trial in study.trials],
+        }},
+    }]

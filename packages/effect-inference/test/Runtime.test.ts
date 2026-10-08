@@ -249,8 +249,7 @@ describe("Runtime.resolve", () => {
             authMethod: "none",
             baseUrl: "in-memory://runtime"
           },
-          selectionReason: "custom",
-          schemaVersion: "resolved-route/v1"
+          selectionReason: "custom"
         },
         capabilities: {
           textGeneration: false,

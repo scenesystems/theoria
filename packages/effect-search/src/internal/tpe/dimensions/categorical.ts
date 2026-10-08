@@ -3,52 +3,33 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Record } from "effect"
+import { log, logSumExp } from "@scenesystems/effect-math/Numeric"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Effect,
+  Equal,
+  Match,
+  Number as Num,
+  Option,
+  Record,
+  Tuple
+} from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import { type Choice } from "../../../Distribution.js"
 import type * as Rng from "../../../internal/rng.js"
-import { sampleWeightedCategoricalCandidatesFromRolls } from "../../../internal/tpe/candidates.js"
+import { categoricalQuantiles, mixtureComponents } from "../../../internal/tpe/candidates.js"
 import { buildCategoricalParzen } from "../../../internal/tpe/categoricalParzen.js"
 import * as Multi from "../../../internal/tpe/multivariateCategorical.js"
-import { type CompletedTrialForSplit, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
+import { type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
 import { chooseBestCandidate, drawRolls } from "../candidateSelection.js"
-import { invalidConfig } from "../options.js"
 import { logProbability } from "../scoring.js"
-import { DimensionScoreTrace } from "./trace.js"
-import { primitiveValuesForParameter } from "./values.js"
-
-const maximumJointCategoricalTuples = 65_536
-
-const tupleKeyFromTrial = (
-  dimensionsInput: Iterable<Multi.CategoricalDimension>,
-  trial: CompletedTrialForSplit
-): Effect.Effect<string, InvalidSamplerConfig> => {
-  const dimensions = Arr.fromIterable(dimensionsInput)
-  return Multi.tupleFromConfig(dimensions, trial.config).pipe(
-    Option.match({
-      onNone: () =>
-        Effect.fail(
-          invalidConfig(`tpe categorical history trial ${trial.trialNumber} does not match search-space dimensions`)
-        ),
-      onSome: (tupleConfig) =>
-        Effect.fromResult(Multi.tupleKey(tupleConfig)).pipe(
-          Effect.mapError(() => invalidConfig("tpe categorical history contains an unencodable choice"))
-        )
-    })
-  )
-}
-
-const tupleKeysFromTrials = (
-  dimensionsInput: Iterable<Multi.CategoricalDimension>,
-  trialsInput: Iterable<CompletedTrialForSplit>
-) => {
-  const dimensions = Arr.fromIterable(dimensionsInput)
-  const trials = Arr.fromIterable(trialsInput)
-  return Effect.forEach(trials, (trial) => tupleKeyFromTrial(dimensions, trial))
-}
+import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
+import { primitiveValuesForParameter, weightedPrimitiveValuesForParameter } from "./values.js"
 
 /**
  * Extracts all categorical dimensions from a search space as
@@ -95,14 +76,18 @@ export const suggestCategoricalParameter = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<Choice, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
-  return Effect.gen(function*() {
-    const trace = yield* categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition)
+  return Bool.match(Num.Equivalence(choices.length, 1), {
+    onFalse: () =>
+      Effect.gen(function*() {
+        const trace = yield* categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition)
 
-    return yield* chooseBestCandidate(
-      trace.candidates,
-      trace.scores,
-      `tpe categorical candidate selection produced no candidate for parameter "${parameter.name}"`
-    )
+        return yield* chooseBestCandidate(
+          trace.candidates,
+          trace.scores,
+          `tpe categorical candidate selection produced no candidate for parameter "${parameter.name}"`
+        )
+      }),
+    onTrue: () => Effect.succeed(Option.getOrThrow(Arr.head(choices)))
   })
 }
 
@@ -122,24 +107,37 @@ export const categoricalCandidateTraceFromRolls = (
   parameter: SearchSpace.Parameter,
   choicesInput: Iterable<Choice>,
   split: TrialSplit,
-  rollsInput: Iterable<number>,
+  rollsInput: Iterable<CandidateRollPair>,
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<DimensionScoreTrace<Choice>, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
   const rolls = Arr.fromIterable(rollsInput)
   return Effect.gen(function*() {
-    const belowValues = primitiveValuesForParameter(parameter, split.below)
+    const below = weightedPrimitiveValuesForParameter(parameter, split.below)
     const aboveValues = primitiveValuesForParameter(parameter, split.above)
-    const belowDensity = yield* buildCategoricalParzen(choices, belowValues)
+    const belowDensity = yield* buildCategoricalParzen(choices, below.values, {}, below.weights)
     const aboveDensity = yield* buildCategoricalParzen(choices, aboveValues)
-    const candidates = sampleWeightedCategoricalCandidatesFromRolls(
-      choices,
-      belowDensity.probabilities,
-      rolls
-    )
+    const components = mixtureComponents(belowDensity.kernelWeights, Arr.map(rolls, ([component]) => component))
+    const candidates = Arr.map(rolls, ([, value], index) =>
+      Arr.head(
+        categoricalQuantiles(
+          choices,
+          Arr.get(belowDensity.kernels, Arr.get(components, index).pipe(Option.getOrThrow)).pipe(Option.getOrThrow)
+            .probabilities,
+          [value]
+        )
+      ).pipe(Option.getOrThrow))
     const scoredCandidates = Arr.map(candidates, (candidate, index) => {
-      const logL = logProbability(belowDensity.choices, belowDensity.probabilities, candidate)
-      const logG = logProbability(aboveDensity.choices, aboveDensity.probabilities, candidate)
+      const density = (model: typeof belowDensity) =>
+        logSumExp(
+          Chunk.fromIterable(Arr.map(model.kernels, (kernel, component) =>
+            Num.sum(
+              logProbability(choices, kernel.probabilities, candidate),
+              log(Option.getOrThrow(Arr.get(model.kernelWeights, component)))
+            )))
+        )
+      const logL = density(belowDensity)
+      const logG = density(aboveDensity)
 
       return {
         logL,
@@ -149,7 +147,7 @@ export const categoricalCandidateTraceFromRolls = (
             logL,
             logG,
             estimatedCost: Option.none(),
-            roll: Arr.get(rolls, index)
+            roll: Arr.get(rolls, index).pipe(Option.map((pair) => pair[1]))
           }),
           acquisition
         )
@@ -160,7 +158,19 @@ export const categoricalCandidateTraceFromRolls = (
       candidates: Chunk.fromIterable(candidates),
       logL: Arr.map(scoredCandidates, (candidate) => candidate.logL),
       logG: Arr.map(scoredCandidates, (candidate) => candidate.logG),
-      scores: Arr.map(scoredCandidates, (candidate) => candidate.score)
+      scores: Arr.map(scoredCandidates, (candidate) => candidate.score),
+      kernelLogL: Arr.map(
+        candidates,
+        (candidate) =>
+          Arr.map(belowDensity.kernels, (kernel) => logProbability(choices, kernel.probabilities, candidate))
+      ),
+      kernelLogG: Arr.map(
+        candidates,
+        (candidate) =>
+          Arr.map(aboveDensity.kernels, (kernel) => logProbability(choices, kernel.probabilities, candidate))
+      ),
+      weightsL: belowDensity.kernelWeights,
+      weightsG: aboveDensity.kernelWeights
     })
   })
 }
@@ -186,19 +196,23 @@ export const categoricalCandidateTrace = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<DimensionScoreTrace<Choice>, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
-  return drawRolls(rng, nCandidates).pipe(
-    Effect.flatMap((rolls) => categoricalCandidateTraceFromRolls(parameter, choices, split, rolls, acquisition))
-  )
+  return Effect.gen(function*() {
+    const components = yield* drawRolls(rng, nCandidates)
+    const values = yield* drawRolls(rng, nCandidates)
+    return yield* categoricalCandidateTraceFromRolls(
+      parameter,
+      choices,
+      split,
+      Arr.zip(components, values),
+      acquisition
+    )
+  })
 }
 
 /**
- * Suggests a joint categorical assignment across multiple dimensions by
- * enumerating choice tuples and scoring via Parzen density.
- *
- * Flattens multi-dimensional categorical spaces into a single-dimension
- * tuple space so the density estimator captures inter-dimension correlations.
- * Products above 65,536 tuples fail before allocation; the candidate count
- * controls draws, not the size of this joint domain.
+ * Suggests a joint categorical assignment from a mixture of product kernels.
+ * One observation component is shared by every dimension of a candidate;
+ * densities multiply within components before summing the mixture.
  *
  * @see {@link categoricalDimensions} for extracting dimension descriptors
  * @see {@link suggestCategoricalParameter} for independent per-dimension suggestion
@@ -215,69 +229,89 @@ export const suggestMultivariateCategorical = (
 ): Effect.Effect<unknown, InvalidSamplerConfig> => {
   const dimensions = Arr.fromIterable(dimensionsInput)
   return Effect.gen(function*() {
-    const tupleCount = Arr.reduce(
-      dimensions,
-      1,
-      (count, dimension) => Num.multiply(count, Arr.length(dimension.choices))
-    )
-    yield* Effect.succeed(tupleCount).pipe(
-      Effect.filterOrFail(
-        Num.isLessThanOrEqualTo(maximumJointCategoricalTuples),
-        () => invalidConfig("tpe joint categorical sampling supports at most 65536 tuples")
+    const fixed = Record.fromEntries(
+      Arr.map(
+        Arr.filter(dimensions, (dimension) => Num.Equivalence(dimension.choices.length, 1)),
+        (dimension) => Tuple.make(dimension.name, Option.getOrThrow(Arr.head(dimension.choices)))
       )
     )
-    const tupleDomain = Multi.enumerateChoiceTuples(dimensions)
-    const tupleChoices = yield* Effect.forEach(tupleDomain, (tuple) => Effect.fromResult(Multi.tupleKey(tuple))).pipe(
-      Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
-    )
-    const lookup = yield* Effect.fromResult(Multi.tupleLookup(tupleDomain)).pipe(
-      Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
-    )
-    const belowKeys = yield* tupleKeysFromTrials(dimensions, split.below)
-    const aboveKeys = yield* tupleKeysFromTrials(dimensions, split.above)
-    const belowDensity = yield* buildCategoricalParzen(tupleChoices, belowKeys)
-    const aboveDensity = yield* buildCategoricalParzen(tupleChoices, aboveKeys)
-    const rolls = yield* drawRolls(rng, nCandidates)
-    const candidates = sampleWeightedCategoricalCandidatesFromRolls(
-      tupleChoices,
-      belowDensity.probabilities,
-      rolls
-    )
-    const scores = Arr.map(candidates, (candidate, index) => {
-      const logL = logProbability(belowDensity.choices, belowDensity.probabilities, candidate)
-      const logG = logProbability(aboveDensity.choices, aboveDensity.probabilities, candidate)
+    const variable = Arr.filter(dimensions, (dimension) => Num.isGreaterThan(dimension.choices.length, 1))
+    return yield* Bool.match(Arr.isReadonlyArrayEmpty(variable), {
+      onFalse: () =>
+        Effect.gen(function*() {
+          const models = yield* Effect.forEach(variable, (dimension) =>
+            Effect.gen(function*() {
+              const parameter = yield* Effect.fromOption(
+                Arr.findFirst(space.params, (entry) => Equal.equals(entry.name, dimension.name))
+              )
+              const below = weightedPrimitiveValuesForParameter(parameter, split.below)
+              return {
+                name: dimension.name,
+                below: yield* buildCategoricalParzen(dimension.choices, below.values, {}, below.weights),
+                above: yield* buildCategoricalParzen(
+                  dimension.choices,
+                  primitiveValuesForParameter(parameter, split.above)
+                )
+              }
+            })).pipe(Effect.orDie)
+          const first = yield* Effect.fromOption(Arr.head(models)).pipe(Effect.orDie)
+          const rolls = yield* drawRolls(rng, nCandidates)
+          const components = mixtureComponents(first.below.kernelWeights, rolls)
+          const values = yield* Effect.forEach(models, (model) =>
+            Effect.gen(function*() {
+              const valueRolls = yield* drawRolls(rng, nCandidates)
+              return Arr.map(components, (component, index) => {
+                const kernel = Arr.get(model.below.kernels, component).pipe(Option.getOrThrow)
+                const value = categoricalQuantiles(
+                  model.below.choices,
+                  kernel.probabilities,
+                  [Arr.get(valueRolls, index).pipe(Option.getOrThrow)]
+                )
+                return Tuple.make(model.name, Arr.head(value).pipe(Option.getOrThrow))
+              })
+            }))
+          const candidates = Arr.makeBy(nCandidates, (index) => ({
+            ...fixed,
+            ...Record.fromEntries(
+              Arr.map(values, (entries) => Arr.get(entries, index).pipe(Option.getOrThrow))
+            )
+          }))
+          const density = (candidate: Record<string, Choice>, side: "below" | "above") =>
+            logSumExp(Chunk.fromIterable(
+              Arr.map(first[side].kernelWeights, (weight, component) =>
+                Num.sum(
+                  log(weight),
+                  Num.sumAll(Arr.map(models, (model) => {
+                    const kernel = Arr.get(model[side].kernels, component).pipe(Option.getOrThrow)
+                    return logProbability(
+                      model[side].choices,
+                      kernel.probabilities,
+                      Record.get(candidate, model.name).pipe(Option.getOrThrow)
+                    )
+                  }))
+                ))
+            ))
+          const scores = Arr.map(candidates, (candidate, index) => {
+            const logL = density(candidate, "below")
+            const logG = density(candidate, "above")
 
-      return Acquisition.score(
-        new Acquisition.Context({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: Arr.get(rolls, index)
+            return Acquisition.score(
+              new Acquisition.Context({
+                logL,
+                logG,
+                estimatedCost: Option.none(),
+                roll: Arr.get(rolls, index)
+              }),
+              acquisition
+            )
+          })
+          return yield* chooseBestCandidate(
+            candidates,
+            scores,
+            "tpe categorical candidate selection produced no candidate"
+          )
         }),
-        acquisition
-      )
+      onTrue: () => Effect.succeed(fixed)
     })
-    const bestCandidate = yield* chooseBestCandidate(
-      candidates,
-      scores,
-      "tpe categorical candidate selection produced no candidate"
-    )
-    const bestKey = yield* Match.value(bestCandidate).pipe(
-      Match.withReturnType<Effect.Effect<string, InvalidSamplerConfig>>(),
-      Match.when(Match.string, (value) => Effect.succeed(value)),
-      Match.orElse(() =>
-        Effect.fail(invalidConfig("tpe categorical candidate selection must resolve to a string tuple key"))
-      )
-    )
-    const bestTuple = yield* Effect.fromOption(
-      Record.get(lookup, bestKey),
-      () => invalidConfig("tpe categorical candidate key lookup failed")
-    )
-    const raw = yield* Effect.fromOption(
-      Multi.configFromTuple(dimensions, bestTuple),
-      () => invalidConfig("tpe categorical candidate tuple does not align with dimensions")
-    )
-
-    return raw
   })
 }

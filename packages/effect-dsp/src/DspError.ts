@@ -5,7 +5,7 @@
  * @module
  */
 import { Array as Arr, Effect, Schema } from "effect"
-import { Result as MetricResult } from "./Metric.js"
+import { Payload } from "./Payload.js"
 
 /** Structural validation failure from signature construction.
  * @since 0.1.0
@@ -46,6 +46,8 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>(
     moduleName: Schema.String,
     rawOutput: Schema.Option(Schema.String),
     retryCount: Schema.Option(Schema.Finite),
+    /** Runtime predictor evidence; absent for direct parser calls. @since 0.7.0 */
+    context: Schema.optional(Schema.Struct({ predictorPath: Schema.String, input: Payload, prompt: Schema.String })),
     fieldDiagnostics: Schema.Array(ParseFieldDiagnostic).pipe(Schema.withDecodingDefaultType(Effect.sync(Arr.empty)))
   }
 ) {}
@@ -61,28 +63,6 @@ export class CompositionError extends Schema.TaggedError<CompositionError>(
   {
     message: Schema.String,
     moduleName: Schema.optional(Schema.String)
-  }
-) {}
-
-/** Terminal BootstrapFewShot failure.
- * @since 0.1.0
- * @category errors
- */
-export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>(
-  "@scenesystems/effect-dsp/DspError/BootstrapFailed"
-)(
-  "BootstrapFailed",
-  {
-    message: Schema.String,
-    roundsAttempted: Schema.Finite,
-    totalTraces: Schema.Finite,
-    threshold: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    acceptedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    rejectedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    evaluatedExamples: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    bestScoreSeen: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
-    bestScore: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    averageScore: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0)))
   }
 ) {}
 
@@ -113,6 +93,28 @@ export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>(
     trialCount: Schema.Finite
   }
 ) {}
+
+/** Invalid MIPRO inputs or exhausted full-validation candidates.
+ * @since 0.7.0
+ * @category errors
+ */
+export class MIPROv2Error extends Schema.TaggedError<MIPROv2Error>(
+  "@scenesystems/effect-dsp/DspError/MIPROv2Error"
+)("MIPROv2Error", {
+  reason: Schema.Literals(["invalid-options", "invalid-dataset", "exhausted-candidates"]),
+  message: Schema.String
+}) {}
+
+/** Invalid GEPA budgets, datasets, or continuation state.
+ * @since 0.7.0
+ * @category errors
+ */
+export class GEPAError extends Schema.TaggedError<GEPAError>(
+  "@scenesystems/effect-dsp/DspError/GEPAError"
+)("GEPAError", {
+  reason: Schema.Literals(["invalid-options", "invalid-dataset", "invalid-state"]),
+  message: Schema.String
+}) {}
 
 /** GEPA crossover rejection.
  * @since 0.1.0
@@ -201,9 +203,10 @@ export const DspError = Schema.Union([
   SignatureError,
   ParseOutputError,
   CompositionError,
-  BootstrapFailed,
   InstructionProposalFailed,
   AllTrialsFailed,
+  MIPROv2Error,
+  GEPAError,
   MergeRejected,
   MetricError,
   EvaluationFailed,

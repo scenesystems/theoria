@@ -3,28 +3,29 @@
  */
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
-import { BootstrapFailed } from "@scenesystems/effect-dsp/DspError"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode as decodePayload } from "@scenesystems/effect-dsp/Payload"
+import * as Predictor from "@scenesystems/effect-dsp/Predictor"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Number, Option, Ref, Schema } from "effect"
+import * as TeacherTrace from "@scenesystems/effect-dsp/TeacherTrace"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import { Array as Arr, Chunk, Effect, Number, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
-import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
-import { evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
+import { evaluateCandidate, reflectiveSamples } from "../../src/internal/gepa/runtime/evaluate.js"
 
 const Input = Schema.Struct({ seed: Schema.FiniteFromString })
 const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.FiniteFromString }) })
-const example = new Example({ input: { seed: "04" }, output: { result: { count: "03" } } })
-const invalidExample = new Example({ input: { seed: "04" }, output: { result: { count: "invalid" } } })
-const candidate = new ProgramCandidate({
+const example = new Example({ input: { seed: "04" }, labels: Option.some({ result: { count: "03" } }) })
+const invalidExample = new Example({ input: { seed: "04" }, labels: Option.some({ result: { count: "invalid" } }) })
+const candidate = new GEPA.ProgramCandidate({
   candidateId: "candidate",
   parentIds: Arr.empty(),
   predictorInstructions: Arr.make(
-    new PredictorInstruction({ predictorName: "counter", instruction: "Try another instruction" })
+    new GEPA.PredictorInstruction({ predictorName: "counter", instruction: "Try another instruction" })
   )
 })
 
@@ -33,40 +34,46 @@ const makeModule = Effect.gen(function*() {
   return yield* Module.predict("counter", signature)
 })
 
-const metric = Metric.make("difference", (prediction: typeof Output.Type, expected) => {
-  expectTypeOf(expected).toEqualTypeOf<typeof Output.Type>()
-  expect(prediction.result.count).toBe(7)
-  expect(expected.result.count).toBe(3)
-  return new Metric.Result({ score: Number.subtract(prediction.result.count, expected.result.count) })
-})
+const metric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(Output))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(Output)(Option.getOrElse(example.labels, () => ({})))
+    expectTypeOf(expected).toEqualTypeOf<typeof Output.Type>()
+    expect(prediction.result.count).toBe(7)
+    expect(expected.result.count).toBe(3)
+    return new Metric.Score({
+      value: Number.subtract(prediction.result.count, expected.result.count),
+      feedback: Option.none()
+    })
+  }), "difference")
 
 describe("optimizer schema-derived metric values", () => {
   it.effect("scores transformed bootstrap outputs and promotes wire values into replayable demos", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      yield* BootstrapFewShot.run(
+      const compiled = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module,
           trainset: Arr.make(example),
           metric,
           maxRounds: 1,
           maxBootstrappedDemos: 1,
-          threshold: 4,
-          fallbackToLabeledFewShot: false
+          metricThreshold: Option.some(4),
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      const params = yield* Ref.get(module.params)
-      const demo = Option.getOrThrow(Arr.head(params.demos))
+      const parameters = Option.getOrThrow(Record.get(compiled.parameters, module.name))
+      const demo = Option.getOrThrow(Arr.head(parameters.demos))
       expect(demo.input).toEqual({ seed: "4" })
       expect(demo.output).toEqual({ result: { count: "7" } })
       expect(yield* Schema.decodeUnknownEffect(Output)(demo.output)).toEqual({ result: { count: 7 } })
     }))
 
-  it.effect("rejects malformed bootstrap labels through the checked failure channel before model execution", () =>
+  it.effect("counts the scorer's checked label validation failure against the error budget", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const original = yield* Ref.get(module.params)
+      const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const failure = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
@@ -74,49 +81,63 @@ describe("optimizer schema-derived metric values", () => {
           trainset: Arr.make(invalidExample),
           metric,
           maxRounds: 1,
-          maxBootstrappedDemos: 1
+          maxBootstrappedDemos: 1,
+          maxErrors: Option.some(1)
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
-      expect(failure).toBeInstanceOf(BootstrapFailed)
-      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
-      expect(yield* Ref.get(module.params)).toEqual(original)
+      expect(failure).toEqual(new TeacherTrace.TooManyErrors({ count: 1, limit: 1 }))
+      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
+      expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))
 
   it.effect("scores decoded GEPA outputs and stores schema-encoded reflection documents", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const original = yield* Ref.get(module.params)
+      const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      const evaluation = yield* evaluateCandidate(
-        new GEPA.Options({ module, trainset: Arr.make(example), metric, maxIterations: 0 }),
-        candidate
-      ).pipe(
+      const options = new GEPA.Options({ module, trainset: Arr.make(example), metric, maxMetricCalls: 1 })
+      const evaluation = yield* evaluateCandidate(options, candidate, options.trainset, "search").pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
       expect(evaluation.scores).toEqual(Arr.make(4))
-      const sample = Option.getOrThrow(Arr.head(evaluation.samples))
+      const reflection = yield* reflectiveSamples(
+        options,
+        evaluation.rows,
+        Chunk.of(Predictor.Path.make("counter")),
+        yield* PseudoRandom.makeCPython(0)
+      )
+      expect(reflection.feedbackCalls).toBe(1)
+      const sample = yield* Effect.fromOption(
+        Option.flatMap(Record.get(reflection.examples, "counter"), Arr.head)
+      )
       expect(yield* decodePayload(Schema.toEncoded(Input), sample.inputs)).toEqual({ seed: "4" })
       expect(yield* decodePayload(Schema.toEncoded(Output), sample.generatedOutputs)).toEqual({
         result: { count: "7" }
       })
       expect(yield* decodePayload(Output, sample.expectedOutput)).toEqual({ result: { count: 3 } })
-      expect(yield* Ref.get(module.params)).toEqual(original)
+      expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))
 
-  it.effect("restores GEPA parameters when expected output decoding fails", () =>
+  it.effect("scores the scorer's raw-label rejection as failureScore and preserves GEPA parameters", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const original = yield* Ref.get(module.params)
+      const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      const failure = yield* evaluateCandidate(
-        new GEPA.Options({ module, trainset: Arr.make(invalidExample), metric, maxIterations: 0 }),
-        candidate
-      ).pipe(
-        Effect.provideService(LanguageModel.LanguageModel, mock.service),
-        Effect.flip
+      const options = new GEPA.Options({
+        module,
+        trainset: Arr.make(invalidExample),
+        metric,
+        maxMetricCalls: 1,
+        failureScore: -1
+      })
+      const evaluation = yield* evaluateCandidate(options, candidate, options.trainset, "search").pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
-      expect(failure).toBeInstanceOf(Schema.SchemaError)
-      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
-      expect(yield* Ref.get(module.params)).toEqual(original)
+      const row = yield* Effect.fromOption(Arr.head(evaluation.rows))
+      expect(evaluation.scores).toEqual(Arr.make(-1))
+      expect(Option.isSome(row.failure)).toBe(true)
+      expect(Option.isNone(row.prediction)).toBe(true)
+      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
+      expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))
 })

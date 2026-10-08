@@ -1,80 +1,65 @@
-/**
- * Runs Phase 3 TPE search across instruction and demonstration indexes.
- *
- * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
- * @since 0.1.0
- */
+/** Runs MIPROv2's sequential Optuna-compatible trial scheduler. @internal */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, Sampler as SearchSampler, SearchSpace } from "@scenesystems/effect-search"
-import { Array as Arr, Effect, Number as Num, Option, Ref } from "effect"
+import {
+  Array as Arr,
+  BigDecimal,
+  Boolean as Bool,
+  Chunk,
+  Effect,
+  Match,
+  Number as Num,
+  Option,
+  Record,
+  Ref,
+  Struct
+} from "effect"
 import type { Schema } from "effect"
-import type { LanguageModel } from "effect/ai"
-import { AllTrialsFailed } from "../../DspError.js"
+import { MIPROv2Error } from "../../DspError.js"
 import * as Evaluate from "../../Evaluate.js"
-import { projectSingleObjective } from "../../EvaluationObjective.js"
-import type { Examples } from "../../MIPROv2.js"
+import { events, type Examples, TrialEvaluation } from "../../MIPROv2.js"
 import { Diagnostics, noEvents, type Options, Result } from "../../MIPROv2Search.js"
-import { makeTrialRefs } from "./phase3State.js"
-import {
-  normalizePositive,
-  phase3TrialBudget as phase3TrialBudgetFormula,
-  resolvePhase3Cadence
-} from "./runtime/budget.js"
-import {
-  applyPhase3Config,
-  ApplyPhase3ConfigOptions,
-  evaluateBaseline,
-  EvaluateBaselineOptions,
-  evaluateTrial,
-  EvaluateTrialOptions
-} from "./runtime/evaluate.js"
-import { demoDimensionName, instructionDimensionName, type Phase3Config } from "./runtime/model.js"
+import { bound } from "../../Module.js"
+import * as ParameterSet from "../../ParameterSet.js"
+import { bestFullEvaluation, nextFullEvaluation, ToldEvaluation } from "./phase3State.js"
+import { phase3TrialBudget, resolvePhase3Cadence } from "./runtime/budget.js"
+import { diagnoseMetric, diagnoseModule, logCancelled } from "./runtime/diagnostics.js"
+import { parametersForConfig, ParametersForConfigOptions } from "./runtime/evaluate.js"
+import type { Phase3Config } from "./runtime/model.js"
+import { effectiveMaxErrors } from "./runtime/options.js"
 import {
   baselineConfig,
   buildSearchDimensions,
   maxCandidateCount,
-  objectiveScore,
-  resolveBestConfig,
   resolveBindings,
   ResolveBindingsOptions
 } from "./runtime/searchSpace.js"
+import * as Sampling from "./sampling.js"
 
-/**
- * Evaluates candidate indexes with a single-concurrency, multivariate TPE optimization.
- *
- * @remarks
- * Every predictor contributes one demonstration dimension and one instruction
- * dimension. Each dimension accepts at most ten candidates. The index-zero
- * configuration is evaluated on the full validation set and supplied to the
- * optimization as a prior trial. New trial objectives use the same leading
- * validation prefix; the prefix is not reshuffled between trials.
- *
- * Full-set checkpoints evaluate the best minibatch candidate seen so far and
- * update `diagnostics.bestScore`. They do not replace the objective reported to
- * TPE. The optimization's best trial is applied to the supplied module after
- * search. Parameter writes are sequential and are not rolled back after
- * failure or interruption.
- *
- * Missing candidate sets, unsupported dimension sizes, malformed sampled
- * indexes, and an empty winning result fail with `AllTrialsFailed`. Failures
- * of every example in an evaluation also fail with `AllTrialsFailed`, before
- * report projection; reports with some successful examples remain scoreable.
- * A failed baseline aborts search, and failed optimization trials cannot beat the
- * successful baseline prior, including when all new trials fail. Failures
- * raised inside effect-search retain the optimization's `SearchError`
- * channel. Baseline evaluation also retains its metric, module, Schema, and
- * language-model error channels.
- *
- * @param options - Module, validation set, candidate sets, metric, and search settings.
- * @returns The supplied module, raw optimization result, and a diagnostic snapshot.
- * @typeParam I - Input fields accepted by the evaluated module.
- * @typeParam O - Output fields scored by the configured metric.
- * @typeParam ME - Expected failure from the configured metric.
- * @typeParam MR - Services required by the configured metric.
- *
- * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al. (2024)}
- * @since 0.1.0
- * @category constructors
+/** dspy.Evaluate's score, `round(100 * ncorrect / ntotal, 2)`: multiply, divide, then round the
+ * exact binary quotient half-even to cents. `ncorrect` is CPython's builtin sum of per-example
+ * metric values in input order; failed examples count as zero, DSPy's default failure_score.
  */
+const evaluationPercentage = (report: Evaluate.Report, metricName: string): number =>
+  Numeric.toBigDecimal(
+    Num.divideUnsafe(
+      Num.multiply(
+        100,
+        Numeric.sumNeumaier(Arr.map(report.outcomes, (outcome) =>
+          Match.valueTags(outcome, {
+            Failed: () => 0,
+            Scored: (scored) => Option.getOrThrow(Record.get(scored.scores, metricName)).value
+          })))
+      ),
+      Arr.length(report.outcomes)
+    )
+  ).pipe(
+    Option.map(BigDecimal.round({ scale: 2, mode: "half-even" })),
+    Option.map(BigDecimal.toNumberUnsafe),
+    Option.getOrThrow
+  )
+
+/** Baseline and full checkpoints are actual study rows and consume no sampler draws. @internal */
 export const runPhase3Search = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
@@ -84,160 +69,183 @@ export const runPhase3Search = <
   R = never,
   EE = never,
   ER = never
->(
-  options: Options<I, O, ME, MR, E, R, EE, ER>
-) =>
+>(options: Options<I, O, ME, MR, E, R, EE, ER>) =>
   Effect.gen(function*() {
-    const evaluationContext = yield* Effect.context<
-      | LanguageModel.LanguageModel
-      | MR
-      | R
-      | ER
-      | Schema.Struct<I>["DecodingServices"]
-      | Schema.Struct<O>["DecodingServices"]
-      | Schema.Struct<I>["EncodingServices"]
-      | Schema.Struct<O>["EncodingServices"]
-    >()
-    const emit = Option.getOrElse(Option.fromNullishOr(options.emit), () => noEvents)
-    const bindings = yield* resolveBindings(
-      new ResolveBindingsOptions({
-        module: options.module,
-        demoCandidates: options.demoCandidates,
-        instructionCandidates: options.instructionCandidates
-      })
-    )
+    const emit = Option.getOrElse(Option.fromUndefinedOr(options.emit), () => noEvents)
+    const bindings = yield* resolveBindings(new ResolveBindingsOptions(options))
     const dimensions = yield* buildSearchDimensions(bindings)
     const space = yield* SearchSpace.make(dimensions)
-    const cadence = resolvePhase3Cadence({
-      ...Option.match(Option.fromNullishOr(options.seed), {
-        onNone: () => ({}),
-        onSome: (seed) => ({ seed })
-      }),
-      ...Option.match(Option.fromNullishOr(options.minibatchSize), {
-        onNone: () => ({}),
-        onSome: (minibatchSize) => ({ minibatchSize })
-      }),
-      ...Option.match(Option.fromNullishOr(options.fullEvalEvery), {
-        onNone: () => ({}),
-        onSome: (fullEvalEvery) => ({ fullEvalEvery })
+    const cadence = resolvePhase3Cadence(options)
+    const minibatch = Option.getOrElse(Option.fromUndefinedOr(options.minibatch), () => true)
+    yield* Effect.fail(
+      new MIPROv2Error({
+        reason: "invalid-dataset",
+        message: "Validation set must be nonempty and at least minibatchSize when minibatching."
       })
-    })
-    const demoCandidateCount = maxCandidateCount(bindings, (binding) => Arr.length(binding.demos.candidates))
-    const instructionCandidateCount = maxCandidateCount(bindings, (binding) =>
-      Arr.length(binding.instructions.candidates))
-    const trialBudget = normalizePositive(
-      Option.getOrElse(
-        Option.fromNullishOr(options.trialBudget),
-        () =>
-          phase3TrialBudgetFormula({
-            predictorCount: Arr.length(bindings),
-            demoCandidateCount,
-            instructionCandidateCount
-          })
-      ),
-      1
+    ).pipe(
+      Effect.when(
+        Effect.succeed(options.valset.length === 0 || (minibatch && cadence.minibatchSize > options.valset.length))
+      )
     )
-    const minibatchExamples = Arr.take(options.valset, cadence.minibatchSize)
-    const refs = yield* makeTrialRefs
-    const evaluateOn = (config: Phase3Config, examples: Examples) =>
-      Effect.gen(function*() {
-        yield* applyPhase3Config(
-          new ApplyPhase3ConfigOptions({
-            config,
-            bindings,
-            trialBudget
-          })
-        )
-
-        const report = yield* Evaluate.run(
-          new Evaluate.Options({
-            module: options.module,
-            examples,
-            metrics: {
-              miprov2: options.metric
-            },
-            concurrency: 1
-          })
-        ).pipe(Effect.provide(evaluationContext))
-        yield* Effect.when(
-          Effect.fail(
-            new AllTrialsFailed({
-              message: "MIPROv2 Phase 3 evaluation produced zero successful examples",
-              trialCount: Arr.length(examples)
-            })
-          ),
-          Effect.succeed(Num.isLessThanOrEqualTo(report.successCount, 0))
-        )
-        const projection = yield* projectSingleObjective(report, Option.some("miprov2"))
-
-        return yield* objectiveScore(projection.objective)
-      })
+    const trialBudget = Numeric.max(
+      0,
+      Option.getOrElse(Option.fromUndefinedOr(options.trialBudget), () =>
+        phase3TrialBudget({
+          predictorCount: bindings.length,
+          demoCandidateCount: Bool.match(Arr.isReadonlyArrayNonEmpty(options.demoCandidates), {
+            onFalse: () => 0,
+            onTrue: () =>
+              maxCandidateCount(
+                bindings,
+                (binding) =>
+                  Option.match(binding.demos, { onNone: () => 0, onSome: (demos) => demos.candidates.length })
+              )
+          }),
+          instructionCandidateCount: maxCandidateCount(bindings, (binding) => binding.instructions.candidates.length)
+        }))
+    )
+    const totalRows = 1 + trialBudget +
+      Bool.match(minibatch, { onFalse: () => 0, onTrue: () => Numeric.ceil(trialBudget / cadence.fullEvalEvery) })
+    const rng = yield* Sampling.resolve(cadence.seed)
+    const initialParameters = yield* ParameterSet.snapshot(options.module)
+    // Told percentages stay beside each public row; checkpoint ranking never divides and reconstructs them.
+    const ledger = yield* Ref.make(Arr.empty<ToldEvaluation>())
+    const evaluations = Ref.get(ledger).pipe(Effect.map(Arr.map((row) => row.evaluation)))
+    const parameters = (config: Phase3Config) =>
+      parametersForConfig(new ParametersForConfigOptions({ config, bindings, trialBudget }))
+    // One evaluator configuration for baseline, minibatch and full rows, as compile builds one Evaluate.
+    const provideTraceback = Option.getOrElse(Option.fromUndefinedOr(options.provideTraceback), () => false)
+    const metric = diagnoseMetric(options.metric, provideTraceback)
+    const maxErrors = effectiveMaxErrors(options)
+    const evaluateOn = (selected: ParameterSet.ParameterSet, examples: Examples) =>
+      Evaluate.run(
+        new Evaluate.Options({
+          module: diagnoseModule(bound(options.module, { ...initialParameters, ...selected }), provideTraceback),
+          examples,
+          metrics: { miprov2: metric },
+          concurrency: Option.getOrElse(Option.fromUndefinedOr(options.numThreads), () => 1),
+          maxErrors
+        })
+      ).pipe(
+        Effect.map((report) => evaluationPercentage(report, "miprov2")),
+        // eval_candidate_program logs a cancelled evaluation and scores it 0.0.
+        Effect.catch((error) => logCancelled(error).pipe(Effect.as(0)))
+      )
+    const record = (evaluation: TrialEvaluation, percent: number) =>
+      Ref.update(ledger, Arr.append(new ToldEvaluation({ evaluation, percent }))).pipe(
+        Effect.andThen(emit(events.TrialEvaluated(evaluation)))
+      )
     const baseline = baselineConfig(bindings)
-    const [baselineObjective, priorTrial] = yield* evaluateBaseline(
-      new EvaluateBaselineOptions({
-        baselineConfig: baseline,
-        valset: options.valset,
-        refs,
-        evaluateOn
-      })
-    )
-
-    const optimizationResult = yield* Optimization.maximize(
+    const forced = yield* Ref.make<Option.Option<Phase3Config>>(Option.some(baseline))
+    const tpe = SearchSampler.tpe(new SearchSampler.TpeOptions({ seed: cadence.seed, multivariate: true }))
+    const sampler = new SearchSampler.Sampler(Struct.assign(tpe, {
+      suggest: (searchSpace: SearchSpace.SearchSpace, context: SearchSampler.Context) =>
+        Ref.getAndSet(forced, Option.none()).pipe(
+          Effect.flatMap(Option.match({ onNone: () => tpe.suggest(searchSpace, context), onSome: Effect.succeed }))
+        )
+    }))
+    const study = yield* Optimization.open(
       new Optimization.FlatOptions({
         space,
-        sampler: SearchSampler.tpe(new SearchSampler.TpeOptions({ seed: cadence.seed, multivariate: true })),
-        trials: trialBudget,
-        objective: (config) =>
-          evaluateTrial(
-            new EvaluateTrialOptions({
-              config,
-              refs,
-              minibatchExamples,
-              valset: options.valset,
-              fullEvalEvery: cadence.fullEvalEvery,
-              emit,
-              evaluateOn
-            })
-          ).pipe(Effect.provide(evaluationContext)),
-        priorTrials: Arr.make(priorTrial),
-        concurrency: 1
+        sampler,
+        trials: totalRows,
+        direction: "maximize",
+        objective: () => Effect.succeed(0)
       })
     )
-
-    const bestConfig = yield* resolveBestConfig(optimizationResult, trialBudget)
-
-    yield* applyPhase3Config(
-      new ApplyPhase3ConfigOptions({
-        config: bestConfig,
-        bindings,
-        trialBudget
-      })
+    const baselineTrial = yield* study.ask
+    const baselineScore = yield* evaluateOn(initialParameters, options.valset)
+    const baselineObjective = Num.divideUnsafe(baselineScore, 100)
+    yield* study.tell(baselineTrial.trialNumber, baselineScore)
+    yield* record(
+      new TrialEvaluation({
+        trial: baselineTrial.trialNumber,
+        config: baseline,
+        score: baselineObjective,
+        fullValidation: true,
+        sampled: false
+      }),
+      baselineScore
     )
 
-    const fullEvalTrialNumbers = yield* Ref.get(refs.fullEvalTrialsRef)
-    const minibatchTrialNumbers = yield* Ref.get(refs.minibatchTrialsRef)
-    const bestScore = Option.getOrElse(yield* Ref.get(refs.bestScoreRef), () =>
-      baselineObjective)
+    yield* Effect.forEach(
+      Bool.match(trialBudget > 0, { onFalse: () => Arr.empty<number>(), onTrue: () => Arr.range(1, trialBudget) }),
+      (sampledNumber) =>
+        Effect.gen(function*() {
+          const trial = yield* study.ask
+          const examples = yield* Bool.match(minibatch && cadence.minibatchSize < options.valset.length, {
+            onFalse: () => Effect.succeed(options.valset),
+            onTrue: () =>
+              rng.sample(Chunk.fromIterable(options.valset), cadence.minibatchSize).pipe(Effect.map(Arr.fromIterable))
+          })
+          const score = yield* evaluateOn(yield* parameters(trial.config), examples)
+          yield* record(
+            new TrialEvaluation({
+              trial: trial.trialNumber,
+              config: trial.config,
+              score: Num.divideUnsafe(score, 100),
+              fullValidation: !minibatch,
+              sampled: true
+            }),
+            score
+          )
+          // Insert the full row while the objective is still pending, exactly as study.add_trial does.
+          yield* Effect.gen(function*() {
+            const config = yield* nextFullEvaluation(yield* Ref.get(ledger))
+            yield* Ref.set(forced, Option.some(config))
+            const full = yield* study.ask
+            const fullScore = yield* evaluateOn(yield* parameters(config), options.valset)
+            yield* study.tell(full.trialNumber, fullScore)
+            yield* record(
+              new TrialEvaluation({
+                trial: full.trialNumber,
+                config,
+                score: Num.divideUnsafe(fullScore, 100),
+                fullValidation: true,
+                sampled: false
+              }),
+              fullScore
+            )
+            const best = yield* Effect.fromOption(bestFullEvaluation(yield* evaluations))
+            yield* emit(events.FullEvalCompleted({ bestScore: best.score }))
+          }).pipe(
+            Effect.when(
+              Effect.succeed(
+                minibatch &&
+                  (Num.remainder(sampledNumber, cadence.fullEvalEvery) === 0 || sampledNumber === trialBudget)
+              )
+            )
+          )
+          yield* study.tell(trial.trialNumber, score)
+        }),
+      { discard: true }
+    )
 
+    const rows = yield* evaluations
+    const best = yield* Effect.fromOption(bestFullEvaluation(rows))
+    const selected = yield* Bool.match(best.trial === 0, {
+      onFalse: () =>
+        parameters(best.config).pipe(Effect.map((configured) => ({ ...initialParameters, ...configured }))),
+      onTrue: () => Effect.succeed(initialParameters)
+    })
     return new Result<I, O, E, R>({
-      module: options.module,
-      optimizationResult,
+      program: bound(options.module, selected),
+      parameters: selected,
+      optimizationResult: yield* study.result,
       diagnostics: new Diagnostics({
-        dimensionNames: Arr.flatMap(
-          bindings,
-          (binding) =>
-            Arr.make(demoDimensionName(binding.predictorName), instructionDimensionName(binding.predictorName))
-        ),
+        dimensionNames: Record.keys(dimensions),
         samplerKind: "tpe",
         multivariate: true,
         trialBudget,
         minibatchSize: cadence.minibatchSize,
         fullEvalEvery: cadence.fullEvalEvery,
-        fullEvalTrialNumbers,
-        minibatchTrialNumbers,
+        fullEvalTrialNumbers: Arr.map(Arr.filter(rows, (row) => row.fullValidation), (row) => row.trial),
+        minibatchTrialNumbers: Arr.map(Arr.filter(rows, (row) => !row.fullValidation), (row) => row.trial),
         priorTrialCount: 1,
         baselineObjective,
-        bestScore
+        bestScore: best.score,
+        bestTrial: best.trial,
+        evaluations: rows
       })
     })
-  })
+  }).pipe(Effect.scoped)

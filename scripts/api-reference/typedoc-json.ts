@@ -3,8 +3,8 @@ import { type JSONOutput } from "typedoc"
 
 // TypeDoc's serialized project is the hand-off format between the conversion
 // processes and the generator, and the format of the committed reflection
-// files. TypeDoc owns its shape and validates the schema version when it
-// revives one, so it is declared rather than re-described here.
+// files. TypeDoc owns its shape and revives it, so it is declared rather than
+// re-described here.
 const isProjectJson = (value: unknown): value is JSONOutput.ProjectReflection =>
   Match.value(value).pipe(
     Match.when(Predicate.isObject, (record) =>
@@ -12,7 +12,6 @@ const isProjectJson = (value: unknown): value is JSONOutput.ProjectReflection =>
         Option.liftPredicate(Predicate.isString)(record.variant).pipe(
           Option.exists((variant) => Str.Equivalence(variant, "project"))
         ),
-        Predicate.isString(record.schemaVersion),
         Predicate.isString(record.name),
         Predicate.isNumber(record.id)
       ))),

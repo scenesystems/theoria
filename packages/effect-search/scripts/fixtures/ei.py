@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import optuna
 from optuna.distributions import CategoricalDistribution, FloatDistribution
 from optuna.samplers._tpe.parzen_estimator import _ParzenEstimator, _ParzenEstimatorParameters
 from optuna.samplers._tpe.sampler import default_weights
@@ -14,7 +15,6 @@ from ._common import metadata
 
 def _parameters() -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,
@@ -32,7 +32,7 @@ def _score_trace(
 ) -> dict[str, Any]:
     log_likelihood_below = mpe_below.log_pdf(samples)
     log_likelihood_above = mpe_above.log_pdf(samples)
-    score_vector = log_likelihood_below - log_likelihood_above
+    score_vector = optuna.samplers.TPESampler(seed=0)._compute_acquisition_func(samples, mpe_below, mpe_above)
 
     return {
         "scoreTrace": [

@@ -36,6 +36,15 @@ Use `Evaluation.runSettled` when you need a record of expected evaluator failure
 
 [`History`](./src/History.ts) keeps the current record for each trial number. `History.values` returns those records in trial order; `History.costs` reports missing and invalid costs separately from known costs.
 
+Use `Evaluation.runCollecting(inputs, evaluate, { onFailure: "record", maxFailures, concurrency })`
+to limit expected failures while collecting results. `maxFailures: Option.none()`
+allows any number; `Option.some(n)` allows n failures. Exceeding the limit stops
+new evaluations, waits for active work to finish, and fails with
+`Evaluation.TooManyFailures` containing the final count.
+
+Both collecting and settled operations propagate any cause containing a defect
+or interruption unchanged, including typed failures within that cause.
+
 ## Observe a run
 
 `Evaluation.runWithEvents(inputs, evaluate, options, observe)` reports progress through an Effectful observer. It waits for each observer call before delivering the next event. If the observer fails, evaluation stops accepting inputs and interrupts active local work; the observer failure remains separate from trial results.

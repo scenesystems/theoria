@@ -30,7 +30,6 @@ describe("TypeDoc presentation adapter", () => {
       const outcomeExport = page.exports[1]
 
       expect(page).toMatchObject({
-        schemaVersion: 2,
         path: "/docs/example/api/Study",
         canonical: true,
         canonicalPath: "/docs/example/api/Study",

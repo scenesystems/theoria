@@ -7,13 +7,14 @@ import { Effect, Option } from "effect"
 
 import type { PendingPolicy } from "../../Sampler.js"
 import * as Sampler from "../../Sampler.js"
+import * as Rng from "../rng.js"
 import { numberOptionOr } from "./optionReaders.js"
 import { restoreCheckpoint } from "./random/checkpoint.js"
 import { suggest } from "./random/suggest.js"
 
 /**
  * Constructs a random sampler that draws uniform-random configurations from
- * the search space using a deterministic per-trial RNG derived from the seed.
+ * the search space using one persistent NumPy legacy stream initialized from the seed.
  *
  * Random sampling serves as both a standalone baseline and the startup phase
  * for model-driven samplers like TPE.
@@ -28,15 +29,17 @@ export const make = (
   pendingImputationPolicy: PendingPolicy
 ): Sampler.Sampler => {
   const seed = numberOptionOr(Option.fromNullishOr(options.seed), 0)
+  const stream = new Rng.NumPyStream(seed)
 
   return new Sampler.Sampler({
     kind: Sampler.Random({ options }),
     pendingImputationPolicy,
-    checkpoint: Effect.succeed({
+    checkpoint: stream.snapshot.pipe(Effect.map((rng) => ({
       _tag: "Random",
-      seed
-    }),
-    restore: (checkpoint) => restoreCheckpoint(seed, checkpoint),
-    suggest: (space, context) => suggest(seed, space, context)
+      seed,
+      rng
+    }))),
+    restore: (checkpoint) => restoreCheckpoint(seed, stream, checkpoint),
+    suggest: (space) => stream.get.pipe(Effect.flatMap((rng) => suggest(rng, space)))
   })
 }

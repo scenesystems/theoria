@@ -86,7 +86,6 @@ class ExampleEventStream extends Data.Class<{
 }> {}
 
 export class StandardExampleSummary extends Data.Class<{
-  readonly schemaVersion: "effect-dsp-example-report/v1"
   readonly exampleName: string
   readonly optimizer: ExampleOptimizerKind
   readonly metricName: string
@@ -99,14 +98,12 @@ export class StandardExampleSummary extends Data.Class<{
 }> {}
 
 export class StandardExampleEvents extends Data.Class<{
-  readonly schemaVersion: "effect-dsp-example-events/v1"
   readonly exampleName: string
   readonly optimizer: ExampleOptimizerKind
   readonly streams: ReadonlyArray<ExampleEventStream>
 }> {}
 
 export class StandardModuleState extends Data.Class<{
-  readonly schemaVersion: "effect-dsp-module-state/v1"
   readonly exampleName: string
   readonly optimizer: ExampleOptimizerKind
   readonly state: unknown
@@ -298,7 +295,6 @@ export const makeStandardSummary = (options: {
   })
 
   return new StandardExampleSummary({
-    schemaVersion: "effect-dsp-example-report/v1",
     exampleName: options.exampleName,
     optimizer: options.optimizer,
     metricName: options.metricName,
@@ -323,7 +319,6 @@ export const makeStandardEvents = (options: {
   readonly streams: ReadonlyArray<{ readonly name: string; readonly events: unknown }>
 }): StandardExampleEvents =>
   new StandardExampleEvents({
-    schemaVersion: "effect-dsp-example-events/v1",
     exampleName: options.exampleName,
     optimizer: options.optimizer,
     streams: Arr.map(options.streams, (stream) => new ExampleEventStream(stream))
@@ -335,7 +330,6 @@ export const makeStandardModuleState = (options: {
   readonly state: unknown
 }): StandardModuleState =>
   new StandardModuleState({
-    schemaVersion: "effect-dsp-module-state/v1",
     exampleName: options.exampleName,
     optimizer: options.optimizer,
     state: options.state

@@ -1,0 +1,142 @@
+{
+  "fixture": "trial-states.threshold-last-step",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.9.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "direction": "minimize",
+        "expectedLastStep": 2,
+        "expectedShouldPrune": [
+          false,
+          false
+        ],
+        "id": "late-lower-step-after-safe-step",
+        "limit": 1.0,
+        "reports": [
+          {
+            "step": 2,
+            "value": 0.5
+          },
+          {
+            "step": 1,
+            "value": 1.5
+          }
+        ],
+        "warmupSteps": 0
+      },
+      {
+        "direction": "minimize",
+        "expectedLastStep": 2,
+        "expectedShouldPrune": [
+          false,
+          true
+        ],
+        "id": "ascending-unsafe-last-step",
+        "limit": 1.0,
+        "reports": [
+          {
+            "step": 1,
+            "value": 0.5
+          },
+          {
+            "step": 2,
+            "value": 1.5
+          }
+        ],
+        "warmupSteps": 0
+      },
+      {
+        "direction": "minimize",
+        "expectedLastStep": 5,
+        "expectedShouldPrune": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "id": "late-step-with-later-safe-maximum",
+        "limit": 1.0,
+        "reports": [
+          {
+            "step": 3,
+            "value": 0.25
+          },
+          {
+            "step": 1,
+            "value": 3.0
+          },
+          {
+            "step": 5,
+            "value": 0.75
+          },
+          {
+            "step": 4,
+            "value": 2.0
+          }
+        ],
+        "warmupSteps": 0
+      },
+      {
+        "direction": "maximize",
+        "expectedLastStep": 6,
+        "expectedShouldPrune": [
+          false,
+          false,
+          true
+        ],
+        "id": "maximize-late-lower-step",
+        "limit": 0.5,
+        "reports": [
+          {
+            "step": 4,
+            "value": 0.75
+          },
+          {
+            "step": 2,
+            "value": 0.25
+          },
+          {
+            "step": 6,
+            "value": 0.25
+          }
+        ],
+        "warmupSteps": 0
+      },
+      {
+        "direction": "minimize",
+        "expectedLastStep": 4,
+        "expectedShouldPrune": [
+          false,
+          false,
+          false
+        ],
+        "id": "warmup-applies-to-last-step",
+        "limit": 1.0,
+        "reports": [
+          {
+            "step": 2,
+            "value": 2.0
+          },
+          {
+            "step": 4,
+            "value": 0.5
+          },
+          {
+            "step": 3,
+            "value": 2.0
+          }
+        ],
+        "warmupSteps": 3
+      }
+    ]
+  }
+}

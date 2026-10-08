@@ -3,15 +3,15 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapRS from "@scenesystems/effect-dsp/BootstrapRS"
-import { AllTrialsFailed } from "@scenesystems/effect-dsp/DspError"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Ref, Result, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Match, Option, Record, Ref, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { assertNoMutation } from "../kit/Mutation.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -27,11 +27,11 @@ const makeQaSignature = () =>
 const trainset = [
   new Example({
     input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
+    labels: Option.some({ answer: "Paris" })
   }),
   new Example({
     input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
+    labels: Option.some({ answer: "Tokyo" })
   })
 ]
 
@@ -40,10 +40,10 @@ describe("BootstrapRS.run", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const initial = yield* Ref.get(module.params)
+      const initial = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
           instructions: initial.instructions,
           demos: initial.demos,
@@ -52,53 +52,59 @@ describe("BootstrapRS.run", () => {
       )
 
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) => {
-          if (prompt.includes("What is the capital of France?")) {
-            return "[[ ## answer ## ]]\nParis"
-          }
-
-          if (prompt.includes("What is the capital of Japan?")) {
-            return "[[ ## answer ## ]]\nTokyo"
-          }
-
-          if (prompt.includes("Name the capital of Japan in one word")) {
-            return prompt.includes("Tokyo")
-              ? "[[ ## answer ## ]]\nTokyo"
-              : "[[ ## answer ## ]]\nLondon"
-          }
-
-          return "[[ ## answer ## ]]\nLondon"
-        })
+        MockLanguageModel.map((prompt) =>
+          Match.value(prompt).pipe(
+            Match.when(
+              Str.includes("What is the capital of France?"),
+              () => "[[ ## answer ## ]]\nParis"
+            ),
+            Match.when(
+              Str.includes("What is the capital of Japan?"),
+              () => "[[ ## answer ## ]]\nTokyo"
+            ),
+            Match.when(
+              Str.includes("Name the capital of Japan in one word"),
+              (value) =>
+                Bool.match(Str.includes("Tokyo")(value), {
+                  onFalse: () => "[[ ## answer ## ]]\nLondon",
+                  onTrue: () => "[[ ## answer ## ]]\nTokyo"
+                })
+            ),
+            Match.orElse(() => "[[ ## answer ## ]]\nLondon")
+          )
+        )
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapRS.run(
-        new BootstrapRS.Options({
-          module,
-          trainset,
-          valset: [
-            new Example({
-              input: { question: "Name the capital of Japan in one word" },
-              output: { answer: "Tokyo" }
-            })
-          ],
-          metric: Metric.exactMatch("answer"),
-          numCandidates: 2,
-          seeds: [0, 1],
-          maxRounds: 1,
-          maxBootstrappedDemos: 1,
-          threshold: 1,
-          fallbackToLabeledFewShot: false
-        })
+      const optimized = yield* assertNoMutation(
+        module,
+        BootstrapRS.run(
+          new BootstrapRS.Options({
+            module,
+            trainset,
+            valset: [
+              new Example({
+                input: { question: "Name the capital of Japan in one word" },
+                labels: Option.some({ answer: "Tokyo" })
+              })
+            ],
+            metric: Metric.exactMatch("answer"),
+            numCandidatePrograms: 2,
+            maxRounds: 1,
+            maxBootstrappedDemos: 1,
+            metricThreshold: Option.some(1),
+            maxLabeledDemos: 0
+          })
+        )
       ).pipe(Effect.provide(lmLayer))
 
-      const params = yield* Ref.get(optimized.params)
+      const parameters = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
 
-      expect(params.demos).toHaveLength(1)
-      expect(params.demos[0]?.output).toEqual({ answer: "Tokyo" })
+      expect(parameters.demos).toHaveLength(1)
+      expect(parameters.demos[0]?.output).toEqual({ answer: "Tokyo" })
     }))
 
-  it.effect("fails with AllTrialsFailed when all candidate evaluations fail", () =>
+  it.effect("retains zero scores and the earliest candidate when every validation row fails", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -107,36 +113,29 @@ describe("BootstrapRS.run", () => {
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const result = yield* Effect.result(
+      const result = yield* assertNoMutation(
+        module,
         BootstrapRS.run(
           new BootstrapRS.Options({
             module,
             trainset,
             valset: [
               new Example({
-                input: { question: "This validation example has no label" }
+                input: { question: 73 }
               })
             ],
             metric: Metric.exactMatch("answer"),
-            numCandidates: 1,
-            seeds: [0],
+            numCandidatePrograms: 1,
             maxRounds: 1,
             maxBootstrappedDemos: 1,
-            threshold: 1,
-            fallbackToLabeledFewShot: false
+            metricThreshold: Option.some(1),
+            maxLabeledDemos: 0
           })
         ).pipe(Effect.provide(lmLayer))
       )
 
-      expect(Result.isFailure(result)).toBe(true)
-
-      if (Result.isFailure(result)) {
-        expect(result.failure).toEqual(
-          new AllTrialsFailed({
-            message: "BootstrapRS failed to evaluate any candidate",
-            trialCount: 0
-          })
-        )
-      }
+      expect(result.report.winnerSeed).toBe(-3)
+      expect(Arr.map(result.report.candidates, (candidate) => candidate.score)).toEqual([0, 0, 0, 0])
+      expect(Arr.map(result.report.candidates, (candidate) => candidate.evaluation.failureCount)).toEqual([1, 1, 1, 1])
     }))
 })

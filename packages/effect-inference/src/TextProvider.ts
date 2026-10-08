@@ -1,6 +1,13 @@
 /**
  * Config-driven hosted OpenAI, Anthropic, and OpenRouter language models.
  *
+ * Configured defaults follow the same provider contract as ModelBinder:
+ * OpenAI sends temperature, maxTokens, and topP; Anthropic also sends stop;
+ * OpenRouter sends all five fields. A configured default the provider cannot
+ * send (OpenAI stop or seed, Anthropic seed) makes every operation of the
+ * provider layer fail with InvalidRequestError before HTTP instead of being
+ * silently dropped.
+ *
  * @since 0.5.0
  * @module
  */
@@ -10,12 +17,14 @@ import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
+import { empty, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import type * as LanguageModel from "effect/ai/LanguageModel"
 import * as ConfigEffect from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
+import * as HttpClient from "effect/http/HttpClient"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -24,6 +33,7 @@ import * as Schema from "effect/Schema"
 import * as String from "effect/String"
 
 import { InvalidRuntimeConfig } from "./InferenceError.js"
+import * as Settings from "./internal/modelSettings.js"
 import type * as RuntimeRequest from "./RuntimeRequest.js"
 
 /** Schema for hosted text-provider identifiers. @since 0.5.0 @category schemas */
@@ -35,6 +45,7 @@ export type Provider = typeof Provider.Type
 export class Options extends Data.Class<{
   readonly provider?: Provider
   readonly model?: string
+  readonly defaults?: ModelSettings
   readonly apiKey?: Redacted.Redacted
   readonly apiUrl?: string
   readonly anthropicVersion?: string
@@ -47,6 +58,7 @@ export class Options extends Data.Class<{
 export class Config extends Schema.Class<Config>("@scenesystems/effect-inference/TextProvider/Config")({
   provider: Provider,
   model: Schema.String,
+  defaults: ModelSettings,
   apiKey: Schema.Redacted(Schema.String),
   apiUrl: Schema.Option(Schema.String),
   anthropicVersion: Schema.Option(Schema.String),
@@ -54,13 +66,33 @@ export class Config extends Schema.Class<Config>("@scenesystems/effect-inference
   openrouterTitle: Schema.Option(Schema.String)
 }) {}
 
-/** Resolved hosted-provider request and executable language layer. @since 0.5.0 @category models */
+/** Hosted-provider runtime derived from one validated configuration.
+ * Model identity, defaults, request intent and the executable layer share that
+ * configuration. A supplied HttpClient service overrides the default fetch transport.
+ * Defaults the provider cannot send make every layer operation fail with
+ * InvalidRequestError before HTTP.
+ * @since 0.5.0
+ * @category models
+ */
 export class Runtime extends Data.Class<{
-  readonly provider: Provider
-  readonly model: string
-  readonly request: RuntimeRequest.RuntimeRequest
-  readonly languageModel: Layer.Layer<LanguageModel.LanguageModel>
-}> {}
+  readonly config: Config
+}> {
+  get provider(): Provider {
+    return this.config.provider
+  }
+  get model(): string {
+    return this.config.model
+  }
+  get defaults(): ModelSettings {
+    return this.config.defaults
+  }
+  get request(): RuntimeRequest.RuntimeRequest {
+    return request(this.config)
+  }
+  get languageModel(): Layer.Layer<LanguageModel.LanguageModel> {
+    return providerLayer(this.config)
+  }
+}
 
 const defaultConfigProvider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase)
 
@@ -143,6 +175,14 @@ const configured = (options: Options) =>
     return new Config({
       provider,
       model,
+      defaults: yield* Option.match(Option.fromNullishOr(options.defaults), {
+        onSome: Effect.succeed,
+        onNone: () =>
+          ConfigEffect.withDefault(
+            ConfigEffect.schema(Schema.fromJsonString(Schema.toCodecJson(ModelSettings)), "dspModelSettings"),
+            empty
+          )
+      }),
       apiKey,
       apiUrl: mergeString(providerApiUrl, genericApiUrl, options.apiUrl),
       anthropicVersion: mergeString(anthropicVersion, genericAnthropicVersion, options.anthropicVersion),
@@ -201,23 +241,42 @@ export const request = (config: Config): RuntimeRequest.RuntimeRequest =>
     Match.exhaustive
   )
 
+const transport = Layer.unwrap(
+  Effect.map(
+    Effect.serviceOption(HttpClient.HttpClient),
+    Option.match({
+      onNone: () => FetchHttpClient.layer,
+      onSome: (client) => Layer.succeed(HttpClient.HttpClient, client)
+    })
+  )
+)
+
 const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel> =>
+  Settings.checked(
+    "@scenesystems/effect-inference/TextProvider",
+    config.provider,
+    config.defaults,
+    () => supportedLayer(config),
+    (rejected) => rejected
+  )
+
+const supportedLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel> =>
   Match.value(config.provider).pipe(
     Match.when("openai", () =>
       Layer.provide(
         Layer.provide(
-          OpenAiLanguageModel.layer({ model: config.model }),
+          OpenAiLanguageModel.layer({ model: config.model, config: Settings.openai(config.defaults) }),
           OpenAiClient.layer({
             apiKey: config.apiKey,
             ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) })
           })
         ),
-        FetchHttpClient.layer
+        transport
       )),
     Match.when("anthropic", () =>
       Layer.provide(
         Layer.provide(
-          AnthropicLanguageModel.layer({ model: config.model }),
+          AnthropicLanguageModel.layer({ model: config.model, config: Settings.anthropic(config.defaults) }),
           AnthropicClient.layer({
             apiKey: config.apiKey,
             ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) }),
@@ -227,12 +286,12 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
             })
           })
         ),
-        FetchHttpClient.layer
+        transport
       )),
     Match.when("openrouter", () =>
       Layer.provide(
         Layer.provide(
-          OpenRouterLanguageModel.layer({ model: config.model }),
+          OpenRouterLanguageModel.layer({ model: config.model, config: Settings.openrouter(config.defaults) }),
           OpenRouterClient.layer({
             apiKey: config.apiKey,
             ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) }),
@@ -243,21 +302,14 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
             ...Option.match(config.openrouterTitle, { onNone: () => ({}), onSome: (title) => ({ title }) })
           })
         ),
-        FetchHttpClient.layer
+        transport
       )),
     Match.exhaustive
   )
 
 /** Acquires configuration and resolves a hosted-provider language runtime. @since 0.5.0 @category constructors */
 export const resolve = (options: Options = new Options({})): Effect.Effect<Runtime, InvalidRuntimeConfig> =>
-  fromConfig(options).pipe(Effect.map((config) =>
-    new Runtime({
-      provider: config.provider,
-      model: config.model,
-      request: request(config),
-      languageModel: providerLayer(config)
-    })
-  ))
+  fromConfig(options).pipe(Effect.map((config) => new Runtime({ config })))
 
 /** Builds a language-model layer from checked hosted-provider configuration. @since 0.5.0 @category layers */
 export const layerConfig = (

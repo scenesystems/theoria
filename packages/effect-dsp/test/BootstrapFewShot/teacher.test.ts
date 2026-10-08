@@ -9,7 +9,8 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Ref, Schema } from "effect"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import { Boolean as Bool, Effect, Layer, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -28,13 +29,13 @@ describe("BootstrapFewShot.run teacher/student", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const initialParams = yield* Ref.get(module.params)
+      const initialParameters = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
+          instructions: initialParameters.instructions,
+          demos: initialParameters.demos,
           outputStrategy: "structured"
         })
       )
@@ -46,7 +47,6 @@ describe("BootstrapFewShot.run teacher/student", () => {
         MockLanguageModel.succeed({ answer: "London" })
       )
 
-      const teacherLayer = Layer.succeed(LanguageModel.LanguageModel, teacher.service)
       const studentLayer = Layer.succeed(LanguageModel.LanguageModel, student.service)
 
       const optimized = yield* BootstrapFewShot.run(
@@ -55,28 +55,43 @@ describe("BootstrapFewShot.run teacher/student", () => {
           trainset: [
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             })
           ],
           metric: Metric.exactMatch("answer"),
           maxRounds: 2,
           maxBootstrappedDemos: 1,
-          threshold: 1,
-          fallbackToLabeledFewShot: false,
-          teacher: teacherLayer
+          metricThreshold: Option.some(1),
+          maxLabeledDemos: 0
         })
-      ).pipe(Effect.provide(studentLayer))
+      ).pipe(
+        ModelBinder.withBinder(
+          new ModelBinder.Binder({
+            bind: (request) => (effect) =>
+              effect.pipe(
+                Effect.provideService(
+                  LanguageModel.LanguageModel,
+                  Bool.match(request.role === "teacher", {
+                    onFalse: () => student.service,
+                    onTrue: () => teacher.service
+                  })
+                )
+              )
+          })
+        ),
+        Effect.provide(studentLayer)
+      )
 
-      const paramsAfterBootstrap = yield* Ref.get(optimized.params)
+      const parametersAfterBootstrap = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const teacherCallsAfterBootstrap = yield* Ref.get(teacher.calls)
       const studentCallsAfterBootstrap = yield* Ref.get(student.calls)
 
-      expect(paramsAfterBootstrap.demos).toHaveLength(1)
-      expect(paramsAfterBootstrap.demos[0]?.output).toEqual({ answer: "Paris" })
+      expect(parametersAfterBootstrap.demos).toHaveLength(1)
+      expect(parametersAfterBootstrap.demos[0]?.output).toEqual({ answer: "Paris" })
       expect(teacherCallsAfterBootstrap).toHaveLength(1)
       expect(studentCallsAfterBootstrap).toHaveLength(0)
 
-      const studentInference = yield* optimized.forward({
+      const studentInference = yield* optimized.program.forward({
         question: "What is the capital of France?"
       }).pipe(Effect.provide(studentLayer))
 

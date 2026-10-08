@@ -38,12 +38,19 @@ README checker includes them. README guides support `$x^2$` for inline math and
 `$$` on separate lines around display math; escape a prose dollar sign as `\$`.
 This syntax does not apply to TypeDoc API comments.
 
-Run Python fixture generators with `uv run` to use their declared dependencies.
+Run Python fixture generators with `uv run --locked` to use the root dependency
+lock. For Math's environment pins and regeneration commands, see the
+[Math reference fixtures guide](packages/effect-math/README.md#reference-fixtures).
+Record approved reference-byte changes with before/after SHA-256 hashes; never
+alter assertions or tolerances to accommodate regeneration.
 
 ## Pull requests
 
-Submit PRs against `main`. Explain the problem and the change, and report the
-checks you ran. Omit empty sections.
+Submit PRs against `main`. Keep the required `Problem`, `Change`, and
+`Verification` headings from the [PR template](.github/pull_request_template.md).
+Explain the problem and resulting change, and report checks actually performed
+and material limitations. If no checks ran, say why. Remove author prompts and
+omit optional empty sections.
 
 Keep commits signed, focused, and independently reviewable. Use Conventional
 Commits: `type(scope): concise change`, with the scope naming the affected owner.

@@ -5,6 +5,7 @@
  * @module
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Chunk, Data, Effect, type HashMap, Option, Schema } from "effect"
 import { dual } from "effect/Function"
 
@@ -16,6 +17,7 @@ import * as Deterministic from "./internal/sampler/deterministic.js"
 import * as Stratified from "./internal/sampler/stratified.js"
 import * as Weighted from "./internal/sampler/weighted.js"
 import { match as matchObjective, Objective, single, Value, type Vector } from "./Objective.js"
+import { Report } from "./Pruning.js"
 import type { InvalidOptimizationConfig, SearchError } from "./SearchError.js"
 import type * as SearchSpace from "./SearchSpace.js"
 
@@ -59,6 +61,8 @@ export type Constraint = (config: unknown) => Effect.Effect<number>
 /**
  * TPE configuration, including runtime-only acquisition and constraint extensions.
  * Function-valued fields are intentionally excluded from checkpoints and sampler identity.
+ * `constantLiar` defaults to `false`, as in Optuna: pending reservations are ignored while
+ * fitting. When `true`, every pending reservation joins the above group as a running trial.
  * @since 0.7.0
  * @category models
  */
@@ -69,6 +73,7 @@ export class TpeOptions extends Data.Class<{
   readonly groupDimensions?: boolean
   readonly noiseAware?: boolean
   readonly noiseAlpha?: number
+  readonly constantLiar?: boolean
   readonly seed?: number
   readonly acquisition?: Acquisition.Strategy
   readonly constraints?: Iterable<Constraint>
@@ -81,6 +86,7 @@ const PersistedTpeOptions = Schema.Struct({
   groupDimensions: Schema.optional(Schema.Boolean),
   noiseAware: Schema.optional(Schema.Boolean),
   noiseAlpha: Schema.optional(Schema.Finite),
+  constantLiar: Schema.optional(Schema.Boolean),
   constraintsCount: Schema.optional(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
   seed: Schema.optional(Schema.Finite)
 })
@@ -114,12 +120,17 @@ export const matchKind = kinds.$match
 
 /** Resumable state for every built-in sampler. @since 0.7.0 @category schemas */
 export const Checkpoint = Schema.Union([
-  Schema.TaggedStruct("Random", { seed: Schema.Finite }),
+  Schema.TaggedStruct("Random", {
+    seed: Schema.Finite,
+    rng: Schema.OptionFromNullOr(Schema.toCodecJson(PseudoRandom.State))
+  }),
   Schema.TaggedStruct("Grid", { seed: Schema.Finite, shuffle: Schema.Boolean }),
   Schema.TaggedStruct("Tpe", {
     seed: Schema.Finite,
     nStartupTrials: Schema.Finite,
-    nEiCandidates: Schema.Finite
+    nEiCandidates: Schema.Finite,
+    rng: Schema.OptionFromNullOr(Schema.toCodecJson(PseudoRandom.State)),
+    startupRng: Schema.OptionFromNullOr(Schema.toCodecJson(PseudoRandom.State))
   }),
   Schema.TaggedStruct("CmaEs", {
     seed: Schema.Finite,
@@ -155,6 +166,15 @@ export class Pending extends Schema.Class<Pending>("@scenesystems/effect-search/
   config: Schema.Record(Schema.String, Schema.Unknown)
 }) {}
 
+/** A pruned trial has intermediate reports, never a completed objective value. @since 0.9.0 @category schemas */
+export class PrunedObservation
+  extends Schema.Class<PrunedObservation>("@scenesystems/effect-search/Sampler/PrunedObservation")({
+    trialNumber: Schema.Finite,
+    config: Schema.Record(Schema.String, Schema.Unknown),
+    reports: Schema.Array(Report)
+  })
+{}
+
 /** Untyped sampler configuration keyed by parameter name. @since 0.7.0 @category models */
 export type Config = Observation["config"]
 
@@ -163,6 +183,7 @@ const SuggestionEpsilon = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), 
 /** Immutable inputs for one suggestion. @since 0.7.0 @category schemas */
 export class Context extends Schema.Class<Context>("@scenesystems/effect-search/Sampler/Context")({
   completed: Schema.Array(Observation),
+  pruned: Schema.optional(Schema.Array(PrunedObservation)),
   pending: Schema.Array(Pending),
   objectiveSpec: Objective,
   nextTrialNumber: Schema.Finite,

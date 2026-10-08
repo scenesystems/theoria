@@ -49,17 +49,14 @@ export const generateApiReference = (input: {
     )
     const packages = Arr.map(generatedPackages, (generated) => generated.package)
     const manifest: ApiReferenceManifest = {
-      schemaVersion: 3,
       typedocVersion: Application.VERSION,
       revision: input.revision,
       packages
     }
     const searchIndex: DocsSearchIndex = {
-      schemaVersion: 1,
       entries: Arr.flatMap(generatedPackages, (generated) => generated.searchEntries)
     }
     const docsManifest: DocsManifest = {
-      schemaVersion: 3,
       revision: input.revision,
       searchIndexAsset: `/docs-data/${input.revision}/search-index.json`,
       packages: Arr.map(generatedPackages, (generated) => generated.docsPackage)

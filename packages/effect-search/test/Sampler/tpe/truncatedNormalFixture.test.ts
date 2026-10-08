@@ -74,7 +74,7 @@ describe("truncated normal fixture parity", () => {
       )
     }))
 
-  it.effect("matches Optuna-derived cdf fixtures within absolute tolerance 1e-12", () =>
+  it.effect("inverts upstream quantiles with cdf within absolute tolerance 1e-12", () =>
     Effect.gen(function*() {
       const fixture = yield* loadTruncatedFixture
 
@@ -85,11 +85,11 @@ describe("truncated normal fixture parity", () => {
             const params = toParams(entry)
 
             yield* Effect.forEach(
-              entry.cdfProbes,
+              entry.sampleExpected,
               (probe, index) =>
                 Effect.sync(() => {
                   const actual = cdf(probe, params)
-                  const expected = numberAt(entry.cdfExpected, index)
+                  const expected = numberAt(entry.sampleQuantiles, index)
 
                   assertAbsoluteTolerance(actual, expected, CDF_ABSOLUTE_TOLERANCE)
                 }),

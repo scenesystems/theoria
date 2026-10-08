@@ -148,7 +148,6 @@ export const callableMemberApiExportFixture: ApiExport = {
 }
 
 export const docsApiModuleIndexFixture: DocsApiModuleIndex = {
-  schemaVersion: 2,
   kind: "api-module-index",
   path: apiPageFixture.path,
   canonical: apiPageFixture.canonical,
@@ -170,7 +169,6 @@ export const docsApiModuleIndexFixture: DocsApiModuleIndex = {
 }
 
 export const docsApiExportPageFixture = (index: number): DocsApiExportPage => ({
-  schemaVersion: 1,
   kind: "api-export",
   export: Option.getOrThrow(Option.fromNullishOr(apiPageFixture.exports[index]))
 })

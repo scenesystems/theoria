@@ -46,6 +46,7 @@ The module references describe each operation's inputs and numerical behavior.
 | [`Optimization`](./src/Optimization.ts)   | Bisection root finding and golden-section minimization                                                                                                                                |
 | [`Probability`](./src/Probability.ts)     | Shannon entropy and its validated and policy-aware forms                                                                                                                              |
 | [`Distribution`](./src/Distribution.ts)   | Normal and uniform density, cumulative, and transform operations plus normal, log-normal, exponential, uniform, beta, gamma, Student's t, categorical, binomial, and Poisson families |
+| [`PseudoRandom`](./src/PseudoRandom.ts)   | Reproducible CPython `random` and NumPy legacy `RandomState` streams over one MT19937 engine, with portable checkpoint `State` and validated draw forms                               |
 | [`Policy`](./src/Policy.ts)               | Runtime randomness, precision, backend, and diagnostics services, settings snapshots, and complete policy Layers                                                                      |
 | [`Scalar`](./src/Scalar.ts)               | Scalar-lane capabilities, policy, and resolution between Float64 and BigDecimal                                                                                                       |
 | [`Backend`](./src/Backend.ts)             | Backend capabilities and backend resolution for a selected scalar lane                                                                                                                |
@@ -141,6 +142,34 @@ Provide the services from [`Policy`](./src/Policy.ts) to configure `WithPolicies
 
 For `Numeric.sumWithPolicies`, `compensated` selects Kahan-compensated accumulation over an immutable `Chunk`. The `scalar` policy selects ordinary iteration-order accumulation. This preference does not imply a different algorithm for every operation: `LinearAlgebra.dotWithPolicies`, for example, records the preference in diagnostics while using its documented dot-product algorithm.
 
+## Seeded reference streams and upstream sums
+
+Use [`PseudoRandom`](./src/PseudoRandom.ts) when sampling must reproduce upstream draws bit for bit. Choose `makeCPython` to match CPython's integer-seeded `random`, or `makeNumPyLegacy` to match NumPy's uint32-seeded legacy `RandomState`. These independent streams do not read `Policy.Randomness` and are for statistical sampling, never cryptographic material.
+
+For CPython draws with argument preconditions, use the `Validated` forms to receive `PseudoRandom.InvalidArgument` in the typed error channel. The base forms are for trusted arguments and raise the same error as a defect when a precondition is violated. Both forms return identical values for valid input and reject invalid arguments before consuming randomness.
+
+To replay draws, capture a Schema-encodable `State` with `snapshot`, then pass the captured or decoded state to `restore` or a stream constructor. Capturing state consumes no randomness; each draw is an atomic state transition.
+
+```ts typecheck
+import { Chunk, Effect } from "effect"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+
+const options = Chunk.make("a", "b", "c")
+
+export const replay = Effect.gen(function* () {
+  const stream = yield* PseudoRandom.makeCPython(0)
+  const checkpoint = yield* stream.snapshot
+  const first = yield* stream.choiceValidated(options)
+  const resumed = new PseudoRandom.CPython(checkpoint)
+  const again = yield* resumed.choice(options)
+  return { first, again }
+})
+```
+
+`replay` returns the same element twice: the resumed stream continues from the captured state.
+
+Use `Numeric.sumNeumaier` to match CPython 3.12's builtin float `sum` with its default integer start, including cancellation, overflow, infinities, and signed zero. Use `Numeric.sumPairwise` for NumPy's dense float64 pairwise summation order. These operations reproduce upstream reduction order and rounding, not necessarily the correctly rounded sum of real-number inputs.
+
 ## Computation planning
 
 [`Computation`](./src/Computation.ts) plans a computation without executing it. The plan selects a scalar representation and compatible backend, then records precision, differentiation, and uncertainty decisions. `Computation.plan` decodes an untrusted request; `planWithAuthorities` accepts an already decoded request. Provide `Computation.layer` for the default planner and its services.
@@ -170,7 +199,9 @@ See the [API reference](./src/index.ts) for all modules and the [examples direct
 
 ## Reference fixtures
 
-Committed SciPy/NumPy fixtures provide independent numerical expectations. From this package directory, run `bun run fixtures:check` to validate them or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
+Committed SciPy/NumPy/CPython fixtures provide independent numerical expectations. The manifest records each payload's SHA-256. From this package directory, run `bun run fixtures:check` to validate the manifest, every payload's schema and hash, and the absence of unlisted files, or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
+
+`bun run fixtures:verify` validates schemas and SHA-256 hashes, then regenerates all 16 payloads and the manifest and compares all 17 files byte for byte, locally and in CI. The generator pins `PYTHONHASHSEED=0` and `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing NumPy. Use the root `uv.lock` and Python 3.12.14 on Linux x86_64 for regeneration.
 
 Set `SCIPY_FIXTURE_OUTPUT_DIRECTORY` to generate into a separate directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the default reproducible timestamp `2026-03-23T00:00:00Z`. Generator failures and invalid responses fail the command before any fixture files are written. Filesystem write failures can leave partial output, so use a separate output directory when reviewing regenerated references.
 

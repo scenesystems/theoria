@@ -23,8 +23,9 @@ import * as RandomSampler from "./random.js"
  * Draws each active dimension from its declared distribution.
  *
  * @remarks
- * Suggestions are derived from the seed and `Context.nextTrialNumber`.
- * Repeating both against the same search space produces the same configuration.
+ * Suggestions advance one NumPy legacy stream per sampler instance.
+ * A fresh sampler with the same seed replays the sequence; saved checkpoints
+ * retain the stream position for continuation.
  *
  * @param options - Uses seed `0` when omitted.
  * @since 0.1.0
@@ -58,11 +59,12 @@ export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(opt
  * Invalid numeric options fail with `InvalidSamplerConfig` when `suggest` runs.
  *
  * @param options - Defaults to 10 startup trials, 24 scored candidates, seed
- * `0`, expected improvement, and independent noise-unaware models.
+ * `0`, expected improvement, independent noise-unaware models, and no
+ * constant liar: pending reservations are excluded unless `constantLiar` is set.
  * @since 0.1.0
  * @category constructors
  */
-export const tpe = (options: TpeOptions = new TpeOptions({})): Sampler => TpeSampler.make(options, constantLiarPolicy)
+export const tpe = (options: TpeOptions = new TpeOptions({})): Sampler => TpeSampler.make(options)
 
 /**
  * Adapts a diagonal CMA-ES model to an unconditional continuous search space.

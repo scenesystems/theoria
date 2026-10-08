@@ -8,7 +8,7 @@ import { Effect, Schema } from "effect"
 import type { Error as EffectError } from "effect/Effect"
 
 describe("integration/optimizer events", () => {
-  it.effect("wraps canonical optimizer events and preserves their owners", () =>
+  it.effect("wraps canonical optimizer events and preserves their algorithm", () =>
     Effect.gen(function*() {
       const bootstrap = BootstrapFewShot.events.RoundStarted({ round: 1, maxRounds: 2 })
       const mipro = MIPROv2.events.Phase3Started({ numTrials: 4 })
@@ -29,7 +29,7 @@ describe("integration/optimizer events", () => {
       expect(yield* Payload.decode(GEPA.Event, gepaEnvelope.payload)).toEqual(gepa)
       expect(
         yield* Schema.decodeEffect(OptimizerEvent.OptimizerEvent)(
-          OptimizerEvent.events.GEPA({ event: gepa })
+          yield* Schema.encodeEffect(OptimizerEvent.OptimizerEvent)(OptimizerEvent.events.GEPA({ event: gepa }))
         )
       ).toEqual({ _tag: "GEPA", event: gepa })
     }))
@@ -38,7 +38,7 @@ describe("integration/optimizer events", () => {
     Effect.gen(function*() {
       const infinity = Number.POSITIVE_INFINITY
       const encoding = OptimizerEvent.fromMIPROv2(
-        MIPROv2.events.TrialEvaluated({ trial: 2, score: infinity })
+        MIPROv2.events.TrialEvaluated({ trial: 2, score: infinity, config: {}, fullValidation: true, sampled: true })
       )
       expectTypeOf<EffectError<typeof encoding>>().toEqualTypeOf<Schema.SchemaError>()
       expect(yield* Effect.flip(encoding)).toBeInstanceOf(Schema.SchemaError)

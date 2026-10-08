@@ -9,8 +9,6 @@ import { Array as Arr, Boolean as Bool, Effect, Match, Option, Schema, Tuple } f
 import * as GenericStudy from "@scenesystems/effect-study/Study"
 import { match } from "../../Objective.js"
 import type { Value } from "../../Objective.js"
-import * as OptimizationSnapshot from "../../OptimizationSnapshot.js"
-import * as OptimizationStorage from "../../OptimizationStorage.js"
 import { InvalidObjectiveValue, type SearchError } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
 import type * as Trial from "../../Trial.js"
@@ -18,6 +16,7 @@ import { completeIfBudgetReached, invalid } from "./askTellLifecycle.js"
 import type { HandleRuntime } from "./askTellState.js"
 import { emitLifecycleEvents } from "./events.js"
 import { pendingTrialByNumber } from "./history.js"
+import { journalTrial } from "./journal.js"
 import type { OptimizeSettings } from "./options/plan.js"
 
 /**
@@ -85,7 +84,7 @@ export const pendingTrial = <Space extends SearchSpace.SearchSpace>(
   )
 
 /**
- * Moves a trial from pending to finalized, persists the snapshot, emits lifecycle events, and completes if budget is met.
+ * Moves a trial from pending to finalized while journaling it with the sampler checkpoint, emits lifecycle events, and completes if budget is met.
  *
  * @since 0.1.0
  * @category utils
@@ -95,25 +94,28 @@ export const finalizeTrial = <Space extends SearchSpace.SearchSpace>(
   trial: Trial.Trial<SearchSpace.Type<Space>>
 ): Effect.Effect<void, SearchError> =>
   Effect.gen(function*() {
-    yield* GenericStudy.modify(state.runtime.study, (runtimeState) =>
+    // Defer fiber interruption until the durable append and in-memory history update finish.
+    // Storage failure leaves history unchanged; this is not an OS-crash transaction.
+    yield* Effect.uninterruptible(GenericStudy.modify(state.runtime.study, (runtimeState) =>
       Match.value(runtimeState.lifecycle).pipe(
         Match.when("Running", () =>
           Option.match(pendingTrialByNumber(runtimeState.history, trial.trialNumber), {
             onNone: () => Effect.fail(invalid(`Optimization trial ${trial.trialNumber} is not reserved`)),
             onSome: () =>
-              Effect.succeed(Tuple.make(
-                undefined,
-                new GenericStudy.State({
-                  lifecycle: runtimeState.lifecycle,
-                  history: History.set(runtimeState.history, trial)
-                })
-              ))
+              journalTrial(state.optimizePlan.sampler, trial).pipe(
+                Effect.as(Tuple.make(
+                  undefined,
+                  new GenericStudy.State({
+                    lifecycle: runtimeState.lifecycle,
+                    history: History.set(runtimeState.history, trial)
+                  })
+                ))
+              )
           })),
         Match.orElse((lifecycle) =>
           Effect.fail(invalid(`Optimization finalization requires a running handle (current lifecycle: ${lifecycle})`))
         )
-      ))
-    yield* OptimizationStorage.appendIfAvailable(OptimizationSnapshot.fromTrial(trial))
+      )))
     yield* emitLifecycleEvents(state.settings.objectiveSpec, trial, state.runtime)
     yield* completeIfBudgetReached(state)
   })

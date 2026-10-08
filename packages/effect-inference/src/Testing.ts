@@ -89,7 +89,6 @@ export const resolvedRoute = (
     route: selectedRoute,
     providerModel: Option.getOrElse(Option.fromNullishOr(options.providerModel), () => runtimeRequest.model.modelRef),
     selectionReason: Option.getOrElse(Option.fromNullishOr(options.selectionReason), () => "testing-static-resolution"),
-    schemaVersion: Option.getOrElse(Option.fromNullishOr(options.schemaVersion), () => Route.provenanceVersion),
     ...Option.match(Option.fromNullishOr(options.selectedProvider), {
       onNone: () => ({}),
       onSome: (selectedProvider) => ({ selectedProvider })

@@ -59,7 +59,52 @@ Credentials use `Redacted`.
 
 `layerConfig` provides the configured language-model layer directly, as above.
 If you need to inspect the configuration or resolution first, use
-[`TextProvider.fromConfig` and `resolve`](./src/TextProvider.ts).
+[`TextProvider.fromConfig`](./src/TextProvider.ts) to acquire validated configuration,
+or `TextProvider.resolve` to obtain a `TextProvider.Runtime`. Its provider identity,
+generation defaults, request intent, and language-model layer derive from the
+same validated configuration. A supplied `HttpClient` replaces only the transport.
+
+Set generation defaults with `TextProvider.Options.defaults` or, when omitted,
+with `DSP_MODEL_SETTINGS`, a JSON-encoded `ModelSettings` value from
+`@scenesystems/effect-lm`, such as `{"temperature":0,"maxTokens":256}`.
+Absent fields keep provider defaults. OpenAI Responses supports `temperature`,
+`maxTokens`, and `topP`; Anthropic Messages also supports `stop`; OpenRouter
+supports all five fields, including `seed`. Unsupported configured defaults
+(OpenAI `stop` or `seed`, Anthropic `seed`) make every model operation of the
+direct layer fail with `AiError.InvalidRequestError` before HTTP, rather than
+being silently dropped.
+
+## Model binding by role
+
+Use `ModelBinder.layer` to bind semantic roles (`task`, `teacher`, `proposer`,
+`evaluator`, `critic`) to configured runtimes. It installs an
+`@scenesystems/effect-lm` binder from a `HashMap` of roles to `TextProvider.Runtime`s:
+
+```ts typecheck
+import { Effect, HashMap } from "effect"
+import { ModelSettings, type Role } from "@scenesystems/effect-lm"
+import { ModelBinder, TextProvider } from "@scenesystems/effect-inference"
+
+export const binderLayer = Effect.gen(function* () {
+  const task = yield* TextProvider.resolve(
+    new TextProvider.Options({ provider: "openrouter", defaults: new ModelSettings.ModelSettings({ temperature: 0 }) })
+  )
+  const critic = yield* TextProvider.resolve(new TextProvider.Options({ provider: "anthropic" }))
+  const roles: ReadonlyArray<readonly [Role.Role, TextProvider.Runtime]> = [
+    ["task", task],
+    ["critic", critic]
+  ]
+  return ModelBinder.layer(HashMap.fromIterable(roles))
+})
+```
+
+Each bound request uses its role's runtime, falling back to `task`. Settings
+merge in order: runtime defaults, ambient provider configuration, then request
+settings, with later values taking precedence. The result is available through
+`ModelSettings.Current`, and the runtime's `ModelIdentity` is declared for durable
+caching. Unsupported resolved settings, or a missing role runtime with no `task`
+fallback, fail model operations with `InvalidRequestError` before transport.
+The binder preserves the wrapped effect's error and service channels.
 
 ## Hugging Face
 

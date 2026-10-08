@@ -1,19 +1,36 @@
 /**
- * Executable modules, live ownership nodes, and module operations.
+ * Executable modules, program structure, and module operations.
  *
  * @since 0.1.0
  * @module
  */
+import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
+import type { Role } from "@scenesystems/effect-lm/Role"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean, Data, Equivalence, Graph, HashMap, Match, Option, Order, Schema, Tuple } from "effect"
-import type { Effect, Record, Ref } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Chunk,
+  Data,
+  Effect,
+  Equivalence,
+  Graph,
+  HashMap,
+  Match,
+  Option,
+  Order,
+  Record,
+  Ref,
+  Schema,
+  Tuple
+} from "effect"
 import type * as AiError from "effect/ai/AiError"
 import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Tool from "effect/ai/Tool"
 import type * as Toolkit from "effect/ai/Toolkit"
 import * as Schedule from "effect/Schedule"
 import type { Codec as DemonstrationCodec } from "./Demonstration.js"
-import type { DspError, ParseOutputError } from "./DspError.js"
+import type { DspError, ParseOutputError, SignatureError } from "./DspError.js"
 import { bestOfN as bestOfNInternal } from "./internal/module/bestOfN/construct.js"
 import { chainOfThought as chainOfThoughtInternal } from "./internal/module/chainOfThought/construct.js"
 import { toChainOfThoughtSignature as toChainOfThoughtSignatureInternal } from "./internal/module/chainOfThought/schema.js"
@@ -28,12 +45,18 @@ import { predict as predictInternal } from "./internal/module/predict/construct.
 import { react as reactInternal } from "./internal/module/react/construct.js"
 import { refine as refineInternal } from "./internal/module/refine/construct.js"
 import { load as loadInternal, save as saveInternal } from "./internal/module/saveLoad.js"
-import type { Result as MetricResult } from "./Metric.js"
+import * as ParameterBinding from "./internal/parameterBinding.js"
+import { withAttempts } from "./internal/trace/attempts.js"
+import type { Score as MetricResult } from "./Metric.js"
 import type { ModuleGraph } from "./ModuleGraph.js"
-import { ModuleParameters } from "./ModuleParameters.js"
-import type { Signature } from "./Signature.js"
+import { predictors } from "./ModuleGraph.js"
+import type { ModuleParameters } from "./ModuleParameters.js"
+import { ParameterSet } from "./ParameterSet.js"
+import { Prediction } from "./Prediction.js"
+import type { Signature, Text } from "./Signature.js"
+import * as Trace from "./Trace.js"
 
-/** Validated identity used by module ownership and discovery graphs.
+/** Validated module identity used by composition and discovery.
  * @since 0.1.0
  * @category schemas
  */
@@ -63,83 +86,78 @@ export const RolloutCount = Schema.Int.pipe(
  */
 export type RolloutCount = typeof RolloutCount.Type
 
-/** Prompt metadata retained by a live ownership node.
- * @since 0.1.0
+/** A module and its sub-modules used for composition, optimization, and persistence.
+ * @since 0.7.0
  * @category models
  */
-export class NodeSignature extends Schema.Class<NodeSignature>("@scenesystems/effect-dsp/Module/NodeSignature")({
-  description: Schema.String,
-  instructions: Schema.String
-}) {}
-
-/** Live ownership view used for composition, optimization, and persistence.
- * @since 0.1.0
- * @category models
- */
-export class Node extends Data.Class<{
-  readonly moduleId: Id
+export class Structure extends Data.Class<{
+  readonly id: Id
   readonly name: string
-  readonly signature: NodeSignature
+  readonly signature: Text
+  readonly signatureDigest: (parameters: ModuleParameters) => Effect.Effect<string, SignatureError>
   readonly demonstrationCodec: DemonstrationCodec
-  readonly params: Ref.Ref<ModuleParameters>
-  readonly subModules: HashMap.HashMap<Id, Node>
+  readonly parameters: Ref.Ref<ModuleParameters>
+  readonly subModules: HashMap.HashMap<Id, Structure>
+  readonly declarations?: Record.ReadonlyRecord<string, Structure>
+  readonly frozen?: boolean
+  readonly boundParameters?: ParameterSet
 }> {}
 
-/** One retained child declaration in a normalized live ownership graph.
- * @since 0.4.0
+/** A named sub-module in a program's structure.
+ * @since 0.7.0
  * @category models
  */
-export class Declaration extends Data.Class<{
-  readonly declaredId: Id
-  readonly child: Node
+export class SubModule extends Data.Class<{
+  readonly name: Id
+  readonly module: Structure
 }> {}
 
 class NormalizationWorklist extends Data.Class<{
-  readonly pending: Iterable<Node>
-  readonly expanded: Iterable<Node>
+  readonly pending: Iterable<Structure>
+  readonly expanded: Iterable<Structure>
 }> {}
 
-const nodeIdentity = Equivalence.strictEqual<Node>()
-const ownerIdentity = Equivalence.strictEqual<Node["params"]>()
-const declarationOrder: Order.Order<Declaration> = Order.mapInput(Order.String, (edge) => edge.declaredId)
+const moduleIdentity = Equivalence.strictEqual<Structure>()
+const predictorIdentity = Equivalence.strictEqual<Structure["parameters"]>()
+const subModuleOrder: Order.Order<SubModule> = Order.mapInput(Order.String, (entry) => entry.name)
 
-/** Materializes recursive ownership into a directed graph without reading parameters.
- * @since 0.4.0
+/** Projects recursive program structure into a directed graph without reading parameters.
+ * @since 0.7.0
  * @category constructors
  */
-export const nodeGraph = (roots: Iterable<Node>): Graph.DirectedGraph<Node, Declaration> =>
-  Graph.directed<Node, Declaration>((mutable) => {
-    const register = (node: Node) =>
+export const structure = (roots: Iterable<Structure>): Graph.DirectedGraph<Structure, SubModule> =>
+  Graph.directed<Structure, SubModule>((mutable) => {
+    const register = (module: Structure) =>
       Option.getOrElse(
-        Graph.findNode(mutable, (existing) => ownerIdentity(existing.params, node.params)),
-        () => Graph.addNode(mutable, node)
+        Graph.findNode(mutable, (existing) => predictorIdentity(existing.parameters, module.parameters)),
+        () => Graph.addNode(mutable, module)
       )
     const initial = Arr.fromIterable(roots)
     Arr.forEach(initial, register)
     Arr.unfold(
       new NormalizationWorklist({ pending: initial, expanded: Arr.empty() }),
       (state) =>
-        Option.map(Arr.head(Arr.fromIterable(state.pending)), (node) => {
+        Option.map(Arr.head(Arr.fromIterable(state.pending)), (module) => {
           const rest = Arr.drop(state.pending, 1)
           return Tuple.make(
-            node,
-            Boolean.match(Arr.containsWith(nodeIdentity)(state.expanded, node), {
+            module,
+            Boolean.match(Arr.containsWith(moduleIdentity)(state.expanded, module), {
               onTrue: () => new NormalizationWorklist({ pending: rest, expanded: state.expanded }),
               onFalse: () => {
-                const source = register(node)
-                const declarations = Arr.sort(
+                const source = register(module)
+                const subModules = Arr.sort(
                   Arr.map(
-                    HashMap.toEntries(node.subModules),
-                    ([declaredId, child]) => new Declaration({ declaredId, child })
+                    HashMap.toEntries(module.subModules),
+                    ([name, module]) => new SubModule({ name, module })
                   ),
-                  declarationOrder
+                  subModuleOrder
                 )
-                Arr.forEach(declarations, (declaration) => {
-                  Graph.addEdge(mutable, source, register(declaration.child), declaration)
+                Arr.forEach(subModules, (subModule) => {
+                  Graph.addEdge(mutable, source, register(subModule.module), subModule)
                 })
                 return new NormalizationWorklist({
-                  pending: Arr.appendAll(rest, Arr.map(declarations, (declaration) => declaration.child)),
-                  expanded: Arr.append(state.expanded, node)
+                  pending: Arr.appendAll(rest, Arr.map(subModules, (subModule) => subModule.module)),
+                  expanded: Arr.append(state.expanded, module)
                 })
               }
             })
@@ -148,41 +166,32 @@ export const nodeGraph = (roots: Iterable<Node>): Graph.DirectedGraph<Node, Decl
     )
   })
 
-/** Runtime registration captured while a module executes.
- * @since 0.1.0
+/** A module observed during program execution.
+ * @since 0.7.0
  * @category models
  */
-export class Registration extends Data.TaggedClass("ModuleRegistration")<{
+export class Discovered extends Data.TaggedClass("ModuleDiscovered")<{
   readonly id: Id
-  readonly params: Ref.Ref<ModuleParameters>
-  readonly signature: NodeSignature
+  readonly parameters: Ref.Ref<ModuleParameters>
+  readonly signature: Text
   readonly subModuleIds: ReadonlyArray<Id>
 }> {}
 
 /**
- * Captures module parameter values in the version 1 persistence envelope.
+ * Captures module parameter values and optional caller metadata.
  *
  * @remarks
- * Schema decoding accepts only version `1`. {@link load} additionally requires
- * exactly one entry for each name in the target parameter tree and rejects
- * duplicate, missing, or unknown names. Metadata is preserved by the schema but
+ * {@link load} requires
+ * exactly one entry for each predictor path and rejects
+ * missing or unknown paths. Metadata is preserved by the schema but
  * ignored by `load`; `save` omits it.
  *
  * @since 0.1.0
  * @category models
  */
 export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-dsp/Module/SavedState")({
-  /** Envelope format version; only `1` is accepted. */
-  version: Schema.Literal(1),
-  /** Parameter entries matched to a target module tree by exact name. */
-  modules: Schema.Array(
-    Schema.Struct({
-      /** Module name used by persistence matching. */
-      name: Schema.String,
-      /** Complete parameter value restored into the module ref. */
-      params: ModuleParameters
-    })
-  ),
+  /** Effective parameter values keyed by canonical leaf predictor paths. */
+  parameters: Schema.suspend(() => ParameterSet),
   /** Caller-defined envelope metadata ignored by module restoration. */
   metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 }) {}
@@ -197,7 +206,7 @@ export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-d
  * may use a language-model service and any Schema context, and may fail with an
  * AI provider error or package-owned `DspError`.
  *
- * Parameters remain mutable through a `Ref`. The child map records owned nodes
+ * Parameters remain mutable through a `Ref`. The child map records sub-modules
  * for composition, discovery, optimization, and persistence. Operational
  * wrappers include the inner modules whose parameters their execution reads.
  *
@@ -220,9 +229,15 @@ export class Module<
   /** Runtime schemas and prompt metadata for this module boundary. */
   readonly signature: Signature<I, O>
   /** Mutable instruction, demonstration, rendering, and generation state. */
-  readonly params: Ref.Ref<ModuleParameters>
-  /** Child nodes owned for composition and parameter persistence. */
-  readonly subModules: HashMap.HashMap<Id, Node>
+  readonly parameters: Ref.Ref<ModuleParameters>
+  /** Sub-modules used for composition and parameter persistence. */
+  readonly subModules: HashMap.HashMap<Id, Structure>
+  /** Caller-local declaration aliases retained for predictor paths. */
+  readonly declarations?: Record.ReadonlyRecord<string, Structure>
+  /** Excludes this subtree from optimization without preventing execution. */
+  readonly frozen?: boolean
+  /** Defaults carried by a bound program without modifying its predictors. */
+  readonly boundParameters?: ParameterSet
   /** Executes the module for one already-decoded input value. */
   readonly forward: (
     input: Schema.Schema.Type<Schema.Struct<I>>
@@ -279,7 +294,7 @@ export type ChainOfThoughtOutputFields<O extends Schema.Struct.Fields> =
   & O
   & Record.ReadonlyRecord<"reasoning", typeof Schema.String>
 
-/** Live module shape accepted by composition declarations.
+/** Module contract accepted by composition declarations.
  * @since 0.1.0
  * @category models
  */
@@ -288,10 +303,14 @@ export class ComposableModule extends Data.Class<{
   readonly signature: {
     readonly description: string
     readonly instructions: string
+    readonly digest: (parameters: ModuleParameters) => Effect.Effect<string, SignatureError>
     readonly demonstrationCodec: DemonstrationCodec
   }
-  readonly params: Ref.Ref<ModuleParameters>
-  readonly subModules: HashMap.HashMap<Id, Node>
+  readonly parameters: Ref.Ref<ModuleParameters>
+  readonly subModules: HashMap.HashMap<Id, Structure>
+  readonly declarations?: Record.ReadonlyRecord<string, Structure>
+  readonly frozen?: boolean
+  readonly boundParameters?: ParameterSet
 }> {}
 
 /** Declares direct modules under caller-local aliases.
@@ -300,13 +319,13 @@ export class ComposableModule extends Data.Class<{
  */
 export type ComposeSubModules = Record.ReadonlyRecord<string, ComposableModule>
 
-/** Carries decoded input and ownership metadata into a composed callback.
+/** Carries decoded input and sub-module metadata into a composed callback.
  * @since 0.1.0
  * @category models
  */
 export class ComposeForwardContext<I extends Schema.Struct.Fields> extends Data.Class<{
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
-  readonly subModuleNodes: HashMap.HashMap<Id, Node>
+  readonly subModules: HashMap.HashMap<Id, Structure>
   readonly graph: ModuleGraph
 }> {}
 
@@ -348,7 +367,7 @@ export class ComposeOptions<
   readonly forward: ComposeForward<I, O, E, R>
 }> {}
 
-/** Declares root metadata and direct owners for graph validation.
+/** Declares root metadata and direct sub-modules for graph validation.
  * @since 0.1.0
  * @category models
  */
@@ -406,7 +425,13 @@ export class PredictPolicyOverrides extends Data.Class<{ readonly parse?: ParseP
  * @since 0.1.0
  * @category models
  */
-export class PredictOptions extends Data.Class<{ readonly policy?: PredictPolicyOverrides }> {}
+export class PredictOptions extends Data.Class<{
+  readonly policy?: PredictPolicyOverrides
+  readonly settings?: ModelSettings
+  readonly role?: Role
+  /** Auto caches predictor calls at every temperature when a Cache layer is present. */
+  readonly cache?: "auto" | "never"
+}> {}
 
 /** Default maximum additional parse attempts.
  * @since 0.1.0
@@ -555,12 +580,12 @@ export const chainOfThought = chainOfThoughtInternal
  * @category combinators
  */
 export const toChainOfThoughtSignature = toChainOfThoughtSignatureInternal
-/** Constructs a module with validated child ownership.
+/** Constructs a module with validated sub-modules.
  * @since 0.1.0
  * @category constructors
  */
 export const compose = composeInternal
-/** Returns a validated ownership graph.
+/** Returns a validated module composition graph.
  * @since 0.1.0
  * @category constructors
  */
@@ -585,6 +610,30 @@ export const withDiscoveryScope = withDiscoveryScopeInternal
  * @category constructors
  */
 export const predict = predictInternal
+
+/** Invokes a module while collecting its decoded output, trace and usage.
+ * Expected failures, defects and interruption propagate from forward unchanged.
+ * @since 0.7.0
+ * @category execution
+ */
+export const call = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  module: Module<I, O, E, R>,
+  input: Schema.Schema.Type<Schema.Struct<I>>
+) =>
+  Effect.gen(function*() {
+    const [[[output, entries], attempts], usage] = yield* module.forward(input).pipe(
+      Trace.withTracing,
+      withAttempts,
+      Trace.withUsageTracking
+    )
+    const trace = new Trace.Program({
+      selected: Chunk.fromIterable(Arr.filter(entries, (entry) => entry.outcome === "completed")),
+      attempts,
+      usage
+    })
+    return new Prediction({ output, trace, usage })
+  })
+
 /** Allocates a tool-capable predictor.
  * @since 0.1.0
  * @category constructors
@@ -605,3 +654,66 @@ export const load = loadInternal
  * @category persistence
  */
 export const save = saveInternal
+
+/** Installs an immutable parameter overlay for the duration of an effect.
+ * @since 0.7.0
+ * @category combinators
+ */
+export const withParameters = ParameterBinding.withParameters
+
+/** Returns an executable copy bound to a parameter snapshot; caller refs are unchanged.
+ * @since 0.7.0
+ * @category constructors
+ */
+export const bound = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  root: Module<I, O, E, R>,
+  parameters: ParameterSet
+): Module<I, O, E, R> => {
+  const copy: Module<I, O, E, R> = new Module({
+    name: root.name,
+    signature: root.signature,
+    parameters: root.parameters,
+    subModules: root.subModules,
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(root.declarations),
+      () => Record.fromEntries(HashMap.toEntries(root.subModules))
+    ),
+    frozen: Option.getOrElse(Option.fromUndefinedOr(root.frozen), () => false),
+    boundParameters: { ...root.boundParameters, ...parameters },
+    forward: (input) => root.forward(input).pipe(ParameterBinding.withPredictors(predictors(copy)))
+  })
+  return copy
+}
+
+/** Marks a subtree as excluded from optimization; its forward operation is unchanged.
+ * @since 0.7.0
+ * @category combinators
+ */
+export const freeze = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  root: Module<I, O, E, R>
+): Module<I, O, E, R> =>
+  new Module({
+    name: root.name,
+    signature: root.signature,
+    parameters: root.parameters,
+    subModules: root.subModules,
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(root.declarations),
+      () => Record.fromEntries(HashMap.toEntries(root.subModules))
+    ),
+    boundParameters: Option.getOrElse(Option.fromUndefinedOr(root.boundParameters), (): ParameterSet => ({})),
+    forward: root.forward,
+    frozen: true
+  })
+
+/** Explicitly installs snapshot values into matching predictor refs.
+ * @since 0.7.0
+ * @category persistence
+ */
+export const install = Effect.fnUntraced(function*(root: ComposableModule, parameters: ParameterSet) {
+  yield* Effect.forEach(predictors(root), (entry) =>
+    Option.match(Record.get(parameters, entry.path), {
+      onNone: () => Effect.void,
+      onSome: (parameters) => Ref.set(entry.parameters, parameters)
+    }), { discard: true }).pipe(Effect.uninterruptible)
+})

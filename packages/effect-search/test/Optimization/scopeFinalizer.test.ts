@@ -65,7 +65,8 @@ const trackedSampler = ({
     checkpoint: Ref.updateAndGet(checkpointCallsRef, Num.increment).pipe(
       Effect.map((calls) => ({
         _tag: "Random",
-        seed: calls
+        seed: calls,
+        rng: Option.none()
       }))
     ),
     restore: () => Effect.void,
@@ -99,10 +100,15 @@ describe("Optimization scoped execution", () => {
       )
       const checkpointCalls = yield* Ref.get(checkpointCallsRef)
       const snapshot = yield* storage.loadSnapshot().pipe(Effect.flatMap(Effect.fromOption))
+      const journal = yield* storage.loadTrialLog()
 
       expect(Option.isNone(interrupted)).toBe(true)
-      expect(checkpointCalls).toBe(1)
-      expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: 1 })
+      // Each durable trial journals one checkpoint; the interruption snapshot takes exactly one more.
+      expect(Arr.map(journal, (record) => record.samplerCheckpoint)).toEqual(
+        Arr.makeBy(Arr.length(journal), (index) => ({ _tag: "Random", seed: Num.increment(index), rng: Option.none() }))
+      )
+      expect(checkpointCalls).toBe(Num.increment(Arr.length(journal)))
+      expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: checkpointCalls, rng: Option.none() })
     }))
 
   it.live("runs sampler acquire/release lifecycle in scoped execution", () =>

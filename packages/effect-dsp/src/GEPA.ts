@@ -6,14 +6,16 @@
  * @since 0.1.0
  * @module
  */
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { nextDeterministicSeed, normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import type { Chunk, Record } from "effect"
 import {
   Array as Arr,
   Boolean,
   Data,
   Effect,
-  Equal,
   Inspectable,
   Match,
   Number as Num,
@@ -21,27 +23,24 @@ import {
   Ref,
   Schema,
   Stream,
-  String
+  String,
+  Struct
 } from "effect"
-import type * as AiError from "effect/ai/AiError"
-import type * as LanguageModel from "effect/ai/LanguageModel"
-import type { DspError } from "./DspError.js"
-import { Example } from "./Example.js"
+import { GEPAError } from "./DspError.js"
+import { Example, id as exampleId } from "./Example.js"
 import { deriveParetoKernelSnapshot } from "./internal/gepa/frontier.js"
-import { GEPAState, PredictorInstruction, ProgramCandidate } from "./internal/gepa/model.js"
-import { commitCandidateInstructions, evaluateCandidate } from "./internal/gepa/runtime/evaluate.js"
+import { candidateParameters, evaluateCandidate } from "./internal/gepa/runtime/evaluate.js"
 import { runMergePhase } from "./internal/gepa/runtime/mergePhase.js"
-import { runMutationPhase } from "./internal/gepa/runtime/mutation.js"
+import { bestIndex, runMutationPhase } from "./internal/gepa/runtime/mutation.js"
 import { streamGEPAEvents } from "./internal/gepa/runtime/stream.js"
-import { collectModuleParamRefs } from "./internal/moduleParameters.js"
+import { CheckpointContext, validateCheckpoint } from "./internal/gepa/validation.js"
+import * as Binding from "./internal/parameterBinding.js"
 import type { Metric } from "./Metric.js"
-import type { Module as DspModule } from "./Module.js"
-
-const normalizeNonNegativeCount = (value: number): number =>
-  Match.value(value).pipe(
-    Match.when(Numeric.isFinite, (candidate) => Numeric.max(0, Numeric.floor(candidate))),
-    Match.orElse(() => 0)
-  )
+import { bound, type Module as DspModule } from "./Module.js"
+import { predictors } from "./ModuleGraph.js"
+import * as Optimized from "./Optimized.js"
+import { Payload } from "./Payload.js"
+import type * as Predictor from "./Predictor.js"
 
 /** Ordered examples consumed by GEPA.
  * @since 0.1.0
@@ -53,6 +52,132 @@ export const Examples = Schema.Array(Example)
  * @category type-level
  */
 export type Examples = typeof Examples.Type
+
+/** Instruction text for one trainable predictor of a candidate program.
+ * @since 0.7.0
+ * @category models
+ */
+export class PredictorInstruction extends Schema.Class<PredictorInstruction>(
+  "@scenesystems/effect-dsp/GEPA/PredictorInstruction"
+)({
+  predictorName: Schema.String,
+  instruction: Schema.String
+}) {}
+
+/** A program in the GEPA population. Candidate `i` is `candidate-i`; parents
+ * name earlier candidates, and instructions follow the module's trainable
+ * predictor order. Custom instruction proposers receive the selected parent.
+ * @since 0.7.0
+ * @category models
+ */
+export class ProgramCandidate extends Schema.Class<ProgramCandidate>("@scenesystems/effect-dsp/GEPA/ProgramCandidate")({
+  candidateId: Schema.String,
+  parentIds: Schema.Array(Schema.String),
+  predictorInstructions: Schema.Array(PredictorInstruction)
+}) {}
+
+/** Candidates attaining the best observed score on one validation example.
+ * @since 0.7.0
+ * @category models
+ */
+export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>(
+  "@scenesystems/effect-dsp/GEPA/ExampleFrontierHolding"
+)({
+  exampleIndex: Schema.Finite,
+  bestScore: Schema.Finite,
+  holders: Schema.Array(Schema.Finite)
+}) {}
+
+/** Parent-selection frequency: the number of validation examples on which a
+ * candidate remains in the irredundant per-example cover.
+ * @since 0.7.0
+ * @category models
+ */
+export class ParentSelectionWeight extends Schema.Class<ParentSelectionWeight>(
+  "@scenesystems/effect-dsp/GEPA/ParentSelectionWeight"
+)({
+  candidateIndex: Schema.Finite,
+  weight: Schema.Finite
+}) {}
+
+/** Coverage front derived from the validation score vectors: frontier and
+ * dominated candidate indices, raw per-example holdings and parent weights.
+ * A checkpoint's snapshot must equal the one derived from its score vectors.
+ * @since 0.7.0
+ * @category models
+ */
+export class ParetoSnapshot extends Schema.Class<ParetoSnapshot>("@scenesystems/effect-dsp/GEPA/ParetoSnapshot")({
+  frontierIndices: Schema.Array(Schema.Finite),
+  dominatedIndices: Schema.Array(Schema.Finite),
+  exampleHoldings: Schema.Array(ExampleFrontierHolding),
+  parentWeights: Schema.Array(ParentSelectionWeight)
+}) {}
+
+/** Epoch-shuffled training minibatch schedule persisted with the orchestration RNG.
+ * `shuffled` holds training-set indices for a training set of `trainsetSize` rows.
+ * @since 0.7.0
+ * @category models
+ */
+export class BatchState extends Schema.Class<BatchState>("@scenesystems/effect-dsp/GEPA/BatchState")({
+  shuffled: Schema.Array(Schema.Int),
+  frequencies: Schema.Array(Schema.Struct({ id: Schema.Int, count: Schema.Int })),
+  epoch: Schema.Int,
+  iteration: Schema.Int,
+  calls: Schema.Int,
+  trainsetSize: Schema.Int
+}) {}
+
+/** One reflective-feedback row offered to an instruction proposer: the
+ * predictor execution's input and output, the expected output, feedback and
+ * score. `predictor-execution` rows carry the targeted predictor's own call.
+ * @since 0.7.0
+ * @category models
+ */
+export class ReflectiveExample extends Schema.Class<ReflectiveExample>(
+  "@scenesystems/effect-dsp/GEPA/ReflectiveExample"
+)({
+  exampleId: Schema.String,
+  predictorName: Schema.String,
+  evidenceScope: Schema.Literals(["predictor-execution", "program"]).pipe(
+    Schema.withConstructorDefault(Effect.succeed("program"))
+  ),
+  inputs: Payload,
+  generatedOutputs: Payload,
+  expectedOutput: Payload,
+  feedback: Schema.String,
+  score: Schema.Finite
+}) {}
+
+/** Complete continuation state for exact replay of an uninterrupted run.
+ * Carries both RNG streams, epoch-shuffled batch state, component cursors,
+ * merge scheduler counters and deduplication records. With the same module,
+ * datasets, metric, options and model responses, resuming reproduces the
+ * uninterrupted run exactly.
+ * Upstream gepa 0.1.4 pickles only GEPAState: its batch sampler and merge
+ * proposer rebuild their RNGs (random.Random(0)) and counters on restart,
+ * so an upstream resumed run does not reproduce its uninterrupted run.
+ * `resume` rejects a state inconsistent with the module, datasets or its own
+ * derived frontier with `GEPAError` reason `invalid-state` before evaluating.
+ * @since 0.7.0
+ * @category models
+ */
+export class State extends Schema.Class<State>("@scenesystems/effect-dsp/GEPA/State")({
+  iteration: Schema.Int,
+  candidates: Schema.Array(ProgramCandidate),
+  scoreVectors: Schema.Array(Schema.Array(Schema.Finite)),
+  paretoSnapshot: ParetoSnapshot,
+  componentCursors: Schema.Array(Schema.Int),
+  metricCalls: Schema.Int,
+  feedbackMetricCalls: Schema.Int,
+  orchestrationRandom: Schema.toCodecJson(PseudoRandom.State),
+  adapterRandom: Schema.toCodecJson(PseudoRandom.State),
+  batch: BatchState,
+  mergesDue: Schema.Int,
+  acceptedMerges: Schema.Int,
+  lastIterationFoundNew: Schema.Boolean,
+  mergeTriplets: Schema.Array(Schema.Tuple([Schema.Int, Schema.Int, Schema.Int])),
+  mergeDescriptions: Schema.Array(Schema.Tuple([Schema.Int, Schema.Int, Schema.Array(Schema.Int)]))
+}) {}
 
 /** Configures reflective mutation and Pareto selection.
  * @since 0.1.0
@@ -69,9 +194,49 @@ export class Options<
   readonly module: DspModule<I, O, E, R>
   readonly trainset: Examples
   readonly valset?: Examples
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
-  readonly maxIterations: number
+  /** Application guard; default false allows upstream's trainset-as-valset fallback. */
+  readonly requireDistinctValset?: boolean
+  readonly metric: Metric<ME, MR>
+  /** Exactly one budget is required; absent auto is not an implicit budget. */
+  readonly auto?: Option.Option<"light" | "medium" | "heavy">
+  readonly maxMetricCalls?: number
+  readonly maxFullEvals?: number
+  /** Absolute local iteration boundary for checkpointing, independent of the metric budget.
+   * The returned State carries both RNG streams, epoch-shuffled batches, component
+   * cursors, merge scheduler counters and deduplication records for exact continuation.
+   * Upstream gepa 0.1.4 pickles only GEPAState and rebuilds the batch sampler and
+   * merge proposer RNGs (random.Random(0)) and counters, losing uninterrupted-run
+   * equivalence. Raise or remove this boundary when calling {@link resume}.
+   */
+  readonly maxIterations?: number
+  readonly reflectionMinibatchSize?: number
+  readonly candidateSelectionStrategy?: "pareto" | "currentBest"
+  readonly skipPerfectScore?: boolean
+  readonly addFormatFailureAsFeedback?: boolean
+  readonly reflectionSettings?: ModelSettings
+  /** Built-in predictor traversal follows stable Module.Structure path order.
+   * Merge conflicts use the same order. Upstream gepa 0.1.4 iterates a Python
+   * string set (merge.py:159–163): PYTHONHASHSEED controls its order and is
+   * randomized per process by default. With two or more tied conflicts upstream
+   * is not reproducible across processes; Theoria is deterministic.
+   * Custom selectors must return trainable paths; unknown or frozen paths fail with `GEPAError`.
+   */
+  readonly componentSelector?: "roundRobin" | "all" | ((state: State) => Chunk.Chunk<Predictor.Path>)
+  readonly instructionProposer?: (
+    candidate: ProgramCandidate,
+    components: Chunk.Chunk<Predictor.Path>,
+    examples: Record.ReadonlyRecord<string, ReadonlyArray<ReflectiveExample>>
+  ) => Effect.Effect<Record.ReadonlyRecord<string, string>, ME, MR>
+  /** Enables merging in stable Module.Structure path order, including conflict resolution.
+   * Upstream's Python string-set order depends on PYTHONHASHSEED and is randomized
+   * per process by default, so two or more tied conflicts are not reproducible
+   * across processes. Theoria's order is deterministic.
+   */
+  readonly useMerge?: boolean
   readonly maxMergeInvocations?: number
+  readonly numThreads?: number
+  readonly failureScore?: number
+  readonly perfectScore?: number
   readonly seed?: number
 }> {}
 
@@ -80,6 +245,7 @@ export class Options<
  * @category events
  */
 export const Event = Schema.Union([
+  Schema.TaggedStruct("Checkpoint", { state: State }),
   Schema.TaggedStruct("IterationStarted", { iteration: Schema.Finite, frontierSize: Schema.Finite }),
   Schema.TaggedStruct("MergeChecked", {
     iteration: Schema.Finite,
@@ -158,6 +324,8 @@ export class ProgressLine extends Schema.Class<ProgressLine>("@scenesystems/effe
 const render = (label: string, value: unknown): string => String.concat(label, Inspectable.toStringUnknown(value))
 const progressDetails = (event: Event): string =>
   Match.value(event).pipe(
+    Match.tag("Checkpoint", ({ state }) =>
+      `iteration=${state.iteration} metricCalls=${state.metricCalls} feedbackMetricCalls=${state.feedbackMetricCalls}`),
     Match.tag("IterationStarted", ({ iteration, frontierSize }) =>
       Arr.join(Arr.make(render("iteration=", iteration), render("frontierSize=", frontierSize)), " ")),
     Match.tag("MergeChecked", ({ iteration, attempted, accepted, mergeBudgetRemaining }) =>
@@ -244,10 +412,10 @@ export const tapProgress =
     Stream.tap(stream, (event) => sink(formatEvent(event)))
 
 /** Folded terminal GEPA event state.
- * @since 0.1.0
+ * @since 0.7.0
  * @category models
  */
-export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/GEPA/EventSummary")({
+export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/GEPA/Report")({
   totalEvents: Schema.Finite,
   iterationStartedCount: Schema.Finite,
   mergeCheckedCount: Schema.Finite,
@@ -266,9 +434,12 @@ export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effe
   optimizationFrontierSize: Schema.Finite,
   lastReportedFrontierSize: Schema.Finite,
   maxFrontierSize: Schema.Finite,
-  parentWeightEntriesObserved: Schema.Finite
+  parentWeightEntriesObserved: Schema.Finite,
+  metricCalls: Schema.Int,
+  feedbackMetricCalls: Schema.Int,
+  state: Schema.toCodecJson(Schema.Option(State))
 }) {}
-const emptySummary = new EventSummary({
+const emptySummary = new Report({
   totalEvents: 0,
   iterationStartedCount: 0,
   mergeCheckedCount: 0,
@@ -287,86 +458,76 @@ const emptySummary = new EventSummary({
   optimizationFrontierSize: 0,
   lastReportedFrontierSize: 0,
   maxFrontierSize: 0,
-  parentWeightEntriesObserved: 0
+  parentWeightEntriesObserved: 0,
+  metricCalls: 0,
+  feedbackMetricCalls: 0,
+  state: Option.none()
 })
 /** Summarizes GEPA lifecycle events.
  * @since 0.1.0
  * @category combinators
  */
-export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
+export const summarizeEvents = (input: Iterable<Event>): Report =>
   Arr.reduce(input, emptySummary, (summary, event) => {
-    const next = new EventSummary({
-      ...(Schema.encodeSync(EventSummary)(summary)),
-      totalEvents: Num.increment(summary.totalEvents)
-    })
-    return Match.value(event).pipe(
+    const fields = Match.value(event).pipe(
       Match.tagsExhaustive({
-        IterationStarted: ({ frontierSize }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            iterationStartedCount: Num.increment(next.iterationStartedCount),
-            lastReportedFrontierSize: frontierSize,
-            maxFrontierSize: Num.max(next.maxFrontierSize, frontierSize)
-          }),
-        MergeChecked: () =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            mergeCheckedCount: Num.increment(next.mergeCheckedCount)
-          }),
-        MutationProposed: () =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            mutationProposedCount: Num.increment(next.mutationProposedCount)
-          }),
-        AcceptanceEvaluated: ({ accepted, gate1Passed, fullValsetEvaluated }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            acceptanceEvaluatedCount: Num.increment(next.acceptanceEvaluatedCount),
-            acceptanceAcceptedCount: Num.sum(
-              next.acceptanceAcceptedCount,
-              Boolean.match(accepted, { onFalse: () => 0, onTrue: () => 1 })
-            ),
-            gate1PassedCount: Num.sum(
-              next.gate1PassedCount,
-              Boolean.match(gate1Passed, { onFalse: () => 0, onTrue: () => 1 })
-            ),
-            fullValsetEvaluatedCount: Num.sum(
-              next.fullValsetEvaluatedCount,
-              Boolean.match(fullValsetEvaluated, { onFalse: () => 0, onTrue: () => 1 })
-            )
-          }),
-        ParetoUpdated: ({ frontierIndices, parentWeights }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            paretoUpdatedCount: Num.increment(next.paretoUpdatedCount),
-            lastReportedFrontierSize: Arr.length(frontierIndices),
-            maxFrontierSize: Num.max(next.maxFrontierSize, Arr.length(frontierIndices)),
-            parentWeightEntriesObserved: Num.sum(next.parentWeightEntriesObserved, Arr.length(parentWeights))
-          }),
-        IterationCompleted: ({ acceptedCandidate, frontierSize }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            iterationCompletedCount: Num.increment(next.iterationCompletedCount),
-            iterationWithAcceptedCandidateCount: Num.sum(
-              next.iterationWithAcceptedCandidateCount,
-              Boolean.match(acceptedCandidate, { onFalse: () => 0, onTrue: () => 1 })
-            ),
-            lastReportedFrontierSize: frontierSize,
-            maxFrontierSize: Num.max(next.maxFrontierSize, frontierSize)
-          }),
-        OptimizationCompleted: ({ iterations, bestCandidateId, frontierSize }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            optimizationCompletedSeen: true,
-            optimizationIterationCount: iterations,
-            optimizationBestCandidateIdSeen: true,
-            optimizationBestCandidateId: bestCandidateId,
-            optimizationFrontierSize: frontierSize,
-            lastReportedFrontierSize: frontierSize,
-            maxFrontierSize: Num.max(next.maxFrontierSize, frontierSize)
-          })
+        Checkpoint: ({ state }) => ({
+          state: Option.some(state),
+          metricCalls: state.metricCalls,
+          feedbackMetricCalls: state.feedbackMetricCalls
+        }),
+        IterationStarted: ({ frontierSize }) => ({
+          iterationStartedCount: Num.increment(summary.iterationStartedCount),
+          lastReportedFrontierSize: frontierSize,
+          maxFrontierSize: Num.max(summary.maxFrontierSize, frontierSize)
+        }),
+        MergeChecked: () => ({ mergeCheckedCount: Num.increment(summary.mergeCheckedCount) }),
+        MutationProposed: () => ({ mutationProposedCount: Num.increment(summary.mutationProposedCount) }),
+        AcceptanceEvaluated: ({ accepted, gate1Passed, fullValsetEvaluated }) => ({
+          acceptanceEvaluatedCount: Num.increment(summary.acceptanceEvaluatedCount),
+          acceptanceAcceptedCount: Num.sum(
+            summary.acceptanceAcceptedCount,
+            Boolean.match(accepted, { onFalse: () => 0, onTrue: () => 1 })
+          ),
+          gate1PassedCount: Num.sum(
+            summary.gate1PassedCount,
+            Boolean.match(gate1Passed, { onFalse: () => 0, onTrue: () => 1 })
+          ),
+          fullValsetEvaluatedCount: Num.sum(
+            summary.fullValsetEvaluatedCount,
+            Boolean.match(fullValsetEvaluated, { onFalse: () => 0, onTrue: () => 1 })
+          )
+        }),
+        ParetoUpdated: ({ frontierIndices, parentWeights }) => ({
+          paretoUpdatedCount: Num.increment(summary.paretoUpdatedCount),
+          lastReportedFrontierSize: Arr.length(frontierIndices),
+          maxFrontierSize: Num.max(summary.maxFrontierSize, Arr.length(frontierIndices)),
+          parentWeightEntriesObserved: Num.sum(summary.parentWeightEntriesObserved, Arr.length(parentWeights))
+        }),
+        IterationCompleted: ({ acceptedCandidate, frontierSize }) => ({
+          iterationCompletedCount: Num.increment(summary.iterationCompletedCount),
+          iterationWithAcceptedCandidateCount: Num.sum(
+            summary.iterationWithAcceptedCandidateCount,
+            Boolean.match(acceptedCandidate, { onFalse: () => 0, onTrue: () => 1 })
+          ),
+          lastReportedFrontierSize: frontierSize,
+          maxFrontierSize: Num.max(summary.maxFrontierSize, frontierSize)
+        }),
+        OptimizationCompleted: ({ iterations, bestCandidateId, frontierSize }) => ({
+          optimizationCompletedSeen: true,
+          optimizationIterationCount: iterations,
+          optimizationBestCandidateIdSeen: true,
+          optimizationBestCandidateId: bestCandidateId,
+          optimizationFrontierSize: frontierSize,
+          lastReportedFrontierSize: frontierSize,
+          maxFrontierSize: Num.max(summary.maxFrontierSize, frontierSize)
+        })
       })
     )
+    return new Report(Struct.assign(summary, {
+      totalEvents: Num.increment(summary.totalEvents),
+      ...fields
+    }))
   })
 
 /**
@@ -374,18 +535,15 @@ export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
  *
  * @remarks
  * The initial program is evaluated before the first event. Each sink effect
- * completes before the next optimizer step. An iteration may attempt a merge,
- * then proposes one mutation, evaluates acceptance, updates the Pareto
- * frontier, and emits `IterationCompleted`.
+ * completes before the next optimizer step. Each iteration evaluates a concrete
+ * merge or a reflective mutation, updates the coverage front, and emits
+ * `IterationCompleted`. A rejected concrete merge also skips reflection.
  *
- * Mutation-proposal language-model failures remain checked failures; no
- * replacement instruction is invented. Module, metric, and Schema failures
- * remain in the Effect error channel, including candidate decoding failures.
- * Temporary candidate instructions are restored after each evaluation. At
- * completion, all owned instructions from the first index in the final Pareto
- * frontier are written to the root and descendant parameter refs; the same
- * module object is returned. GEPA does not reduce the final frontier to a
- * scalar score ranking.
+ * Rollout failures receive failureScore. Feedback and proposal failures remain
+ * typed failures. Metric budgets count evaluated examples, not feedback calls,
+ * and stop only at iteration boundaries. The highest aggregate validation score
+ * wins, with the earliest candidate retained on ties. Instructions are scoped
+ * overlays; caller refs remain unchanged. Checkpoints include both RNG streams.
  *
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored during candidate evaluation.
@@ -407,113 +565,216 @@ export const runWithEvents = <
   ER = never
 >(
   options: Options<I, O, ME, MR, E, R>,
-  emit: EventSink<EE, ER>
+  observe: EventSink<EE, ER>
+) => runOptimization(options, observe, Option.none())
+
+const runOptimization = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R, EE, ER>(
+  options: Options<I, O, ME, MR, E, R>,
+  observe: EventSink<EE, ER>,
+  checkpoint: Option.Option<State>
 ) =>
   Effect.gen(function*() {
-    const paramRefs = collectModuleParamRefs(options.module)
-    const initialInstructions = yield* Effect.forEach(paramRefs, (owner) =>
-      Ref.get(owner.params).pipe(
-        Effect.map((params) =>
-          new PredictorInstruction({ predictorName: owner.name, instruction: params.instructions })
+    const auto = Option.getOrElse(
+      Option.fromUndefinedOr(options.auto),
+      () => Option.none<"light" | "medium" | "heavy">()
+    )
+    const maxMetricCalls = Option.fromUndefinedOr(options.maxMetricCalls)
+    const maxFullEvals = Option.fromUndefinedOr(options.maxFullEvals)
+    const explicitValset = Option.fromUndefinedOr(options.valset)
+    const seed = Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 0)
+    yield* Effect.failSync(() =>
+      new GEPAError({
+        reason: "invalid-options",
+        message: "Exactly one of auto, maxMetricCalls, or maxFullEvals must be set"
+      })
+    ).pipe(
+      Effect.when(Effect.succeed(
+        Arr.filter(
+          [Option.isSome(auto), Option.isSome(maxMetricCalls), Option.isSome(maxFullEvals)],
+          (present) => present
+        ).length !== 1
+      ))
+    )
+    yield* Effect.failSync(() =>
+      new GEPAError({ reason: "invalid-dataset", message: "Trainset must be provided and non-empty" })
+    ).pipe(Effect.when(Effect.succeed(options.trainset.length === 0)))
+    yield* Effect.failSync(() =>
+      new GEPAError({
+        reason: "invalid-options",
+        message: "reflectionMinibatchSize must be a positive integer"
+      })
+    ).pipe(
+      Effect.when(Effect.succeed(
+        !Schema.is(Schema.Int.check(Schema.isGreaterThan(0)))(
+          Option.getOrElse(Option.fromUndefinedOr(options.reflectionMinibatchSize), () => 3)
         )
       ))
+    )
+    const valset = Option.getOrElse(Option.filter(explicitValset, Arr.isReadonlyArrayNonEmpty), () => options.trainset)
+    yield* Effect.gen(function*() {
+      const trainIds = yield* Effect.forEach(options.trainset, exampleId)
+      const valIds = yield* Effect.forEach(valset, exampleId)
+      yield* Effect.failSync(() =>
+        new GEPAError({
+          reason: "invalid-dataset",
+          message: "requireDistinctValset requires non-overlapping training and validation examples"
+        })
+      ).pipe(Effect.when(Effect.succeed(Arr.some(valIds, (id) => Arr.contains(trainIds, id)))))
+    }).pipe(Effect.when(Effect.succeed(options.requireDistinctValset === true)))
+    const recorded = yield* Ref.make(Arr.empty<Event>())
+    const emit: EventSink<EE, ER> = (event) =>
+      Ref.update(recorded, Arr.append(event)).pipe(Effect.andThen(observe(event)))
+    const paramRefs = Arr.filter(Arr.fromIterable(predictors(options.module)), (predictor) => !predictor.frozen)
+    const budget = Option.match(auto, {
+      onNone: () =>
+        Option.match(maxFullEvals, {
+          onNone: () => Option.getOrElse(maxMetricCalls, () => 0),
+          onSome: (count) =>
+            count * (options.trainset.length + Option.match(explicitValset, {
+              onNone: () => 0,
+              onSome: (examples) => examples.length
+            }))
+        }),
+      onSome: (mode) => {
+        const n = Match.value(mode).pipe(
+          Match.when("light", () => 6),
+          Match.when("medium", () => 12),
+          Match.orElse(() => 18)
+        )
+        const trials = Numeric.truncate(
+          Numeric.max(4 * Numeric.max(paramRefs.length, 1) * Numeric.log(n) / Numeric.log(2), 1.5 * n)
+        )
+        const size = Option.match(explicitValset, {
+          onNone: () => options.trainset.length,
+          onSome: (examples) => examples.length
+        })
+        const shortRun = Boolean.match(trials > 0 && trials < 5, { onFalse: () => 0, onTrue: () => 1 })
+        return size + n * 5 + trials * 35 + (Numeric.floor((trials + 1) / 5) + 1 + shortRun) * size
+      }
+    })
+    yield* Effect.failSync(() =>
+      new GEPAError({
+        reason: "invalid-options",
+        message: "Metric budget must be finite and seed must be an integer"
+      })
+    ).pipe(Effect.when(Effect.succeed(!Numeric.isFinite(budget) || !Schema.is(Schema.Int)(seed))))
+    yield* Effect.logWarning(
+      "GEPA has no critic ModelBinder; reflection uses the caller's task LanguageModel and provider defaults"
+    ).pipe(
+      Effect.when(Option.match(Option.fromUndefinedOr(options.instructionProposer), {
+        onNone: () => Effect.map(ModelBinder.Current, (binder) => binder === ModelBinder.identity),
+        onSome: () => Effect.succeed(false)
+      }))
+    )
+    const rng = yield* PseudoRandom.makeCPython(seed)
+    const adapterRng = yield* PseudoRandom.makeCPython(seed)
+    const initialInstructions = yield* Effect.forEach(paramRefs, (predictor) =>
+      Binding.read(predictor.parameters, predictor.path).pipe(
+        Effect.map((parameters) =>
+          new PredictorInstruction({ predictorName: predictor.path, instruction: parameters.instructions })
+        )
+      )).pipe(Binding.withPredictors(predictors(options.module)))
     const initialCandidate = new ProgramCandidate({
       candidateId: "candidate-0",
       parentIds: Arr.empty<string>(),
       predictorInstructions: initialInstructions
     })
-    const initialEvaluation = yield* evaluateCandidate(options, initialCandidate)
-    const initialSnapshot = deriveParetoKernelSnapshot(Arr.make(initialEvaluation.scores))
-    const stateRef = yield* Ref.make(
-      new GEPAState({
-        iteration: 0,
-        candidates: Arr.make(initialCandidate),
-        scoreVectors: Arr.make(initialEvaluation.scores),
-        paretoSnapshot: initialSnapshot,
-        mergeBudgetRemaining: normalizeNonNegativeCount(
-          Option.getOrElse(
-            Option.fromUndefinedOr(options.maxMergeInvocations),
-            () => defaultMaxMergeInvocations
-          )
+    const checkpointContext = new CheckpointContext({
+      trainable: Arr.map(paramRefs, Struct.get("path")),
+      frozen: Arr.map(
+        Arr.filter(Arr.fromIterable(predictors(options.module)), Struct.get("frozen")),
+        Struct.get("path")
+      ),
+      trainsetSize: options.trainset.length,
+      valsetSize: valset.length
+    })
+    const initial = yield* Option.match(checkpoint, {
+      onSome: (state) =>
+        validateCheckpoint(state, checkpointContext).pipe(
+          Effect.andThen(rng.restore(state.orchestrationRandom)),
+          Effect.andThen(adapterRng.restore(state.adapterRandom)),
+          Effect.as(state)
         ),
-        lastIterationFoundNew: false,
-        seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 1))
-      })
-    )
-
-    const runIteration = (iteration: number): Effect.Effect<
-      void,
-      E | ME | EE | AiError.AiError | DspError | Schema.SchemaError,
-      | R
-      | MR
-      | ER
-      | LanguageModel.LanguageModel
-      | Schema.Struct.DecodingServices<I>
-      | Schema.Struct.EncodingServices<I>
-      | Schema.Struct.DecodingServices<O>
-      | Schema.Struct.EncodingServices<O>
-    > =>
-      Effect.suspend(() =>
-        Boolean.match(
-          Num.isLessThanOrEqualTo(iteration, normalizeNonNegativeCount(options.maxIterations)),
-          {
-            onFalse: () => Effect.void,
-            onTrue: () =>
-              Effect.gen(function*() {
-                const state = yield* Ref.get(stateRef)
-                const mergeSeed = state.seed
-                const mutationSeed = nextDeterministicSeed(mergeSeed)
-
-                yield* emit(
-                  events.IterationStarted({ iteration, frontierSize: Arr.length(state.paretoSnapshot.frontierIndices) })
-                )
-
-                const stateAfterMerge = yield* runMergePhase(options, state, iteration, mergeSeed, emit)
-                const mutationResult = yield* runMutationPhase(
-                  options,
-                  stateAfterMerge,
-                  iteration,
-                  mutationSeed,
-                  initialCandidate,
-                  emit
-                )
-                const updatedSnapshot = deriveParetoKernelSnapshot(mutationResult.stateAfterAcceptance.scoreVectors)
-                const nextState = new GEPAState({
-                  iteration,
-                  candidates: mutationResult.stateAfterAcceptance.candidates,
-                  scoreVectors: mutationResult.stateAfterAcceptance.scoreVectors,
-                  paretoSnapshot: updatedSnapshot,
-                  mergeBudgetRemaining: mutationResult.stateAfterAcceptance.mergeBudgetRemaining,
-                  lastIterationFoundNew: mutationResult.stateAfterAcceptance.lastIterationFoundNew,
-                  seed: nextDeterministicSeed(mutationSeed)
-                })
-
-                yield* Ref.set(stateRef, nextState)
-                yield* emit(
-                  events.ParetoUpdated({
-                    iteration,
-                    frontierIndices: updatedSnapshot.frontierIndices,
-                    dominatedIndices: updatedSnapshot.dominatedIndices,
-                    parentWeights: updatedSnapshot.parentWeights
-                  })
-                )
-                yield* emit(
-                  events.IterationCompleted({
-                    iteration,
-                    acceptedCandidate: mutationResult.accepted,
-                    frontierSize: Arr.length(updatedSnapshot.frontierIndices)
-                  })
-                )
-              }).pipe(Effect.flatMap(() => runIteration(Num.increment(iteration))))
-          }
+      onNone: () =>
+        Effect.gen(function*() {
+          const evaluation = yield* evaluateCandidate(options, initialCandidate, valset, "select")
+          return new State({
+            iteration: 0,
+            candidates: [initialCandidate],
+            scoreVectors: [evaluation.scores],
+            paretoSnapshot: deriveParetoKernelSnapshot([evaluation.scores]),
+            componentCursors: [0],
+            metricCalls: valset.length,
+            feedbackMetricCalls: 0,
+            orchestrationRandom: yield* rng.snapshot,
+            adapterRandom: yield* adapterRng.snapshot,
+            batch: new BatchState({
+              shuffled: [],
+              frequencies: [],
+              epoch: -1,
+              iteration: -1,
+              calls: 0,
+              trainsetSize: options.trainset.length
+            }),
+            mergesDue: 0,
+            acceptedMerges: 0,
+            lastIterationFoundNew: false,
+            mergeTriplets: [],
+            mergeDescriptions: []
+          })
+        })
+    })
+    yield* emit(events.Checkpoint({ state: initial }))
+    const stateRef = yield* Ref.make(initial)
+    const maxIterations = Option.getOrElse(Option.fromUndefinedOr(options.maxIterations), () =>
+      Number.POSITIVE_INFINITY)
+    const shouldContinue = (state: State) =>
+      state.metricCalls < budget && state.iteration < maxIterations && paramRefs.length > 0
+    const iterate = (state: State) =>
+      Effect.gen(function*() {
+        const iteration = state.iteration + 1
+        yield* emit(events.IterationStarted({ iteration, frontierSize: state.paretoSnapshot.frontierIndices.length }))
+        const merged = yield* runMergePhase(options, state, valset, rng, emit)
+        const outcome = yield* Boolean.match(merged.attempted, {
+          onFalse: () =>
+            runMutationPhase(options, merged.state, valset, rng, adapterRng, emit),
+          onTrue: () => Effect.succeed(merged)
+        })
+        const snapshot = deriveParetoKernelSnapshot(outcome.state.scoreVectors)
+        const next = new State(Struct.assign(outcome.state, {
+          iteration,
+          paretoSnapshot: snapshot,
+          orchestrationRandom: yield* rng.snapshot,
+          adapterRandom: yield* adapterRng.snapshot
+        }))
+        yield* emit(
+          events.ParetoUpdated({
+            iteration,
+            frontierIndices: snapshot.frontierIndices,
+            dominatedIndices: snapshot.dominatedIndices,
+            parentWeights: snapshot.parentWeights
+          })
         )
-      )
-    yield* runIteration(1)
-
-    const finalState = yield* Ref.get(stateRef)
-    const bestIndex = Option.getOrElse(Arr.head(finalState.paretoSnapshot.frontierIndices), () => 0)
-    const bestCandidate = Option.getOrElse(Arr.get(finalState.candidates, bestIndex), () => initialCandidate)
-    yield* commitCandidateInstructions(paramRefs, bestCandidate)
+        yield* emit(
+          events.IterationCompleted({
+            iteration,
+            acceptedCandidate: outcome.accepted,
+            frontierSize: snapshot.frontierIndices.length
+          })
+        )
+        yield* emit(events.Checkpoint({ state: next }))
+        yield* Ref.set(stateRef, next)
+        return next
+      })
+    const finalState = yield* Effect.gen(function*() {
+      const state = yield* Ref.get(stateRef)
+      return yield* Boolean.match(shouldContinue(state), {
+        onFalse: () => Effect.succeed(state),
+        onTrue: () => iterate(state)
+      })
+    }).pipe(Effect.repeat({ while: shouldContinue }))
+    const bestCandidate = Option.getOrThrow(Arr.get(finalState.candidates, bestIndex(finalState.scoreVectors)))
+    const parameters = yield* candidateParameters(options.module, bestCandidate)
 
     yield* emit(
       events.OptimizationCompleted({
@@ -523,14 +784,17 @@ export const runWithEvents = <
       })
     )
 
-    return options.module
+    return new Optimized.Result({
+      program: bound(options.module, parameters),
+      parameters,
+      report: summarizeEvents(yield* Ref.get(recorded))
+    })
   })
 
 /**
  * Evolves a module while discarding lifecycle events.
  *
- * @returns The supplied module after its owned instructions are replaced by
- * the first candidate in the final Pareto frontier.
+ * @returns A bound module with the highest aggregate validation score.
  *
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored during candidate evaluation.
@@ -551,13 +815,40 @@ export const run = <
   options: Options<I, O, ME, MR, E, R>
 ) => runWithEvents(options, noEvents)
 
+/** Continues an encoded checkpoint without replaying evaluations or reseeding.
+ * Restores both RNG streams, epoch-shuffled batch state, component cursors,
+ * merge scheduler counters and deduplication records, reproducing the uninterrupted
+ * run exactly with matching module, datasets, metric, options and model responses.
+ * Upstream gepa 0.1.4 pickles only GEPAState; its batch sampler and merge proposer
+ * rebuild their RNGs (random.Random(0)) and counters on restart, so an upstream
+ * resumed run does not reproduce its uninterrupted run.
+ * maxIterations is an absolute iteration boundary; raise or remove it when continuing.
+ * @since 0.7.0
+ * @category constructors
+ */
+export const resume = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME,
+  MR,
+  E,
+  R,
+  EE = never,
+  ER = never
+>(
+  options: Options<I, O, ME, MR, E, R>,
+  state: State,
+  observe: EventSink<EE, ER> = noEvents
+) => runOptimization(options, observe, Option.some(state))
+
 /**
  * Emits GEPA lifecycle events while stream consumption drives optimization.
  *
  * @remarks
- * The stream completes after `OptimizationCompleted`. The optimized module is
- * retained through mutation of its owned parameter graph and is not a stream
- * element. Module and metric failures fail the stream.
+ * The stream completes after `OptimizationCompleted` and contains events only.
+ * Use `runWithEvents` to retain the bound result. Rollout failures receive
+ * failureScore; feedback/proposal failures fail the stream. Caller parameters
+ * remain unchanged.
  *
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored during candidate evaluation.
@@ -577,38 +868,3 @@ export const stream = <
 >(
   options: Options<I, O, ME, MR, E, R>
 ) => streamGEPAEvents((emit) => runWithEvents(options, emit))
-
-/** Caller-observed score, instruction, and event outcomes.
- * @since 0.5.0
- * @category models
- */
-export class OutcomeSummary extends Data.Class<{
-  readonly baselineExactMatch: number
-  readonly optimizedExactMatch: number
-  readonly scoreDelta: number
-  readonly instructionChanged: boolean
-  readonly instructionLengthBeforeOptimization: number
-  readonly instructionLengthAfterOptimization: number
-  readonly eventSummary: EventSummary
-}> {}
-
-/** Summarizes externally evaluated GEPA outcomes.
- * @since 0.5.0
- * @category constructors
- */
-export const summarizeOutcome = (options: {
-  readonly baselineScore: number
-  readonly optimizedScore: number
-  readonly instructionBefore: string
-  readonly instructionAfter: string
-  readonly events: EventSummary
-}): OutcomeSummary =>
-  new OutcomeSummary({
-    baselineExactMatch: options.baselineScore,
-    optimizedExactMatch: options.optimizedScore,
-    scoreDelta: Num.subtract(options.optimizedScore, options.baselineScore),
-    instructionChanged: Boolean.not(Equal.equals(options.instructionBefore, options.instructionAfter)),
-    instructionLengthBeforeOptimization: String.length(options.instructionBefore),
-    instructionLengthAfterOptimization: String.length(options.instructionAfter),
-    eventSummary: options.events
-  })

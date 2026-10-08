@@ -1,197 +1,212 @@
-/**
- * GEPA mutation phase — reflective instruction proposal and two-gate
- * acceptance.
- *
- * @since 0.1.0
- */
+/** GEPA reflection uses training minibatches; validation only selects the return. @internal */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import {
   Array as Arr,
-  Boolean as Bool,
+  Boolean,
+  Chunk,
   Effect,
-  Inspectable,
+  Match,
   Number as Num,
   Option,
-  Schema,
-  String as Str
+  Predicate,
+  Record,
+  Struct,
+  Tuple
 } from "effect"
-
-import { events, type EventSink, type Options as GEPAOptions } from "../../../GEPA.js"
-import { extractInstruction, generateText } from "../../module/textGeneration.js"
-import { evaluateMutationAcceptance, EvaluateMutationAcceptanceOptions } from "../accept.js"
-import { GEPAState, PredictorInstruction, ProgramCandidate } from "../model.js"
+import type { Schema } from "effect"
 import {
-  buildReflectiveDataset,
-  buildReflectivePrompt,
-  selectPredictorRoundRobin,
-  selectReflectiveSamples
-} from "../reflect.js"
+  events,
+  type EventSink,
+  type Examples,
+  type Options,
+  PredictorInstruction,
+  ProgramCandidate,
+  State
+} from "../../../GEPA.js"
+import { predictors } from "../../../ModuleGraph.js"
+import * as Predictor from "../../../Predictor.js"
+import { CurrentRole } from "../../modelRole.js"
+import { extractInstruction, generateText } from "../../module/textGeneration.js"
+import { buildReflectivePrompt } from "../reflect.js"
+import { nextMinibatch, selectParent } from "../sampling.js"
+import { validateComponents } from "../validation.js"
+import { evaluateCandidate, reflectiveSamples } from "./evaluate.js"
 
-import { chooseParentIndex, instructionForPredictor } from "./candidateSelection.js"
-import { CandidateEvaluationWindow, evaluateCandidate } from "./evaluate.js"
+/** Earliest aggregate maximum, including candidates outside the coverage front.
+ * Aggregates are GEPA's `sum(scores) / len(scores)` with CPython's builtin sum. @internal */
+export const bestIndex = (scores: ReadonlyArray<ReadonlyArray<number>>) =>
+  Arr.reduce(scores, { index: 0, score: Number.NEGATIVE_INFINITY }, (best, vector, index) => {
+    const score = Num.divideUnsafe(Numeric.sumNeumaier(vector), Arr.length(vector))
+    return Boolean.match(score > best.score, { onFalse: () => best, onTrue: () => ({ index, score }) })
+  }).index
 
-/**
- * Result of one mutation iteration — updated state and whether the mutation
- * was accepted.
- *
- * @since 0.1.0
- * @category models
- */
-export class MutationPhaseResult extends Schema.Class<MutationPhaseResult>(
-  "@scenesystems/effect-dsp/internal/gepa/runtime/mutation/MutationPhaseResult"
-)({
-  stateAfterAcceptance: GEPAState,
-  accepted: Schema.Boolean
-}) {}
-
-const buildMutationCandidate = (
-  parentCandidate: ProgramCandidate,
-  predictorName: string,
-  mutatedInstruction: string,
-  iteration: number
-): ProgramCandidate => {
-  const mutatedCandidate = new ProgramCandidate({
-    candidateId: Str.concat("mut-", Inspectable.toStringUnknown(iteration)),
-    parentIds: Arr.make(parentCandidate.candidateId),
-    predictorInstructions: Arr.map(parentCandidate.predictorInstructions, (entry) =>
-      new PredictorInstruction({
-        predictorName: entry.predictorName,
-        instruction: Bool.match(Str.Equivalence(entry.predictorName, predictorName), {
-          onFalse: () => entry.instruction,
-          onTrue: () => mutatedInstruction
-        })
-      }))
-  })
-
-  return Bool.match(
-    Arr.some(mutatedCandidate.predictorInstructions, (entry) => Str.Equivalence(entry.predictorName, predictorName)),
-    {
-      onTrue: () => mutatedCandidate,
-      onFalse: () =>
-        new ProgramCandidate({
-          candidateId: mutatedCandidate.candidateId,
-          parentIds: mutatedCandidate.parentIds,
-          predictorInstructions: Arr.append(
-            mutatedCandidate.predictorInstructions,
-            new PredictorInstruction({ predictorName, instruction: mutatedInstruction })
-          )
-        })
-    }
-  )
-}
-
-/**
- * Execute one mutation iteration: select a parent, build a reflective prompt,
- * propose a mutated instruction via the meta-LLM, evaluate the candidate,
- * and apply the two-gate acceptance check.
- *
- * @since 0.1.0
- * @category combinators
- */
+/** One parent choice, one training minibatch, then optional proposal and full validation. @internal */
 export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R, EE, ER>(
-  options: GEPAOptions<I, O, ME, MR, E, R>,
-  stateAfterMerge: GEPAState,
-  iteration: number,
-  mutationSeed: number,
-  initialCandidate: ProgramCandidate,
+  options: Options<I, O, ME, MR, E, R>,
+  state: State,
+  valset: Examples,
+  rng: PseudoRandom.CPython,
+  adapterRng: PseudoRandom.CPython,
   emit: EventSink<EE, ER>
 ) =>
   Effect.gen(function*() {
-    const parentIndex = chooseParentIndex(stateAfterMerge, mutationSeed)
-    const parentCandidate = Option.getOrElse(Arr.get(stateAfterMerge.candidates, parentIndex), () => initialCandidate)
-    const parentEvaluation = yield* evaluateCandidate(options, parentCandidate)
-    const predictorName = Option.getOrElse(
-      selectPredictorRoundRobin(
-        Arr.map(parentCandidate.predictorInstructions, (entry) => entry.predictorName),
-        Num.decrement(iteration)
-      ),
-      () => options.module.name
-    )
-    const currentInstruction = Option.getOrElse(instructionForPredictor(parentCandidate, predictorName), () => "")
-    const reflectivePrompt = buildReflectivePrompt({
-      predictorName,
-      currentInstruction,
-      examples: buildReflectiveDataset(selectReflectiveSamples(parentEvaluation.samples, predictorName))
+    const parentIndex = yield* Boolean.match(options.candidateSelectionStrategy === "currentBest", {
+      onFalse: () => selectParent(state.paretoSnapshot.parentWeights, rng),
+      onTrue: () => Effect.succeed(bestIndex(state.scoreVectors))
     })
-    const mutatedInstruction = yield* Effect.map(
-      generateText(reflectivePrompt),
-      (response) => extractInstruction(response, currentInstruction)
+    const parent = Option.getOrThrow(Arr.get(state.candidates, parentIndex))
+    const sampled = yield* nextMinibatch(
+      options.trainset.length,
+      Option.getOrElse(Option.fromUndefinedOr(options.reflectionMinibatchSize), () => 3),
+      state.iteration,
+      state.batch,
+      rng
     )
-    const mutatedCandidate = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
-
-    yield* emit(
-      events.MutationProposed({
-        iteration,
-        parentId: parentCandidate.candidateId,
-        mutatedCandidateId: mutatedCandidate.candidateId,
-        predictorName,
-        instruction: mutatedInstruction
+    const examples = Arr.map(sampled.batch, (index) => Option.getOrThrow(Arr.get(options.trainset, index)))
+    const evaluation = yield* evaluateCandidate(options, parent, examples, "search")
+    const evaluated = new State(
+      Struct.assign(state, {
+        batch: sampled.state,
+        metricCalls: state.metricCalls + examples.length,
+        lastIterationFoundNew: false
       })
     )
-
-    const subsampleSize = Num.min(3, Arr.length(parentEvaluation.scores))
-    const mutatedSubsampleEvaluation = yield* evaluateCandidate(
-      options,
-      mutatedCandidate,
-      new CandidateEvaluationWindow({
-        startIndex: 0,
-        rowCount: Option.some(subsampleSize)
-      })
-    )
-    const acceptance = yield* evaluateMutationAcceptance(
-      new EvaluateMutationAcceptanceOptions({
-        previousSubsampleScores: Arr.take(parentEvaluation.scores, subsampleSize),
-        mutatedSubsampleScores: mutatedSubsampleEvaluation.scores,
-        evaluateFullValset: evaluateCandidate(
-          options,
-          mutatedCandidate,
-          new CandidateEvaluationWindow({
-            startIndex: subsampleSize,
-            rowCount: Option.none()
+    const skipped = (
+      Option.getOrElse(Option.fromUndefinedOr(options.skipPerfectScore), () => true) &&
+      Arr.every(
+        evaluation.scores,
+        (score) => score >= Option.getOrElse(Option.fromUndefinedOr(options.perfectScore), () => 1)
+      )
+    ) || Arr.every(evaluation.rows, (row) => Option.isNone(row.prediction) && Option.isNone(row.parseFailure))
+    return yield* Boolean.match(skipped, {
+      onTrue: () => Effect.succeed({ state: evaluated, accepted: false }),
+      onFalse: () =>
+        Effect.gen(function*() {
+          const names = Arr.map(parent.predictorInstructions, (entry) => Predictor.Path.make(entry.predictorName))
+          const cursor = Option.getOrThrow(Arr.get(state.componentCursors, parentIndex))
+          const selector = Option.getOrElse(
+            Option.fromUndefinedOr(options.componentSelector),
+            (): "roundRobin" => "roundRobin"
+          )
+          const components = Match.value(selector).pipe(
+            Match.when(Predicate.isFunction, (select) => select(evaluated)),
+            Match.when("all", () => Chunk.fromIterable(names)),
+            Match.orElse(() => Chunk.of(Option.getOrThrow(Arr.get(names, cursor))))
+          )
+          yield* validateComponents(
+            components,
+            names,
+            Arr.map(Arr.filter(Arr.fromIterable(predictors(options.module)), Struct.get("frozen")), Struct.get("path"))
+          )
+          const cursors = Boolean.match(selector === "roundRobin", {
+            onFalse: () => state.componentCursors,
+            onTrue: () =>
+              Option.getOrThrow(
+                Arr.modify(state.componentCursors, parentIndex, () => Num.remainder(cursor + 1, names.length))
+              )
           })
-        ).pipe(
-          Effect.map((remainingEvaluation) =>
-            Arr.appendAll(mutatedSubsampleEvaluation.scores, remainingEvaluation.scores)
+          const feedback = yield* reflectiveSamples(options, evaluation.rows, components, adapterRng)
+          const reflected = new State(
+            Struct.assign(evaluated, {
+              componentCursors: cursors,
+              feedbackMetricCalls: evaluated.feedbackMetricCalls + feedback.feedbackCalls
+            })
           )
-        )
-      })
-    )
-    const accepted = Bool.match(acceptance.gate1Passed, {
-      onFalse: () => false,
-      onTrue: () => Option.isSome(acceptance.fullValsetScores)
-    })
-    const stateAfterAcceptance = new GEPAState({
-      iteration: stateAfterMerge.iteration,
-      candidates: Bool.match(accepted, {
-        onFalse: () => stateAfterMerge.candidates,
-        onTrue: () => Arr.append(stateAfterMerge.candidates, mutatedCandidate)
-      }),
-      scoreVectors: Bool.match(accepted, {
-        onFalse: () => stateAfterMerge.scoreVectors,
-        onTrue: () =>
-          Arr.append(
-            stateAfterMerge.scoreVectors,
-            Option.getOrElse(acceptance.fullValsetScores, () => mutatedSubsampleEvaluation.scores)
+          const selected = Chunk.filter(
+            components,
+            (path) => Option.exists(Record.get(feedback.examples, path), Arr.isReadonlyArrayNonEmpty)
           )
-      }),
-      paretoSnapshot: stateAfterMerge.paretoSnapshot,
-      mergeBudgetRemaining: stateAfterMerge.mergeBudgetRemaining,
-      lastIterationFoundNew: accepted,
-      seed: stateAfterMerge.seed
-    })
-
-    yield* emit(
-      events.AcceptanceEvaluated({
-        iteration,
-        accepted,
-        gate1Passed: acceptance.gate1Passed,
-        fullValsetEvaluated: acceptance.fullValsetEvaluated,
-        previousSubsampleSum: acceptance.previousSubsampleSum,
-        mutatedSubsampleSum: acceptance.mutatedSubsampleSum
-      })
-    )
-
-    return new MutationPhaseResult({
-      stateAfterAcceptance,
-      accepted
+          return yield* Boolean.match(Chunk.isEmpty(selected), {
+            onTrue: () => Effect.succeed({ state: reflected, accepted: false }),
+            onFalse: () =>
+              Effect.gen(function*() {
+                const instructions = yield* Option.match(Option.fromUndefinedOr(options.instructionProposer), {
+                  onSome: (propose) => propose(parent, selected, feedback.examples),
+                  onNone: () =>
+                    Effect.forEach(selected, (path) =>
+                      Effect.gen(function*() {
+                        const current = Option.getOrThrow(Arr.findFirst(parent.predictorInstructions, (entry) =>
+                          entry.predictorName === path)).instruction
+                        const prompt = buildReflectivePrompt({
+                          predictorName: path,
+                          currentInstruction: current,
+                          examples: Option.getOrThrow(Record.get(feedback.examples, path))
+                        })
+                        const response = yield* generateText(prompt, options.reflectionSettings).pipe(
+                          Effect.provideService(CurrentRole, "critic")
+                        )
+                        return Tuple.make(path, extractInstruction(response))
+                      })).pipe(Effect.map(Record.fromEntries))
+                })
+                const candidate = new ProgramCandidate({
+                  candidateId: `candidate-${state.candidates.length}`,
+                  parentIds: [parent.candidateId],
+                  predictorInstructions: Arr.map(parent.predictorInstructions, (entry) =>
+                    new PredictorInstruction({
+                      predictorName: entry.predictorName,
+                      instruction: Option.getOrElse(
+                        Record.get(instructions, entry.predictorName),
+                        () => entry.instruction
+                      )
+                    }))
+                })
+                yield* Effect.forEach(Record.toEntries(instructions), ([predictorName, instruction]) =>
+                  emit(events.MutationProposed({
+                    iteration: state.iteration + 1,
+                    parentId: parent.candidateId,
+                    mutatedCandidateId: candidate.candidateId,
+                    predictorName,
+                    instruction
+                  })))
+                const child = yield* evaluateCandidate(options, candidate, examples, "search")
+                // StrictImprovementAcceptance compares builtin sums of the two minibatch score lists.
+                const previousSubsampleSum = Numeric.sumNeumaier(evaluation.scores)
+                const mutatedSubsampleSum = Numeric.sumNeumaier(child.scores)
+                const accepted = mutatedSubsampleSum > previousSubsampleSum
+                const full = yield* Boolean.match(accepted, {
+                  onFalse: () => Effect.succeed({ scores: Arr.empty<number>() }),
+                  onTrue: () => evaluateCandidate(options, candidate, valset, "select")
+                })
+                yield* emit(
+                  events.AcceptanceEvaluated({
+                    iteration: state.iteration + 1,
+                    accepted,
+                    gate1Passed: accepted,
+                    fullValsetEvaluated: accepted,
+                    previousSubsampleSum,
+                    mutatedSubsampleSum
+                  })
+                )
+                return {
+                  accepted,
+                  state: new State(Struct.assign(reflected, {
+                    metricCalls: reflected.metricCalls + examples.length +
+                      Boolean.match(accepted, { onFalse: () => 0, onTrue: () => valset.length }),
+                    candidates: Boolean.match(accepted, {
+                      onFalse: () => state.candidates,
+                      onTrue: () => Arr.append(state.candidates, candidate)
+                    }),
+                    scoreVectors: Boolean.match(accepted, {
+                      onFalse: () => state.scoreVectors,
+                      onTrue: () => Arr.append(state.scoreVectors, full.scores)
+                    }),
+                    componentCursors: Boolean.match(accepted, {
+                      onFalse: () => cursors,
+                      onTrue: () => Arr.append(cursors, Option.getOrThrow(Arr.get(cursors, parentIndex)))
+                    }),
+                    lastIterationFoundNew: accepted,
+                    mergesDue: state.mergesDue +
+                      Boolean.match(
+                        accepted && Option.getOrElse(Option.fromUndefinedOr(options.useMerge), () => true) &&
+                          state.acceptedMerges <
+                            Option.getOrElse(Option.fromUndefinedOr(options.maxMergeInvocations), () => 5),
+                        { onFalse: () => 0, onTrue: () => 1 }
+                      )
+                  }))
+                }
+              })
+          })
+        })
     })
   })

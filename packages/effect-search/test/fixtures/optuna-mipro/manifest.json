@@ -1,0 +1,416 @@
+{
+  "upstream": {
+    "optuna": "4.9.0",
+    "python": "3.12.14",
+    "platform": "Linux-x86_64"
+  },
+  "environment": {
+    "PYTHONHASHSEED": "0",
+    "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F",
+    "ATEN_CPU_CAPABILITY": "default",
+    "MKL_CBWR": "COMPATIBLE",
+    "OPENBLAS_CORETYPE": "HASWELL",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1"
+  },
+  "trajectorySelection": {
+    "rule": "Retain recorded trajectories, but assert only through the trial before the first subUlp or coincidentalCancellation tie. Extra independent trajectory: startup=8, scan seeds 0..99 in order; select first fully strict 16-trial run, else earliest seed with longest strict prefix. Record diagnostic gaps rounded to 12 decimals; classify untouched upstream scores and bit-identical ordered kernel inputs.",
+    "rejected": [
+      {
+        "family": "unsorted",
+        "seed": 0,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 10,
+        "dimensions": [
+          "m"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "subUlp",
+          "winner": {
+            "m": 0
+          },
+          "other": {
+            "m": 1
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 1,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 15,
+        "dimensions": [
+          "z"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "subUlp",
+          "winner": {
+            "z": 1
+          },
+          "other": {
+            "z": 0
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 2,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 8,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 3
+          },
+          "other": {
+            "a": 2
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 3,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 14,
+        "dimensions": [
+          "z"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "subUlp",
+          "winner": {
+            "z": 2
+          },
+          "other": {
+            "z": 1
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 4,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 10,
+        "dimensions": [
+          "m"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "subUlp",
+          "winner": {
+            "m": 0
+          },
+          "other": {
+            "m": 1
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 5,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 10,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 2
+          },
+          "other": {
+            "a": 1
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 6,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 10,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 2
+          },
+          "other": {
+            "a": 0
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 7,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 10,
+        "dimensions": [
+          "m"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "subUlp",
+          "winner": {
+            "m": 0
+          },
+          "other": {
+            "m": 1
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 8,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 10,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 2
+          },
+          "other": {
+            "a": 1
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 9,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 9,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 1
+          },
+          "other": {
+            "a": 2
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 0,
+        "multivariate": false,
+        "nStartupTrials": 4,
+        "trial": 5,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 2
+          },
+          "other": {
+            "a": 3
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 0,
+        "multivariate": true,
+        "nStartupTrials": 4,
+        "trial": 5,
+        "dimensions": [
+          "a",
+          "m",
+          "z"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "subUlp",
+          "winner": {
+            "a": 3,
+            "m": 1,
+            "z": 2
+          },
+          "other": {
+            "a": 2,
+            "m": 1,
+            "z": 2
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 1,
+        "multivariate": false,
+        "nStartupTrials": 4,
+        "trial": 5,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 3
+          },
+          "other": {
+            "a": 1
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 1,
+        "multivariate": true,
+        "nStartupTrials": 4,
+        "trial": 4,
+        "dimensions": [
+          "a",
+          "m",
+          "z"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 3,
+            "m": 1,
+            "z": 2
+          },
+          "other": {
+            "a": 1,
+            "m": 1,
+            "z": 0
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 4294967295,
+        "multivariate": false,
+        "nStartupTrials": 4,
+        "trial": 4,
+        "dimensions": [
+          "a"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "subUlp",
+          "winner": {
+            "a": 2
+          },
+          "other": {
+            "a": 3
+          }
+        }
+      },
+      {
+        "family": "unsorted",
+        "seed": 4294967295,
+        "multivariate": true,
+        "nStartupTrials": 4,
+        "trial": 9,
+        "dimensions": [
+          "a",
+          "m",
+          "z"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "a": 1,
+            "m": 1,
+            "z": 2
+          },
+          "other": {
+            "a": 0,
+            "m": 1,
+            "z": 2
+          }
+        }
+      },
+      {
+        "family": "coupled",
+        "seed": 211,
+        "multivariate": false,
+        "nStartupTrials": 8,
+        "trial": 9,
+        "dimensions": [
+          "demo"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "demo": "d5"
+          },
+          "other": {
+            "demo": "d4"
+          }
+        }
+      },
+      {
+        "family": "coupled",
+        "seed": 211,
+        "multivariate": true,
+        "nStartupTrials": 8,
+        "trial": 9,
+        "dimensions": [
+          "demo",
+          "instruction",
+          "temperature"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "demo": "d5",
+            "instruction": "i3",
+            "temperature": "hot"
+          },
+          "other": {
+            "demo": "d4",
+            "instruction": "i1",
+            "temperature": "hot"
+          }
+        }
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "id": "optuna-mipro-categorical",
+      "file": "categorical.json",
+      "evidence": "upstream-kernel",
+      "sha256": "b820a9476de57091ca55d016580badc4e9fac24a8486489e5e6e0646faaeca1f",
+      "generator": "scripts/fixtures/mipro_kernel.py",
+      "description": "TPESampler ask/tell plus fixed-history joint categorical frequencies; includes FAIL."
+    }
+  ]
+}

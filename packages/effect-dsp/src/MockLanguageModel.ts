@@ -4,8 +4,13 @@
  * @since 0.1.0
  * @module
  */
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import * as ModelIdentity from "@scenesystems/effect-lm/ModelIdentity"
+import { Current as CurrentSettings, empty, merge, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
+import { Role } from "@scenesystems/effect-lm/Role"
 import {
   Array as Arr,
+  Context,
   Data,
   Effect,
   Inspectable,
@@ -63,8 +68,18 @@ export class Call extends Schema.Class<Call>("@scenesystems/effect-dsp/MockLangu
   /** Language-model operation that completed successfully. */
   method: MethodSchema,
   /** Normalized prompt text received by the mock operation. */
-  prompt: Schema.String
+  prompt: Schema.String,
+  /** Effective generation settings at the invocation boundary. */
+  settings: ModelSettings,
+  /** Semantic invocation role. */
+  role: Role,
+  /** Candidate rollout partition. */
+  rolloutId: Schema.Option(Schema.Finite)
 }) {}
+
+const CurrentRequest = Context.Reference<ModelBinder.Request>("@scenesystems/effect-dsp/MockLanguageModel/Request", {
+  defaultValue: () => new ModelBinder.Request({ settings: empty, role: "task", rolloutId: Option.none() })
+})
 
 const StrategyResponses = Schema.Array(Schema.Unknown)
 type StrategyResponses = typeof StrategyResponses.Type
@@ -123,6 +138,8 @@ export class Runtime extends Data.TaggedClass("MockLanguageModelRuntime")<{
   readonly service: LanguageModel.LanguageModel
   /** Append-only successful-call log owned by this runtime. */
   readonly calls: Ref.Ref<Calls>
+  /** Records scoped request settings without sharing mutable context between fibers. */
+  readonly binder: ModelBinder.Binder
 }> {}
 
 const textFromPart = Match.type<Prompt.Part>().pipe(
@@ -156,7 +173,19 @@ const appendCall = (
   calls: Ref.Ref<Calls>,
   method: Method,
   prompt: string
-): Effect.Effect<void> => Ref.update(calls, (entries) => Arr.append(entries, new Call({ method, prompt })))
+): Effect.Effect<void> =>
+  Effect.flatMap(CurrentRequest, (request) =>
+    Ref.update(calls, (entries) =>
+      Arr.append(
+        entries,
+        new Call({
+          method,
+          prompt,
+          settings: request.settings,
+          role: request.role,
+          rolloutId: request.rolloutId
+        })
+      )))
 
 const resolveSequenceResponse = (
   responses: StrategyResponses,
@@ -380,13 +409,34 @@ export const fail = (error: unknown): Strategy => new Failing({ error })
  * @since 0.1.0
  * @category constructors
  */
-export const make = (strategy: Strategy): Effect.Effect<Runtime> =>
+export const make = (strategy: Strategy, model = "mock", defaults: ModelSettings = empty): Effect.Effect<Runtime> =>
   Effect.gen(function*() {
     const calls = yield* Ref.make<Calls>(Arr.empty())
     const sequenceIndex = yield* Ref.make(0)
     const service = yield* makeService(strategy, calls, sequenceIndex)
 
-    return new Runtime({ service, calls })
+    return new Runtime({
+      service,
+      calls,
+      binder: new ModelBinder.Binder({
+        bind: (request) => (effect) =>
+          effect.pipe(
+            Effect.provideService(
+              CurrentRequest,
+              new ModelBinder.Request({
+                role: request.role,
+                rolloutId: request.rolloutId,
+                settings: merge(defaults, request.settings)
+              })
+            ),
+            Effect.provideService(CurrentSettings, merge(defaults, request.settings)),
+            Effect.provideService(
+              ModelIdentity.Current,
+              Option.some(new ModelIdentity.Identity({ provider: "mock", model }))
+            )
+          )
+      })
+    })
   })
 
 /**
@@ -397,4 +447,9 @@ export const make = (strategy: Strategy): Effect.Effect<Runtime> =>
 export const layer = (
   tag: typeof LanguageModel.LanguageModel,
   strategy: Strategy
-) => Layer.effect(tag, make(strategy).pipe(Effect.map((runtime) => runtime.service)))
+) =>
+  Layer.unwrap(
+    make(strategy).pipe(Effect.map((runtime) =>
+      Layer.merge(Layer.succeed(tag, runtime.service), Layer.succeed(ModelBinder.Current, runtime.binder))
+    ))
+  )

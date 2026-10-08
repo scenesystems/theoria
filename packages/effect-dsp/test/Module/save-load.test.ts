@@ -7,7 +7,7 @@ import { SaveLoadError } from "@scenesystems/effect-dsp/DspError"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Option, Order, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Record, Ref, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -21,11 +21,11 @@ const makeQaSignature = () =>
   )
 
 describe("Module.save / Module.load", () => {
-  it.effect("round-trips module params through save/load on predict modules", () =>
+  it.effect("round-trips module parameters through save/load on predict modules", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const expectedParams = new ModuleParameters({
+      const expectedParameters = new ModuleParameters({
         instructions: "Use one-word factual answers.",
         outputStrategy: "text",
         demos: Arr.make(
@@ -38,12 +38,12 @@ describe("Module.save / Module.load", () => {
         maxTokens: 12
       })
 
-      yield* Ref.set(module.params, expectedParams)
+      yield* Ref.set(module.parameters, expectedParameters)
 
       const saved = yield* Module.save(module)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
           instructions: signature.instructions,
           demos: Arr.empty()
@@ -52,11 +52,10 @@ describe("Module.save / Module.load", () => {
 
       yield* Module.load(module, saved)
 
-      const restored = yield* Ref.get(module.params)
+      const restored = yield* Ref.get(module.parameters)
 
-      expect(saved.modules).toHaveLength(1)
-      expect((Option.getOrThrow(Arr.head(saved.modules))).name).toBe("qa")
-      expect(restored).toEqual(expectedParams)
+      expect(Record.keys(saved.parameters)).toEqual(["qa"])
+      expect(restored).toEqual(expectedParameters)
     }))
 
   it.effect("persists and restores composed-module parameter graphs", () =>
@@ -93,20 +92,20 @@ describe("Module.save / Module.load", () => {
         outputStrategy: "text"
       })
 
-      yield* Ref.set(root.params, rootExpected)
-      yield* Ref.set(qa.params, qaExpected)
+      yield* Ref.set(root.parameters, rootExpected)
+      yield* Ref.set(qa.parameters, qaExpected)
 
       const saved = yield* Module.save(root)
 
       yield* Ref.set(
-        root.params,
+        root.parameters,
         new ModuleParameters({
           instructions: "mutated-root",
           demos: Arr.empty()
         })
       )
       yield* Ref.set(
-        qa.params,
+        qa.parameters,
         new ModuleParameters({
           instructions: "mutated-leaf",
           demos: Arr.empty()
@@ -115,11 +114,11 @@ describe("Module.save / Module.load", () => {
 
       yield* Module.load(root, saved)
 
-      const restoredRoot = yield* Ref.get(root.params)
-      const restoredQa = yield* Ref.get(qa.params)
+      const restoredRoot = yield* Ref.get(root.parameters)
+      const restoredQa = yield* Ref.get(qa.parameters)
 
-      expect(Arr.sort(Arr.map(saved.modules, (entry) => entry.name), Order.String)).toEqual(Arr.make("qa", "qa-root"))
-      expect(restoredRoot).toEqual(rootExpected)
+      expect(Record.keys(saved.parameters)).toEqual(["qa-root.qa"])
+      expect(restoredRoot.instructions).toBe("mutated-root")
       expect(restoredQa).toEqual(qaExpected)
     }))
 
@@ -137,29 +136,20 @@ describe("Module.save / Module.load", () => {
       )
 
       const invalid = new Module.SavedState({
-        version: 1,
-        modules: Arr.make(
-          {
-            name: "qa-root",
-            params: new ModuleParameters({
-              instructions: "root-only",
-              demos: Arr.empty()
-            })
-          }
-        )
+        parameters: {}
       })
-      const originalRootParams = yield* Ref.get(root.params)
+      const originalRootParameters = yield* Ref.get(root.parameters)
 
       const result = yield* Effect.flip(Module.load(root, invalid))
-      const rootParamsAfterFailure = yield* Ref.get(root.params)
+      const rootParametersAfterFailure = yield* Ref.get(root.parameters)
 
       expect(result).toEqual(
         new SaveLoadError({
-          message: "Saved state is missing params for module 'qa'",
+          message: "Saved state is missing parameters for predictor 'qa-root.qa'",
           operation: "load"
         })
       )
 
-      expect(rootParamsAfterFailure).toBe(originalRootParams)
+      expect(rootParametersAfterFailure).toBe(originalRootParameters)
     }))
 })

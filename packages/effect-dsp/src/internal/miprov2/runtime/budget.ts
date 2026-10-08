@@ -6,8 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
-import { Match, Number as Num, Option, Schema } from "effect"
+import { Boolean as Bool, Match, Number as Num, Option, Schema } from "effect"
 
 const Phase3TrialBudgetOptions = Schema.Struct({
   predictorCount: Schema.Finite,
@@ -58,8 +57,9 @@ export const normalizePositive = (value: number, fallback: number): number => {
  *
  * @remarks
  * The budget is the larger of a logarithmic estimate
- * (`2 × predictors × ln(candidates)`) and an exploration floor
- * (`1.5 × candidates`), then ceiled and clamped to the provided minimum.
+ * (`2 × dimensions × log2(candidates)`) and an exploration floor
+ * (`1.5 × candidates`), truncated to an integer. Few-shot search has
+ * two dimensions per predictor; zero-shot has one.
  *
  * @since 0.1.0
  * @category utils
@@ -73,12 +73,19 @@ export const phase3TrialBudget = (options: Phase3TrialBudgetOptions): number => 
       normalizePositive(options.instructionCandidateCount, 1)
     )
   )
-  const logarithmicBudget = Num.multiply(Num.multiply(2, safePredictorCount), Numeric.log(safeCandidateCount))
+  const dimensions = Num.multiply(
+    safePredictorCount,
+    Bool.match(Num.isGreaterThan(options.demoCandidateCount, 0), { onFalse: () => 1, onTrue: () => 2 })
+  )
+  const logarithmicBudget = Num.multiply(
+    Num.multiply(2, dimensions),
+    Num.divideUnsafe(Numeric.log(safeCandidateCount), Numeric.log(2))
+  )
   const explorationBudget = Num.multiply(Num.multiply(3, safeCandidateCount), 0.5)
 
   return Numeric.max(
     normalizePositive(Option.getOrElse(Option.fromNullishOr(options.minimum), () => 1), 1),
-    Numeric.ceil(Numeric.max(logarithmicBudget, explorationBudget))
+    Numeric.floor(Numeric.max(logarithmicBudget, explorationBudget))
   )
 }
 
@@ -93,7 +100,7 @@ export const phase3TrialBudget = (options: Phase3TrialBudgetOptions): number => 
  * @category utils
  */
 export const resolvePhase3Cadence = (options: Phase3CadenceOptions): Phase3Cadence => ({
-  seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromNullishOr(options.seed), () => 1)),
-  minibatchSize: normalizePositive(Option.getOrElse(Option.fromNullishOr(options.minibatchSize), () => 50), 1),
+  seed: Option.getOrElse(Option.fromNullishOr(options.seed), () => 9),
+  minibatchSize: normalizePositive(Option.getOrElse(Option.fromNullishOr(options.minibatchSize), () => 35), 1),
   fullEvalEvery: normalizePositive(Option.getOrElse(Option.fromNullishOr(options.fullEvalEvery), () => 5), 1)
 })

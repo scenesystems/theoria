@@ -11,11 +11,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Response from "effect/ai/Response"
-import {
-  GepaOrchestrationEventOrderFixtureSchema,
-  GepaSelectionWeightsFixtureSchema,
-  loadFixture
-} from "../helpers/dspy-fixtures/index.js"
+import { fixture } from "../kit/Fixtures.js"
 
 class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
   answer: Schema.String
@@ -62,18 +58,19 @@ const runSeededStream = (moduleName: string, seed: number) =>
           trainset: Arr.make(
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             }),
             new Example({
               input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
+              labels: Option.some({ answer: "Tokyo" })
             }),
             new Example({
               input: { question: "What is the capital of Germany?" },
-              output: { answer: "Berlin" }
+              labels: Option.some({ answer: "Berlin" })
             })
           ),
           metric: Metric.exactMatch("answer"),
+          maxMetricCalls: 30,
           maxIterations: 3,
           seed
         })
@@ -86,16 +83,10 @@ describe("GEPA.stream", () => {
     "emits deterministic event order under fixed seed and fixtures",
     () =>
       Effect.gen(function*() {
-        const rawSelectionFixture = yield* loadFixture("dspy.gepa.selection.weights.seed-42")
-        const rawEventOrderFixture = yield* loadFixture("dspy.gepa.orchestration.event-order.seed-0")
-        const selectionFixture = yield* Schema.decodeUnknownEffect(GepaSelectionWeightsFixtureSchema)(
-          rawSelectionFixture
-        )
-        const eventOrderFixture = yield* Schema.decodeUnknownEffect(GepaOrchestrationEventOrderFixtureSchema)(
-          rawEventOrderFixture
-        )
-        const firstRun = yield* runSeededStream("qa-seeded", selectionFixture.payload.seed)
-        const secondRun = yield* runSeededStream("qa-seeded", selectionFixture.payload.seed)
+        const reference = yield* fixture("gepa-aggregate-best", "upstream-execution")
+        const { seed } = yield* Schema.decodeUnknownEffect(Schema.Struct({ seed: Schema.Int }))(reference.payload)
+        const firstRun = yield* runSeededStream("qa-seeded", seed)
+        const secondRun = yield* runSeededStream("qa-seeded", seed)
         const firstEvents = Arr.fromIterable(firstRun)
         const secondEvents = Arr.fromIterable(secondRun)
 
@@ -103,7 +94,7 @@ describe("GEPA.stream", () => {
 
         expect(secondEvents).toEqual(firstEvents)
         expect(tags).toContain("ParetoUpdated")
-        expect(Arr.last(tags)).toEqual(Option.some(eventOrderFixture.payload.expectedTerminalTag))
+        expect(Arr.last(tags)).toEqual(Option.some("OptimizationCompleted"))
       })
   )
 })

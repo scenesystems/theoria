@@ -1,0 +1,913 @@
+{
+  "fixture": "trial-states.pruned-constraints",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.9.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "constraintParams": [
+          "c0"
+        ],
+        "direction": "minimize",
+        "expectedAbove": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "expectedBelow": [
+          0,
+          10
+        ],
+        "id": "feasible-pruned-before-infeasible-complete",
+        "nBelow": 2,
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "params": {
+              "c0": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 0,
+            "value": 0.1
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 1,
+            "value": 0.05
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 2,
+            "value": 0.060000000000000005
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 3,
+            "value": 0.07
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 4,
+            "value": 0.08
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 5,
+            "value": 0.09
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 6,
+            "value": 0.1
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 7,
+            "value": 0.11
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 8,
+            "value": 0.12000000000000001
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "params": {
+              "c0": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 9,
+            "value": 0.13
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "params": {
+              "c0": -1.0
+            },
+            "reports": [
+              {
+                "step": 3,
+                "value": 0.2
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 10
+          }
+        ]
+      },
+      {
+        "constraintParams": [
+          "c0",
+          "c1"
+        ],
+        "direction": "maximize",
+        "expectedAbove": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "expectedBelow": [
+          0,
+          1,
+          2
+        ],
+        "id": "maximize-feasible-pruned-by-step",
+        "nBelow": 3,
+        "trials": [
+          {
+            "constraints": [
+              -1.0,
+              0.0
+            ],
+            "params": {
+              "c0": -1.0,
+              "c1": 0.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 0,
+            "value": 0.4
+          },
+          {
+            "constraints": [
+              -0.5,
+              -0.5
+            ],
+            "params": {
+              "c0": -0.5,
+              "c1": -0.5
+            },
+            "reports": [
+              {
+                "step": 1,
+                "value": 0.7
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 1
+          },
+          {
+            "constraints": [
+              0.0,
+              -2.0
+            ],
+            "params": {
+              "c0": 0.0,
+              "c1": -2.0
+            },
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.1
+              },
+              {
+                "step": 4,
+                "value": 0.2
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 2
+          },
+          {
+            "constraints": [
+              -1.0,
+              -1.0
+            ],
+            "params": {
+              "c0": -1.0,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "pruned",
+            "trialNumber": 3
+          },
+          {
+            "constraints": [
+              0.5,
+              -1.0
+            ],
+            "params": {
+              "c0": 0.5,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 4,
+            "value": 0.9
+          },
+          {
+            "constraints": [
+              0.6,
+              -1.0
+            ],
+            "params": {
+              "c0": 0.6,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 5,
+            "value": 0.91
+          },
+          {
+            "constraints": [
+              0.7,
+              -1.0
+            ],
+            "params": {
+              "c0": 0.7,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 6,
+            "value": 0.92
+          },
+          {
+            "constraints": [
+              0.8,
+              -1.0
+            ],
+            "params": {
+              "c0": 0.8,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 7,
+            "value": 0.93
+          },
+          {
+            "constraints": [
+              0.9,
+              -1.0
+            ],
+            "params": {
+              "c0": 0.9,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 8,
+            "value": 0.9400000000000001
+          },
+          {
+            "constraints": [
+              1.0,
+              -1.0
+            ],
+            "params": {
+              "c0": 1.0,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 9,
+            "value": 0.9500000000000001
+          },
+          {
+            "constraints": [
+              1.1,
+              -1.0
+            ],
+            "params": {
+              "c0": 1.1,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 10,
+            "value": 0.96
+          },
+          {
+            "constraints": [
+              1.2,
+              -1.0
+            ],
+            "params": {
+              "c0": 1.2,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 11,
+            "value": 0.97
+          },
+          {
+            "constraints": [
+              1.3,
+              -1.0
+            ],
+            "params": {
+              "c0": 1.3,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 12,
+            "value": 0.98
+          },
+          {
+            "constraints": [
+              0.25,
+              0.25
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.25
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 13
+          },
+          {
+            "constraints": [
+              0.25,
+              0.35
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.35
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 14
+          },
+          {
+            "constraints": [
+              0.25,
+              0.45
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.45
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 15
+          },
+          {
+            "constraints": [
+              0.25,
+              0.55
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.55
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 16
+          },
+          {
+            "constraints": [
+              0.25,
+              0.65
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.65
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 17
+          },
+          {
+            "constraints": [
+              0.25,
+              0.75
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.75
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 18
+          },
+          {
+            "constraints": [
+              0.25,
+              0.85
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.85
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 19
+          },
+          {
+            "constraints": [
+              0.25,
+              0.95
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.95
+            },
+            "reports": [
+              {
+                "step": 6,
+                "value": 0.99
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 20
+          }
+        ]
+      },
+      {
+        "constraintParams": [
+          "c0",
+          "c1"
+        ],
+        "direction": "minimize",
+        "expectedAbove": [
+          0,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "expectedBelow": [
+          1,
+          2,
+          3
+        ],
+        "id": "least-violation-pruned-before-complete",
+        "nBelow": 3,
+        "trials": [
+          {
+            "constraints": [
+              2.0,
+              -3.0
+            ],
+            "params": {
+              "c0": 2.0,
+              "c1": -3.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 0,
+            "value": 0.3
+          },
+          {
+            "constraints": [
+              -1.0,
+              -1.0
+            ],
+            "params": {
+              "c0": -1.0,
+              "c1": -1.0
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 1,
+            "value": 0.8
+          },
+          {
+            "constraints": [
+              0.1,
+              0.2
+            ],
+            "params": {
+              "c0": 0.1,
+              "c1": 0.2
+            },
+            "reports": [
+              {
+                "step": 2,
+                "value": 0.6
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 2
+          },
+          {
+            "constraints": [
+              -2.0,
+              0.0
+            ],
+            "params": {
+              "c0": -2.0,
+              "c1": 0.0
+            },
+            "reports": [
+              {
+                "step": 3,
+                "value": 0.9
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 3
+          },
+          {
+            "constraints": [
+              0.25,
+              0.25
+            ],
+            "params": {
+              "c0": 0.25,
+              "c1": 0.25
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 4,
+            "value": 0.05
+          },
+          {
+            "constraints": [
+              1.0,
+              0.5
+            ],
+            "params": {
+              "c0": 1.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 5,
+            "value": 0.0
+          },
+          {
+            "constraints": [
+              2.0,
+              0.5
+            ],
+            "params": {
+              "c0": 2.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 6,
+            "value": 0.01
+          },
+          {
+            "constraints": [
+              3.0,
+              0.5
+            ],
+            "params": {
+              "c0": 3.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 7,
+            "value": 0.02
+          },
+          {
+            "constraints": [
+              4.0,
+              0.5
+            ],
+            "params": {
+              "c0": 4.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 8,
+            "value": 0.03
+          },
+          {
+            "constraints": [
+              5.0,
+              0.5
+            ],
+            "params": {
+              "c0": 5.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 9,
+            "value": 0.04
+          },
+          {
+            "constraints": [
+              6.0,
+              0.5
+            ],
+            "params": {
+              "c0": 6.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 10,
+            "value": 0.05
+          },
+          {
+            "constraints": [
+              7.0,
+              0.5
+            ],
+            "params": {
+              "c0": 7.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 11,
+            "value": 0.06
+          },
+          {
+            "constraints": [
+              8.0,
+              0.5
+            ],
+            "params": {
+              "c0": 8.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 12,
+            "value": 0.07
+          },
+          {
+            "constraints": [
+              9.0,
+              0.5
+            ],
+            "params": {
+              "c0": 9.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 13,
+            "value": 0.08
+          },
+          {
+            "constraints": [
+              10.0,
+              0.5
+            ],
+            "params": {
+              "c0": 10.0,
+              "c1": 0.5
+            },
+            "reports": [],
+            "state": "complete",
+            "trialNumber": 14,
+            "value": 0.09
+          },
+          {
+            "constraints": [
+              0.2,
+              0.15
+            ],
+            "params": {
+              "c0": 0.2,
+              "c1": 0.15
+            },
+            "reports": [
+              {
+                "step": 9,
+                "value": 0.0
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 15
+          },
+          {
+            "constraints": [
+              1.2,
+              0.15
+            ],
+            "params": {
+              "c0": 1.2,
+              "c1": 0.15
+            },
+            "reports": [
+              {
+                "step": 9,
+                "value": 0.0
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 16
+          },
+          {
+            "constraints": [
+              2.2,
+              0.15
+            ],
+            "params": {
+              "c0": 2.2,
+              "c1": 0.15
+            },
+            "reports": [
+              {
+                "step": 9,
+                "value": 0.0
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 17
+          },
+          {
+            "constraints": [
+              3.2,
+              0.15
+            ],
+            "params": {
+              "c0": 3.2,
+              "c1": 0.15
+            },
+            "reports": [
+              {
+                "step": 9,
+                "value": 0.0
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 18
+          },
+          {
+            "constraints": [
+              4.2,
+              0.15
+            ],
+            "params": {
+              "c0": 4.2,
+              "c1": 0.15
+            },
+            "reports": [
+              {
+                "step": 9,
+                "value": 0.0
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 19
+          },
+          {
+            "constraints": [
+              5.2,
+              0.15
+            ],
+            "params": {
+              "c0": 5.2,
+              "c1": 0.15
+            },
+            "reports": [
+              {
+                "step": 9,
+                "value": 0.0
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 20
+          }
+        ]
+      }
+    ]
+  }
+}

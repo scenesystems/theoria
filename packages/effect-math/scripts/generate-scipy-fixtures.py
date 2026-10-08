@@ -1,19 +1,13 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#   "scipy>=1.15,<2",
-#   "numpy>=1.26,<2",
-# ]
-# [tool.uv]
-# exclude-newer = "2026-03-23T00:00:00Z"
-# ///
+#!/usr/bin/env -S uv run --locked
 """Evaluate one SciPy/NumPy reference family through a JSON stdin/stdout protocol.
 
 Reference values use live SciPy/NumPy and documented analytic formulas.
 The Effect entrypoint owns family discovery, process lifetime, validation,
 fixture files, and manifest construction. This process only evaluates the
 requested Python family and returns its reference data and provenance.
+
+Every family runs with PYTHONHASHSEED=0 and
+NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F for reproducible portable dispatch.
 
 Requirements: uv (https://docs.astral.sh/uv/)
 Entry point:  bun run fixtures:generate
@@ -23,9 +17,17 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
 
-from fixtures._common import SCHEMA_VERSION, generator_metadata
+# Pin dispatch before any family imports NumPy, regardless of the host environment.
+os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
+
+# Establish process-seeded iteration before accepting the stdin request.
+if os.environ.get("PYTHONHASHSEED") != "0":
+    os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
+
+from fixtures._common import generator_metadata
 
 
 def main() -> None:
@@ -33,7 +35,6 @@ def main() -> None:
     family = importlib.import_module(f"fixtures.{request['family']}")
     json.dump(
         {
-            "schemaVersion": SCHEMA_VERSION,
             "generator": generator_metadata(request["generatedAt"]),
             "fixtures": family.generate(request["generatedAt"]),
         },

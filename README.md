@@ -16,6 +16,7 @@ Start with the [documentation](https://theoria.scenesystems.io/docs) or a packag
 | [`@scenesystems/effect-study`](./packages/effect-study/README.md)         | Fixed-input evaluation, trial history, event recordings, and artifact persistence       |
 | [`@scenesystems/effect-search`](./packages/effect-search/README.md)       | Black-box optimization with typed search spaces, samplers, and resumable studies        |
 | [`@scenesystems/effect-dsp`](./packages/effect-dsp/README.md)             | Typed language model programs, evaluation, tracing, and prompt optimization             |
+| [`@scenesystems/effect-lm`](./packages/effect-lm/README.md)               | Scoped model binding, generation settings, and model identity                           |
 | [`@scenesystems/effect-inference`](./packages/effect-inference/README.md) | Model route resolution, provider configuration, and response evidence                   |
 | [`@scenesystems/effect-text`](./packages/effect-text/README.md)           | Text measurement, hyphenation, and reusable greedy multiline layout                     |
 | [`@scenesystems/digest`](./packages/digest/README.md)                     | Canonical JSON content identities, hashes, MACs, and key derivation                     |

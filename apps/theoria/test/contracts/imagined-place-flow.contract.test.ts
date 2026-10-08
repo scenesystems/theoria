@@ -130,6 +130,27 @@ const expectTouchable = (markers: PlaceMarkers) =>
 const steps = Arr.map(Arr.range(0, 10), (index) => Numeric.unsafeDivide(index, 10))
 
 describe("Imagined place geometry contract", () => {
+  it.effect.prop("anchors the first marker at the paper's top padding for every sampled vertical offset", {
+    width: Schema.Int.check(Schema.isBetween({ minimum: 240, maximum: 900 })),
+    top: Schema.Finite.check(Schema.isBetween({ minimum: 0.04, maximum: 0.6 }))
+  }, ({ top, width }) =>
+    Effect.sync(() => {
+      const stage = stageFor(width)
+      Arr.forEach(Arr.make(top, 0.6), (offset) => {
+        const markers = placeMarkers(features, noContributors, stage, { ...corner(1), top: offset })
+        Option.match(Arr.head(markers), {
+          onNone: () => expect.fail("The first feature must have a marker"),
+          onSome: (first) => {
+            expect(first.name).toBe("Feature 1")
+            // The disc starts at 16px, rather than a sampler-dependent fraction of the paper width.
+            expect(Num.subtract(first.y, first.radius)).toBeCloseTo(16, 10)
+          }
+        })
+        expectWellPlaced(stage, markers)
+        expectTouchable(markers)
+      })
+    }))
+
   it.effect("a disc's reach makes up what its radius lacks of a 44 px touch target, and nothing more", () =>
     Effect.sync(() => {
       const narrow = stageFor(240)

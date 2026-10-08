@@ -33,7 +33,18 @@ export class ParseTextWithRetryOptions<
   readonly feedbackTemplate: (error: ParseOutputError) => string
   readonly readText: (feedback: Option.Option<string>) => Effect.Effect<A, RE, RR>
   readonly text: (response: A) => string
+  readonly observe?: (response: A, error: Option.Option<ParseOutputError>) => Effect.Effect<void>
 }> {}
+
+const observe = <O, R, A, RE, RR>(
+  options: ParseTextWithRetryOptions<O, R, A, RE, RR>,
+  response: A,
+  error: Option.Option<ParseOutputError>
+): Effect.Effect<void> =>
+  Option.match(Option.fromUndefinedOr(options.observe), {
+    onNone: () => Effect.void,
+    onSome: (observer) => observer(response, error)
+  })
 
 /**
  * Orchestrates a parse-retry loop: reads LLM text, attempts marker
@@ -86,6 +97,8 @@ export const parseTextWithRetry = <
             Option.some(options.feedbackTemplate(error))
           )
         ),
+        Effect.tapError((error) => observe(options, response, Option.some(error))),
+        Effect.tap(() => observe(options, response, Option.none())),
         Effect.map((output) => Tuple.make(output, response))
       )
     }).pipe(

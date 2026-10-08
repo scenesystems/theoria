@@ -11,6 +11,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Context, Effect, Number, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import type { Error as EffectError, Services } from "effect/Effect"
+import { score } from "../kit/Metric.js"
 
 const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.FiniteFromString }) })
 
@@ -36,23 +37,27 @@ describe("schema-derived metric values", () => {
       const module = yield* makeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("unused"))
       const observed = yield* Ref.make(Arr.empty<number>())
-      const difference = Metric.fromEffect(
-        "difference",
-        (prediction: typeof Output.Type, expected) =>
+      const difference = Metric.withFeedback(
+        (example, prediction) =>
           Effect.gen(function*() {
-            expectTypeOf(expected).toEqualTypeOf<typeof Output.Type>()
-            yield* Ref.set(observed, Arr.make(prediction.result.count, expected.result.count))
+            const output = yield* Schema.decodeUnknownEffect(Schema.toType(Output))(prediction.output)
+            const expected = yield* Schema.decodeUnknownEffect(Schema.Struct({ target: Schema.Finite }))(
+              Option.getOrElse(example.labels, Record.empty)
+            )
+            yield* Ref.set(observed, Arr.make(output.result.count, expected.target))
             const scale = yield* Scale
-            return new Metric.Result({
-              score: Number.multiply(Number.subtract(prediction.result.count, expected.result.count), scale)
+            return new Metric.Score({
+              value: Number.multiply(Number.subtract(output.result.count, expected.target), scale),
+              feedback: Option.none()
             })
-          })
+          }),
+        "difference"
       )
       const metric = Metric.compose({ difference })
       const evaluation = Evaluate.run(
         new Evaluate.Options({
           module,
-          examples: Arr.make(new Example({ input: { question: "How many?" }, output: { result: { count: "3" } } })),
+          examples: Arr.make(new Example({ input: { question: "How many?" }, labels: Option.some({ target: 3 }) })),
           metrics: { metric }
         })
       )
@@ -66,44 +71,50 @@ describe("schema-derived metric values", () => {
       expect(report.overallScores.metric).toBe(8)
     }))
 
-  it.effect("reports malformed expected values before invoking the model or scorer", () =>
+  it.effect("passes labels outside the output schema to the scorer unchanged", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make("Count", { question: Schema.String }, Output.fields)
       const module = yield* Module.predict("invalid-label", signature)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const calls = yield* Ref.make(0)
-      const metric = Metric.fromEffect("count", (_prediction: typeof Output.Type) =>
-        Ref.update(calls, Number.increment).pipe(Effect.as(new Metric.Result({ score: 1 }))))
+      const metric = Metric.withFeedback((example) =>
+        Effect.gen(function*() {
+          yield* Ref.update(calls, Number.increment)
+          expect(example.labels).toEqual(Option.some({ result: { count: "invalid" } }))
+          return new Metric.Score({ value: 1, feedback: Option.none() })
+        }), "count")
       const report = yield* Evaluate.run(
         new Evaluate.Options({
           module,
           examples: Arr.make(
-            new Example({ input: { question: "How many?" }, output: { result: { count: "invalid" } } })
+            new Example({ input: { question: "How many?" }, labels: Option.some({ result: { count: "invalid" } }) })
           ),
           metrics: { metric }
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      expect(yield* Ref.get(calls)).toBe(0)
-      expect(yield* Ref.get(mock.calls)).toEqual(Arr.empty())
-      expect(report.failureCount).toBe(1)
-      const failure = Option.getOrThrow(Arr.head(report.failures))
-      expect(failure.tag).toBe("EvaluationFailed")
-      expect(failure.message).toBe("expected output does not match module output schema")
+      expect(yield* Ref.get(calls)).toBe(1)
+      expect(yield* Ref.get(mock.calls)).toHaveLength(1)
+      expect(report.failureCount).toBe(0)
+      expect(report.overallScores.metric).toBe(1)
     }))
 
   it.effect("retains typed scorer failures and captures them as failed evaluations", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("unused"))
-      const metric = Metric.fromEffect("checked", (_prediction: typeof Output.Type) =>
-        Effect.fail(new ScoringFailed({ message: "judge unavailable" })))
-      const scoring = metric.score({ result: { count: 7 } }, { result: { count: 3 } })
+      const metric = Metric.withFeedback(
+        () => Effect.fail(new ScoringFailed({ message: "judge unavailable" })),
+        "checked"
+      )
+      const scoring = score(metric, { result: { count: "3" } }, { result: { count: 7 } })
       expectTypeOf<EffectError<typeof scoring>>().toEqualTypeOf<ScoringFailed>()
       expect(yield* Effect.flip(scoring)).toBeInstanceOf(ScoringFailed)
       const report = yield* Evaluate.run(
         new Evaluate.Options({
           module,
-          examples: Arr.make(new Example({ input: { question: "How many?" }, output: { result: { count: "3" } } })),
+          examples: Arr.make(
+            new Example({ input: { question: "How many?" }, labels: Option.some({ result: { count: "3" } }) })
+          ),
           metrics: { metric }
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
