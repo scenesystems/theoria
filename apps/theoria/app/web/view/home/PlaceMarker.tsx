@@ -169,13 +169,14 @@ const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
  * the feature, so it carries no label and answers nothing, and the pointer
  * goes through it. It stands in the disc's own place in the presence, so the
  * disc becomes it outright rather than fading, at its full size, over lines
- * flowed around what it is shrinking to.
+ * flowed around what it is shrinking to. Once the drawing drops it, remove
+ * it outright: a second exit animation would retain its last nonzero radius
+ * over prose that no longer makes room for it.
  */
 const leavingClassName = "pointer-events-none absolute left-0 top-0 rounded-full"
 
 const LeavingDisc = ({ marker }: { readonly marker: Marker }) => (
   <Layer
-    render={<m.div exit={departed} transition={exitTransition} />}
     aria-hidden
     className={`${leavingClassName} ${discClassName(markerContributor(marker))}`}
     data-place-marker={marker.name}
