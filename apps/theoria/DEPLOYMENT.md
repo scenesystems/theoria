@@ -324,7 +324,7 @@ site after selection.
    `/actions/runs/` in that run's URL (not the run number or commit SHA).
 4. If the candidate contains unpublished package versions, run **Actions →
    Publish Packages → Run workflow** on `main` with that `run_id`. For entirely
-   new package names, first follow the separate [bootstrap runbook](../../CONTRIBUTING.md#first-publication-of-a-new-package)
+   new package names, first follow the separate [bootstrap runbook](../../RELEASING.md#first-publication-of-a-new-package)
    using that candidate, then configure their Trusted Publishers. The first
    run pins the candidate and starts a second run on
    `theoria-candidate-<sha>`. Wait for the **tag run**, including **Verify and

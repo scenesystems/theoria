@@ -63,11 +63,8 @@ Libraries live in `packages/`; the documentation application lives in `apps/`.
 
 ## Documentation and delivery
 
-- Write READMEs for humans to understand and use the package. Document APIs on
-  their public declarations. Update the owning document when behavior changes;
-  do not create parallel catalogs, work diaries, milestone reports, or unrequested
-  process documents. Keep explanations clear and substantive, without repetition
-  or promotional language. History belongs in Git.
+- Update the owning documentation when public behavior or setup changes. Write
+  for the reader's task; do not create work diaries or parallel specifications.
 - Commit completed, verified logical slices rather than accumulating an opaque
   batch. Use signed Conventional Commits: `type(scope): concise change`, with the
   type describing the change and the scope naming its owner. Inspect the staged
@@ -76,11 +73,6 @@ Libraries live in `packages/`; the documentation application lives in `apps/`.
 - When reorganizing commits, inspect the complete diff and preserve the final
   tree and behavior. Commit permission does not authorize pushing or rewriting
   published history.
-- Give PRs concise, descriptive titles. Keep bodies focused on the problem, why
-  the change is needed, what changed, and relevant verification or limitations.
-  Describe the current diff, not the sequence of attempts, agent activity, or a
-  historical log. Keep claims current as the PR changes; do not impose a template
-  or checklist that adds no useful information.
 - Distinguish implemented, verified, committed, pushed, merged, and released in
   status reports. Report actual results, not planned checks or assumed success.
 
@@ -88,6 +80,9 @@ Libraries live in `packages/`; the documentation application lives in `apps/`.
 
 - Load `researching-effect` for unfamiliar Effect APIs or integration questions.
 - Load `maintaining-fixtures` for reference data, provenance, or generator changes.
-- Read `CONTRIBUTING.md` for contributions and releases, and the application's
+- Load `writing-documentation` for substantial README or documentation changes.
+- Load `writing-contributions` when drafting or reviewing PR descriptions or issues.
+- Load `writing-changesets` when deciding whether a changeset is needed or writing one.
+- Read `CONTRIBUTING.md` for contributions, `RELEASING.md` for publishing, and the application's
   `DEPLOYMENT.md` for deployment. Use those workflows with explicit authorization
   for publishing or deployment; these instructions do not grant it.
