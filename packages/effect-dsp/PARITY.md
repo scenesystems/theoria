@@ -394,7 +394,8 @@ bytes only for `cpython-sum-001`; full legacy byte regeneration matches only
 under AVX512/SVML NumPy dispatch (see the effect-math README). No frozen
 reference bytes changed.
 All pre-review fixture payloads retain their bytes; the canonical manifests
-gain only the new fixture entries.
+gain only new fixture entries and additive provenance metadata, with every
+existing entry and value preserved.
 
 The DSP manifest now has 47 entries. Its generator-wide `environment` records
 `PYTHONHASHSEED=0` and `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F`, and
