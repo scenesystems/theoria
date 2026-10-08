@@ -16,7 +16,7 @@ This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Please re
 
 ## Guidelines
 
-- All code must be idiomatic [Effect](https://effect.website). See [AGENTS.md](./AGENTS.md) for the full banned-constructs table.
+- All code must be idiomatic [Effect](https://effect.website). See [AGENTS.md](./AGENTS.md) for design, testing, commit, and PR guidance.
 - All tests must pass. Add new tests for new behavior.
 - Changes must be consistent with the project's existing style and conventions.
 - Write clear commit messages and include a summary in the PR description.

@@ -1,63 +1,93 @@
 # Theoria
 
-Effect v4 scientific-computing libraries in `packages/`; the React/Cloudflare site
-is in `apps/theoria/`. Package manifests own dependencies, exports, and scripts.
+Theoria is an open-source, Effect-native scientific-computing library collection.
+Libraries live in `packages/`; the documentation application lives in `apps/`.
 
-## Working in this repository
+## Design
 
-- Use Bun for JavaScript dependencies and scripts. From the root, package scripts
-  run as `bun run --filter '@scenesystems/effect-math' <script>`.
-- Use Effect public APIs throughout TypeScript implementations, including pure
-  computations, callbacks, tests, and tooling. An Effect return type does not
-  make a native implementation Effect-native. Do not introduce exceptions or
-  adapters that hide non-Effect operations.
-  Load `researching-effect` when an API or integration is unfamiliar.
-- Follow the Effect restrictions in `eslint/` and `.oxlintrc.json`; formatting is
-  owned by `.dprint.json` (source) and Prettier (Markdown/JSON/YAML). Do not add
-  suppressions or change lint policy to make an unrelated task pass.
-- Keep changes within the requested scope. Report unrelated failures rather than
-  absorbing them into the task.
+- Use Effect public APIs throughout TypeScript, including pure computations,
+  callbacks, tests, and tooling. An Effect return type does not make a native
+  implementation Effect-native. Do not introduce exceptions or adapters that
+  hide non-Effect operations. Lint coverage is not the limit of this requirement.
+- Model validated and encoded data with Schema, structural values without codecs
+  with Data, and capabilities with Context and Layer. Do not impose serialization
+  on generic types, callbacks, or services.
+- Depend on service contracts; let callers provide implementations. Preserve
+  error and requirement channels through composition instead of installing hidden
+  dependencies or erasing failures.
+- Keep abstractions with the concern that owns their meaning. Prefer direct
+  composition; introduce a shared abstraction only when it removes demonstrated
+  duplication or complexity. Do not impose a file template on every concern.
+- Work toward the requested target state. Do not invent compatibility layers,
+  format versions, registries, or configuration for hypothetical consumers.
+  Existing scaffolding is not a reason to add more. Remove superseded machinery
+  instead of layering corrections over it.
+- Treat public behavior, wire representations, resource lifetimes, and numerical
+  semantics as contracts. Read the relevant implementation, documentation, and
+  tests before changing them; keep specifications there, not in agent guidance.
 
-## Library contracts
+## Engineering process
 
-- Public concerns use PascalCase modules with matching root namespaces and package
-  subpaths. Private mechanics live under `src/internal/` and stay private.
-- Use Schema for validated/encoded data, Data for structural values without
-  codecs, and Context/Layer for capabilities. Generic types and callbacks do not
-  need serialization schemas.
-- Schema identifiers, brands, and service keys use
-  `@scenesystems/<package>/<Concern>[/<Member>]`. Preserve wire tags independently
-  of local naming changes.
-- `effect-study` owns reusable evaluation, history, lifecycle, and persistence;
-  `effect-search` adds optimization policy; `effect-dsp` composes both for language
-  model programs. Keep dependencies in that direction.
-- Seed non-cryptographic sampling through Effect Random. Sign's `Entropy` and
-  seal's `Cipher` supply their own cryptographic randomness; Random is not a
-  source of secrets.
-- Public API docstrings need `@since` and `@category`; docs-page module headers
-  need `@module`. Preserve truthful versions. `bun run docs:api` checks generation.
+- Use Bun for JavaScript dependencies and scripts. Read the relevant
+  `package.json` for available commands; run package scripts from that directory.
+  Repository lint and formatter configurations own mechanical rules.
+- Establish the intended behavior and investigate the specific uncertainty that
+  blocks it. Research should inform implementation, not become an unrelated audit.
+  If iterations stop producing progress, identify the unresolved cause before
+  adding more patches, tests, or infrastructure.
+- Separate behavior-preserving refactoring from behavior changes into reviewable
+  steps. Keep each slice focused on its intended outcome rather than folding
+  speculative follow-ups into it.
+- Run focused checks while iterating. Broaden verification with the change's
+  reach: root `check:all`, `lint`, `test`, and `build` cover integration. Match
+  checks to the change; documentation edits do not require a production build.
+- Keep work within scope. Report unrelated failures and unverified behavior
+  rather than expanding the task or weakening checks.
 
-## Verification
+## Tests that earn their place
 
-- For behavioral changes, write a failing regression test first. Use
-  `@effect/vitest` and `it.effect`; use `it.effect.prop` for invariants and
-  independent reference vectors for numerical/protocol conformance. Load
-  `maintaining-fixtures` when changing reference data or generators.
-- Run focused tests with `bun run test -- <test-path>` and the affected package's
-  checks while iterating. Root `bun run check:all` covers source, tests, examples,
-  scripts, and benchmarks; `bun run lint` includes formatting.
-- For cross-package changes or integration, run `bun run check:all`,
-  `bun run lint`, `bun run test`, and `bun run build`. Rebuild clean outputs after
-  module moves before testing packed consumers. Documentation-only changes need
-  formatting and reference checks, not a production build.
-- Report the checks actually run and any failures or unverified behavior.
+- Every test must catch a plausible defect in first-party behavior. For a behavior
+  change, start with a failing example that distinguishes the intended result
+  from a realistic mistake. Use `@effect/vitest` and the existing test setup.
+- Test outputs, failures, invariants, resource lifetimes, and real integration
+  boundaries. Do not add tests about tests, guidance, file/export inventories,
+  naming, or package metadata. Leave structural checks to the compiler, resolver,
+  linter, build, and release tooling that own them.
+- Do not add a contract-testing layer, generic harness, acceptance manifest, or
+  smoke suite just to certify a change. A test called a contract test must still
+  exercise meaningful behavior. Prefer a direct regression test in the owning
+  suite; remove redundant scaffolding rather than expanding it.
+- Use property tests for meaningful invariants and independent references for
+  numerical/protocol results. Do not reproduce the implementation as its own
+  oracle, assert only that nothing crashed, or weaken expectations to get green.
 
-## Task-specific references
+## Documentation and delivery
 
-- App architecture and UI: `apps/theoria/AGENTS.md`.
-- Local orb servers: `amp orb services ensure` uses `.amp/services.yaml`.
-- Releases: `CONTRIBUTING.md`; deployment: `apps/theoria/DEPLOYMENT.md`.
-  Use the documented workflows; publishing and production promotion require
-  explicit approval. This guidance does not authorize either action.
-- `.vendor/` contains read-only dependency references. `.specs/` is gitignored
-  scratch space, not authoritative product requirements.
+- Write READMEs for humans to understand and use the package. Document APIs on
+  their public declarations. Update the owning document when behavior changes;
+  do not create parallel catalogs, work diaries, milestone reports, or unrequested
+  process documents. Keep explanations clear and substantive, without repetition
+  or promotional language. History belongs in Git.
+- Commit completed, verified logical slices rather than accumulating an opaque
+  batch. Use signed Conventional Commits: `type(scope): concise change`, with the
+  type describing the change and the scope naming its owner. Inspect the staged
+  diff and run relevant checks before committing; do not disable signing or
+  bypass failing hooks without explicit authorization.
+- When reorganizing commits, inspect the complete diff and preserve the final
+  tree and behavior. Commit permission does not authorize pushing or rewriting
+  published history.
+- Give PRs concise, descriptive titles. Keep bodies focused on the problem, why
+  the change is needed, what changed, and relevant verification or limitations.
+  Describe the current diff, not the sequence of attempts, agent activity, or a
+  historical log. Keep claims current as the PR changes; do not impose a template
+  or checklist that adds no useful information.
+- Distinguish implemented, verified, committed, pushed, merged, and released in
+  status reports. Report actual results, not planned checks or assumed success.
+
+## Task references
+
+- Load `researching-effect` for unfamiliar Effect APIs or integration questions.
+- Load `maintaining-fixtures` for reference data, provenance, or generator changes.
+- Read `CONTRIBUTING.md` for contributions and releases, and the application's
+  `DEPLOYMENT.md` for deployment. Use those workflows with explicit authorization
+  for publishing or deployment; these instructions do not grant it.
