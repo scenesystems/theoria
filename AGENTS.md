@@ -1,249 +1,88 @@
----
-description: Development guidelines for theoria monorepo
-globs: "**/*.ts, **/*.mts"
-alwaysApply: true
----
-
 # Theoria
 
-Effect-native scientific computing monorepo.
-
-| Package              | Directory                    | npm                              | Deps                                                                                |
-| -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
-| effect-study         | `packages/effect-study/`     | `@scenesystems/effect-study`     | effect, @scenesystems/digest                                                        |
-| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/effect-study, @scenesystems/effect-math, @scenesystems/digest |
-| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @scenesystems/effect-study, effect                     |
-| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search, @scenesystems/effect-study                     |
-| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                                              |
-| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | effect, @effect/ai-anthropic, @effect/ai-openai, @effect/ai-openrouter              |
-| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                                               |
-| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                                              |
-| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, @scenesystems/digest, effect     |
-
-Each library chooses entrypoints according to its public concerns; there is no repository-wide single-entrypoint exemption or requirement. Effect is a required peer dependency. Use Schema as the source of truth for encodable data, while abstract generic, callback, Layer, and service relationships may use Effect-native TypeScript types and `Data.Class`. Packages are published under the `@scenesystems/` scope for cross-ecosystem use. Cryptographic implementations build on the [Noble](https://paulmillr.com/noble/) ecosystem; dependency audits do not cover Theoria's compositions.
-
----
-
-## Rules
-
-1. **USE `bun` ONLY.** Never `npm`, `npx`, `yarn`, `pnpm`. Use `bunx` for CLI tools.
-2. **FOUR GATES.** `bun run check:all && bun run lint && bun run test && bun run build` — all green before work is complete. `check:all` type-checks sources, tests, examples, scripts, and benchmarks.
-3. **YOU OWN ALL ERRORS.** You see it, you own it, you fix it.
-4. **NEVER USE `git stash`.** Ask the user how to proceed.
-5. **RUN CLI COMMANDS.** VS Code diagnostics are insufficient.
-
----
-
-## Commands
-
-| Task                                            | Command                  |
-| ----------------------------------------------- | ------------------------ |
-| Type check (src + scripts)                      | `bun run check`          |
-| Type check (test)                               | `bun run check:tests`    |
-| Type check (examples, package scripts, benches) | `bun run check:examples` |
-| Type check (everything)                         | `bun run check:all`      |
-| Lint                                            | `bun run lint`           |
-| Test                                            | `bun run test`           |
-| Build                                           | `bun run build`          |
-| Clean                                           | `bun run clean`          |
-
-Per-package: `bun run --filter '@scenesystems/effect-math' check`
-
-**CRITICAL:** The `--filter` flag goes after `run`, NOT before it. The pattern matches package names from `package.json`, not directory paths. Glob patterns work: `bun run --filter '@scenesystems/*' build`.
-
-Before committing: `bun run check:all && bun run lint && bun run test`
-
-For `apps/theoria` dev work, use the checked-in runbook: `bun run app:theoria:tmux`. Treat the frontend dev server port as fixed at `5175`; do not improvise alternate Vite ports unless the user explicitly asks for a config change.
-
----
-
-## Vendored Source Reference
-
-The Effect-TS monorepo source is vendored at `.vendor/effect/` for direct reading. When you need to understand how an Effect API works internally, read the source — don't guess or hallucinate signatures.
-
-```bash
-bun run vendor:check   # see if versions drifted
-bun run vendor:sync    # sync to installed versions
-```
-
-See `.vendor/AGENTS.md` for the full package→directory map.
-
----
-
-## Effect-Native Code Only
-
-Every TypeScript file in the repository must consume native Effect public APIs — packages, apps, tests, benchmarks, and tooling alike, including pure computations and callbacks. Framework-required configuration syntax is permitted, but configuration logic is not exempt. Use `it.effect()` in tests. Lint coverage is not an authorization boundary: an unavailable native operation requires research and explicit user approval, not an agent-created adapter exception.
-
-Effect's public APIs are supported here regardless of upstream stability labels. `@stability unstable` is informational, not a restriction. `effecttsgo/unstable-api-usage` is disabled repository-wide for this reason. This does not authorize importing Effect internals.
-
-Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
-
-- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers. The repository's five synchronous framework configuration entry points follow the same rules, with only `Effect.runSync` permitted to materialize the framework-owned value at that host boundary; built assets (`apps/*/public/**`) remain outside authored-source linting. Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
-- `.oxlintrc.json` owns every generic JavaScript and TypeScript rule: correctness, `no-unused-vars`, `no-explicit-any`, import hygiene, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. Its exact-file path override disables `effecttsgo/schema-number` only where models intentionally use `Schema.Number` for IEEE non-finite values: complex base values, recursive artifact payloads, objective sentinels, and TPE numerical states whose algorithms produce infinities or NaN. Validated numerical metadata remains `Schema.Finite`; do not replace `Schema.Number` with hand-built equivalent schemas to evade the diagnostic. Warnings fail the run (`denyWarnings`). Three rules are intentionally off globally: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom), `typescript/prefer-as-const` (conflicts with the `as` ban), and `effecttsgo/unstable-api-usage` (upstream stability labels are informational). The two linters do not overlap.
-- `.dprint.json` owns formatting.
-- `@effect/tsgo` supplies the patched compiler and strict Effect diagnostics through type-aware oxlint. The tsconfig plugin disables duplicate diagnostics during `tsc` runs.
-
-- Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use Effect core services (`effect/FileSystem`, `effect/Path`), `BunServices` from `@effect/platform-bun`, or package-owned abstractions instead.
-- Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.
-- Documentation syntax dependencies are explicitly authorized: unified/Remark parses Markdown, `remark-math` recognizes LaTeX expressions, and KaTeX typesets them. This permission covers those syntax operations only; surrounding models, transformations, failure handling, and tests remain Effect-native. Render mathematical expressions as accessible MathML with untrusted commands disabled; do not weaken the site's content security policy to accommodate inline styles.
-
-| Banned                                                            | Use Instead                                                                                                                                                                                                                            |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                                                                                             |
-| `throw`, `try/catch`                                              | `Data.TaggedError` when no codec is needed; `Schema.TaggedError` at encoded boundaries                                                                                                                                                 |
-| `new Error()`                                                     | `Data.TaggedError` when no codec is needed; `Schema.TaggedError` at encoded boundaries                                                                                                                                                 |
-| `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                                                                                   |
-| `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                                                                                          |
-| `for`, `while`, `do...while`                                      | `Array.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                                                                                        |
-| `switch`                                                          | `Match` from effect                                                                                                                                                                                                                    |
-| `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                                                                                      |
-| `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                                                                                        |
-| `as` assertions, `satisfies`                                      | `Schema.decodeUnknownEffect` / `Schema.decodeUnknownSync`, `Schema.is`                                                                                                                                                                 |
-| `JSON.parse/stringify`                                            | `Schema.decodeEffect` / `Schema.encodeEffect` (usually with `Schema.fromJsonString`)                                                                                                                                                   |
-| `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                                                                                            |
-| `Array.push`                                                      | `Array.append` / `Array.appendAll`                                                                                                                                                                                                     |
-| `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catch`                                                                                                                                                                                             |
-| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                                                                                 |
-| Handwritten interface models                                      | `Schema.Class` for encodable data; `Data.Class` / `Data.TaggedClass` for non-encoded relationships; empty interfaces extending only `Schema.Schema.Type<typeof schema>` / `Schema.Schema.Encoded<typeof schema>` for recursive schemas |
-| `Partial<>`, `Pick<>`, `Omit<>`                                   | Schema struct operations (`schema.mapFields(Struct.pick(...))`, `schema.mapFields(Struct.omit(...))`, field-level `Schema.optional`)                                                                                                   |
-| `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                                                                              |
-| `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                                                                                       |
-| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                                                                                    |
-| `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `Entropy.bytes` with `Entropy.layer` from `@scenesystems/sign`                                            |
-| `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `effect/http`                                                                                                                                                                                      |
-| `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                                                                                           |
-| `process.*` (every property, including `memoryUsage`, `versions`) | `Config`, `Console`, `Path` + `import.meta.url`, `Clock`, `BunRuntime.runMain` (exit code 1 on failure); what Effect cannot observe is not reported                                                                                    |
-
----
-
-## Conventions
-
-- **Naming**: PascalCase public modules and types, camelCase private modules, functions, and ordinary values, and conventional mathematical or protocol spelling where semantics call for it. Constant casing follows semantic role rather than a blanket UPPER_SNAKE rule. Match the Effect ecosystem.
-- **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
-- **Representations**: Schema owns validated/encoded data. Data owns structural values without a codec, including `Data.TaggedEnum` for closed variants. Services and generic type relationships do not require serialization schemas.
-- **One concern per file**: Flat public concern modules are the baseline. Use `internal/` for implementation details; no concern must adopt a `contract/model/schema/errors/operations/index` template.
-- **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
-- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every public source file that becomes a docs page opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
-
-### Integrated package conventions
-
-`digest`, `effect-math`, `sign`, `seal`, `effect-study`, `effect-search`, `effect-inference`, `effect-dsp`, and `effect-text` share these conventions:
-
-- A public `src/Concern.ts` owns the root `Concern` namespace and exact `./Concern` export. Private source paths are camelCase under `src/internal/`. Tests use `test/Concern.test.ts` or `test/Concern/behavior.test.ts`; supporting fixtures are not public concerns.
-- Schema identifiers, brands, Context keys, and registered symbols use `@scenesystems/<package>/<Concern>[/<Member>]`. A concern's principal model or service uses the concern path; other declarations include their member name. Private identities include their private path. Serialized `_tag` and algorithm strings are separate protocol contracts: do not rename them to normalize identifiers.
-- Choose Schema for validated/encoded models and failures, Data for structural values and failures without codecs, and Context for capabilities. A common naming convention does not require every package to use the same representation or error channel.
-- Docstrings explain purpose, representations, failures, and service requirements where relevant. Use semantic categories such as `models`, `schemas`, `errors`, `services`, and `constructors`, with domain-specific categories for operations. Keep each declaration's truthful package-specific `@since`; integration does not reset it.
-- Published library-to-library workspace dependencies use `workspace:^`; root/private tooling may use `workspace:*`. Keep the common check, lint, test, and build script names; add concern-specific fixture/packed checks where needed. These packages use the root Vitest 5 project configuration; workerd tests keep their dedicated runner. Preserve the root Vite 8.2.2 override and regenerate the lockfile from combined manifests without incidental dependency upgrades. Build from clean outputs after module moves or casing changes before checking packed consumers.
-
----
-
-## Governance
-
-- Package export maps keep `internal/*` unreachable to package consumers. They do not prohibit implementation modules inside the same package from using relative imports to their own internals.
-- Every shared abstraction has a semantic owner and lives with that concern. Do not create an ownerless `shared` or `contracts` home by default.
-- `effect-study` owns generic evaluation, lifecycle, trial history, event factories, and schema-parameterized persistence and artifact delivery. `effect-search` owns optimization strategies, objective values, samplers, pruning, and their event/snapshot codecs; it composes study capabilities rather than re-exporting them under compatibility aliases.
-- Adding algorithms must not require modifying unrelated internals.
-- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`; encryption nonces belong to `Cipher.Cipher` from `@scenesystems/seal`. Provide their separate `Entropy.layer` and `Cipher.layer` capabilities at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
-- Public entrypoints are chosen per library from current consumer concerns rather than inherited package history. Effect remains required; use Schema for values that cross encoded boundaries and Effect-native types for abstract service and generic relationships.
-
----
-
-## Structure
-
-| Directory                 | Purpose                                                                     |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `packages/effect-study/`  | Reusable evaluation, trial history, stopping, event streams, and artifacts  |
-| `packages/effect-search/` | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE                   |
-| `packages/effect-dsp/`    | Declarative signal programming — DSPy paradigm for Effect                   |
-| `packages/effect-text/`   | Text preparation, measurement seams, greedy multiline layout                |
-| `packages/effect-math/`   | Mathematical and statistical foundations                                    |
-| `packages/digest/`        | Content hashing, JCS canonicalization (`@scenesystems/digest`)              |
-| `packages/seal/`          | Authenticated encryption (`@scenesystems/seal`)                             |
-| `packages/sign/`          | Digital signatures, key agreement, key encapsulation (`@scenesystems/sign`) |
-| `.agents/skills/`         | Portable Effect-native skills                                               |
-| `.changeset/`             | Independent versioning per package                                          |
-| `packages/*/AGENTS.md`    | Package-specific governance                                                 |
-
----
-
-## Releases
-
-Uses [Changesets](https://github.com/changesets/changesets) for independent per-package versioning.
-
-```bash
-bun run changeset              # Create a changeset
-bun run changeset:version      # Apply version bumps
-bun run release:check          # Type checks, lint, behavioral tests, production build
-```
-
-Routine publishing happens only in `Publish Packages` (`.github/workflows/publish.yml`) through npm Trusted Publishing. Manually dispatch on `main` with a successful Theoria staging `run_id`. The dispatcher pins `theoria-candidate-<sha>` and starts the actual publish run on that tag, so provenance and release tags name the candidate commit. Its `pack` job downloads the staged package output, runs typechecks/lint/tests, verifies content identity and packs unpublished versions without rebuilding; its `publish` job holds the OpenID Connect token, publishes those tarballs, and creates tags/releases. Wait for the tag run's publication verification, not just the dispatcher. The `npm` environment must permit `theoria-candidate-*` tags. Publishing never promotes the website. Release policy lives in `scripts/release.ts` and its Effect modules, not shell scripts.
-
-First publication of absent package names uses the separate, manual-only `Bootstrap Packages` workflow (`bootstrap.yml`) with an explicit JSON package-name list. It shares the publication lock and candidate/content gates, publishes only verified selected tarballs, and rejects existing names or registry errors. Its protected `npm-bootstrap` environment supplies a short-lived `NPM_BOOTSTRAP_TOKEN` only to final admission and publication, with lifecycle scripts disabled and provenance required. Configure each new package's routine Trusted Publisher as `publish.yml` / `npm`, then revoke the token. Environment setup, publication, and token changes require explicit maintainer authorization; see [the bootstrap runbook](CONTRIBUTING.md#first-publication-of-a-new-package).
-
----
-
-## Commits
-
-**Types:** `feat`, `fix`, `docs`, `test`, `chore`, `refactor`
-
-**Scopes:** `effect-study`, `effect-search`, `effect-dsp`, `effect-text`, `effect-math`, `digest`, `seal`, `sign`, `root`
-
-```bash
-git commit -m "feat(effect-search): add TPE categorical sampler"
-```
-
----
-
-## Testing
-
-- RED → GREEN → REFACTOR. Tests first.
-- Golden fixtures from reference implementations (Optuna, DSPy).
-- Fixture generation uses `uv run` — never `python3` directly.
-- Property-based tests use `it.effect.prop` from `@effect/vitest` with Schema or Effect `Arbitrary` inputs, or `Arbitrary.checkEffect` for explicit checks. Import `fast-check` directly only where its own API is needed.
-- Tolerances: exact for integers/categories; mixed absolute + relative for continuous math.
-
----
-
-## Deployment (Cloudflare Workers)
-
-The `apps/theoria` site deploys as one Cloudflare Worker (`apps/theoria/worker.ts`) that serves the API, the HTML shell, and the built `dist/` bundle as static assets. Configuration lives in `apps/theoria/wrangler.jsonc`; the full runbook is `apps/theoria/DEPLOYMENT.md`.
-
-### Targets
-
-| Target     | Worker            | Hostname                                 | Deployed by                                                       |
-| ---------- | ----------------- | ---------------------------------------- | ----------------------------------------------------------------- |
-| preview    | `theoria-pr-<N>`  | `theoria-pr-<N>.staging.scenesystems.io` | `Theoria Preview` (`workflow_run` on `main`) per pull request     |
-| staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `Theoria` on every push to `main`                                 |
-| production | `theoria`         | `theoria.scenesystems.io`                | `Theoria Production`, manually selecting a successful staging run |
-
-The root `build` prepares packages and the website once per commit, followed by `deploy:dry-run` and `test:worker`. The same website artifact is checked (`theoria-build-check` runs `apps/theoria/scripts/check-build-output.ts`: every `dist/` file must have a content type in `app/server/config/static-store.ts`, the single MIME table the Bun server also uses), deployed, and verified by the Effect release program at each stage. Main builds also retain the prepared package output. Only `theoria.scenesystems.io` is indexable; every other hostname gets `X-Robots-Tag: noindex`.
-
-### Deployment Protocol
-
-1. **Code changes** deploy by merging to `main`: staging deploys automatically and records a release candidate. Publish new package versions with `Publish Packages`, then separately dispatch `Theoria Production` on `main` with the same `run_id`. Production requires matching npm provenance and prepared package content, and promotes the recorded artifact/configuration without rebuilding. Website-only candidates can reuse matching published packages. Optional `reviewed_run_id` carries a prior staging review forward only through verified version-only changes. Candidate/site/package artifacts expire after seven days. Never dispatch publication or production without explicit release approval.
-2. **Variables** are declared in `wrangler.jsonc` (`vars`) or passed as `--var` by the workflow (`BUILD_SHA`). Changing one is a code change.
-3. **Secrets** live in the GitHub `staging` and `production` environments (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`); the app itself needs none.
-4. **Debugging** starts with the failed workflow step, then `wrangler tail theoria` / `wrangler tail theoria-staging` (Workers Logs are enabled in `wrangler.jsonc`).
-5. **Verification** is the `theoria-verify-deployment` checklist: `/api/health/live` reports the deployed `buildSha`, the shell and docs routes answer, `POST /api/imagined-place/build` succeeds, and the indexing header matches the target.
-
-### Anti-patterns
-
-- Editing `run_worker_first` in `wrangler.jsonc` without adding the matching `Match` arm in `app/server/router.ts` (or vice versa); `test/worker/site.test.ts` checks the routing through the real bundle.
-- Using `node:fs`/`node:path` or `process.env` in server code — the same code runs in workerd. Use `Config`, `StaticStore`, and core Effect services.
-- Running `wrangler deploy` by hand against production; the workflow is the release path.
-
----
-
-## Skills Reference
-
-| Skill                           | When to Load                          |
-| ------------------------------- | ------------------------------------- |
-| `skill:idiomatic-effect`        | Writing Effect code                   |
-| `skill:effect-testing`          | Writing tests with `@effect/vitest`   |
-| `skill:effect-services`         | Designing services and layers         |
-| `skill:effect-error-management` | Designing typed error channels        |
-| `skill:effect-branded-types`    | Creating branded/nominal types        |
-| `skill:effect-data-primitives`  | Using Data module primitives          |
-| `skill:engineering-excellence`  | Structural patterns and decomposition |
-| `skill:target-state-tdd`        | TDD workflow                          |
-| `skill:mermaid-diagrams`        | Architecture diagrams                 |
+Theoria is an open-source, Effect-native scientific-computing library collection.
+Libraries live in `packages/`; the documentation application lives in `apps/`.
+
+## Design
+
+- Use Effect public APIs throughout TypeScript, including pure computations,
+  callbacks, tests, and tooling. An Effect return type does not make a native
+  implementation Effect-native. Do not introduce exceptions or adapters that
+  hide non-Effect operations. Lint coverage is not the limit of this requirement.
+- Model validated and encoded data with Schema, structural values without codecs
+  with Data, and capabilities with Context and Layer. Do not impose serialization
+  on generic types, callbacks, or services.
+- Depend on service contracts; let callers provide implementations. Preserve
+  error and requirement channels through composition instead of installing hidden
+  dependencies or erasing failures.
+- Keep abstractions with the concern that owns their meaning. Prefer direct
+  composition; introduce a shared abstraction only when it removes demonstrated
+  duplication or complexity. Do not impose a file template on every concern.
+- Work toward the requested target state. Do not invent compatibility layers,
+  format versions, registries, or configuration for hypothetical consumers.
+  Existing scaffolding is not a reason to add more. Remove superseded machinery
+  instead of layering corrections over it.
+- Treat public behavior, wire representations, resource lifetimes, and numerical
+  semantics as contracts. Read the relevant implementation, documentation, and
+  tests before changing them; keep specifications there, not in agent guidance.
+
+## Engineering process
+
+- Use Bun for JavaScript dependencies and scripts. Read the relevant
+  `package.json` for available commands; run package scripts from that directory.
+  Repository lint and formatter configurations own mechanical rules.
+- Establish the intended behavior and investigate the specific uncertainty that
+  blocks it. Research should inform implementation, not become an unrelated audit.
+  If iterations stop producing progress, identify the unresolved cause before
+  adding more patches, tests, or infrastructure.
+- Separate behavior-preserving refactoring from behavior changes into reviewable
+  steps. Keep each slice focused on its intended outcome rather than folding
+  speculative follow-ups into it.
+- Run focused checks while iterating. Broaden verification with the change's
+  reach: root `check:all`, `lint`, `test`, and `build` cover integration. Match
+  checks to the change; documentation edits do not require a production build.
+- Keep work within scope. Report unrelated failures and unverified behavior
+  rather than expanding the task or weakening checks.
+
+## Tests that earn their place
+
+- Every test must catch a plausible defect in first-party behavior. For a behavior
+  change, start with a failing example that distinguishes the intended result
+  from a realistic mistake. Use `@effect/vitest` and the existing test setup.
+- Test outputs, failures, invariants, resource lifetimes, and real integration
+  boundaries. Do not add tests about tests, guidance, file/export inventories,
+  naming, or package metadata. Leave structural checks to the compiler, resolver,
+  linter, build, and release tooling that own them.
+- Do not add a contract-testing layer, generic harness, acceptance manifest, or
+  smoke suite just to certify a change. A test called a contract test must still
+  exercise meaningful behavior. Prefer a direct regression test in the owning
+  suite; remove redundant scaffolding rather than expanding it.
+- Use property tests for meaningful invariants and independent references for
+  numerical/protocol results. Do not reproduce the implementation as its own
+  oracle, assert only that nothing crashed, or weaken expectations to get green.
+
+## Documentation and delivery
+
+- Update the owning documentation when public behavior or setup changes. Write
+  for the reader's task; do not create work diaries or parallel specifications.
+- Commit completed, verified logical slices rather than accumulating an opaque
+  batch. Use signed Conventional Commits: `type(scope): concise change`, with the
+  type describing the change and the scope naming its owner. Inspect the staged
+  diff and run relevant checks before committing; do not disable signing or
+  bypass failing hooks without explicit authorization.
+- When reorganizing commits, inspect the complete diff and preserve the final
+  tree and behavior. Commit permission does not authorize pushing or rewriting
+  published history.
+- Distinguish implemented, verified, committed, pushed, merged, and released in
+  status reports. Report actual results, not planned checks or assumed success.
+
+## Task references
+
+- Load `researching-effect` for unfamiliar Effect APIs or integration questions.
+- Load `maintaining-fixtures` for reference data, provenance, or generator changes.
+- Load `writing-documentation` for substantial README or documentation changes.
+- Load `writing-contributions` when drafting or reviewing PR descriptions or issues.
+- Load `writing-changesets` when deciding whether a changeset is needed or writing one.
+- Read `CONTRIBUTING.md` for contributions, `RELEASING.md` for publishing, and the application's
+  `DEPLOYMENT.md` for deployment. Use those workflows with explicit authorization
+  for publishing or deployment; these instructions do not grant it.
