@@ -18,7 +18,7 @@ import {
   visible
 } from "./browser.js"
 import { drawn } from "./demo.js"
-import { boxOf, scrollElementTo } from "./platform/in-page.js"
+import { boxEdges, boxOf, scrollElementTo } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })((it) => {
@@ -73,20 +73,18 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 Effect.gen(function*() {
                   const box = yield* act(() => popup.evaluate(boxOf))
                   const documentBox = yield* act(() => page.locator("html").evaluate(boxOf))
-                  const separation = yield* Effect.forEach(
-                    Arr.range(0, Num.subtract(yield* act(() => targets.count()), 1)),
-                    (index) =>
-                      Effect.gen(function*() {
-                        const target = yield* act(() => targets.nth(index).evaluate(boxOf))
-                        return Bool.some([
-                          box.right <= target.left,
-                          box.left >= target.right,
-                          box.bottom <= target.top,
-                          box.top >= target.bottom
-                        ])
-                      })
-                  )
+                  // Resize replaces markers and their reach elements. Read all
+                  // boxes together rather than keeping stale locator indices.
+                  const targetBoxes = yield* act(() => targets.evaluateAll(boxEdges))
+                  const separation = Arr.map(targetBoxes, (target) =>
+                    Bool.some([
+                      box.right <= target.left,
+                      box.left >= target.right,
+                      box.bottom <= target.top,
+                      box.top >= target.bottom
+                    ]))
                   return Bool.every([
+                    targetBoxes.length > 0,
                     box.left >= 11.9,
                     box.right <= Num.subtract(width, 11.9),
                     box.right <= Num.subtract(documentBox.right, 11.9),
