@@ -1,15 +1,13 @@
 # @scenesystems/effect-dsp
 
-Effect-native typed language-model programs, evaluation, tracing, persistence,
-and optimization. Signatures retain Effect schemas, modules retain generic
-Effect error and service channels, and optimizers return immutable bound programs
-without mutating caller parameters or owning provider configuration.
+DSP uses schemas to define the inputs and outputs of language-model programs
+in Effect. Once a program works, you can evaluate it against examples and
+optimize its instructions or demonstrations. You supply the model layer;
+provider failures and service requirements remain part of the program's type.
 
-Core algorithm parity: Evaluate, LabeledFewShot, BootstrapFewShot, BootstrapRS,
-MIPROv2, and GEPA against DSPy 3.4.0 (GEPA 0.1.4, Optuna 4.9.0).
-This is a bounded behavioral claim, not full DSPy API or prompt-byte parity.
-[PARITY.md](./PARITY.md) lists the executable fixtures, exact seeded-prefix
-boundaries, numerical limits, and deliberate language-native differences.
+Behavioral comparisons target DSPy 3.4.0, GEPA 0.1.4 and Optuna 4.9.0.
+They cover specific algorithms and recorded cases, not the full DSPy API or
+identical prompts. See [compatibility and evidence](./PARITY.md) for the scope.
 
 ## Installation
 
@@ -17,10 +15,16 @@ boundaries, numerical limits, and deliberate language-native differences.
 bun add @scenesystems/effect-dsp effect
 ```
 
-Bring any `LanguageModel` layer for Effect v4's `effect/ai/LanguageModel`. Provider setup can come from
-`@scenesystems/effect-inference`, but DSP production code does not depend on it.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root
+or matching subpaths, such as `@scenesystems/effect-dsp/Signature`.
 
-## Typed programs
+Supply a layer for `effect/ai/LanguageModel` to run the examples. For provider
+setup, see [`effect-inference`](../effect-inference/README.md#configured-text-providers);
+for local tests, use the mock layer below.
+
+## Basic use
+
+Define a typed question-answering program with `Signature.make` and `Module.predict`.
 
 ```ts typecheck
 import { Effect, Schema } from "effect"
@@ -37,102 +41,16 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-`Module.predict`, `chainOfThought`, `react`, `bestOfN`, `refine`, and `compose`
-preserve schema-decoded input/output types and generic Effect channels. Stable
-module names identify parameters in traces, discovery graphs, saved state, and
-optimizer candidates.
-
-`ModuleParameters` owns one predictor's parameter construction, immutable updates, projections,
-and scalar dimensions. `ModuleGraph` owns serializable `ModuleGraph`, `Node`, `Edge`,
-`Lineage`, and `Projection` values. `Demonstration.Codec` is compiled from a
-signature's encoded schemas, so destination validation, trace replay, and
-equivalence never rerun domain transformations.
-
-## Predictors, parameter sets, and results
-
-Optimization works on predictors, not on module objects:
-
-- `Predictor` describes each parameter-bearing leaf: its stable dotted `path`,
-  alternate `aliases` for shared predictors, `frozen` flag, signature text and
-  parameter reference. `ModuleGraph.predictors(program)` lists them in stable path
-  order.
-- `ParameterSet` is an immutable `ModuleParameters` record keyed by predictor path.
-  `ParameterSet.snapshot` reads a program once (optionally trainable predictors
-  only); `restrict` and `diff` select and compare snapshots.
-- `Module.bound(program, parameters)` returns an executable copy bound to a
-  snapshot, and `Module.withParameters` runs an effect under a fiber-local
-  overlay. Only `Module.install`, and `Module.load` for validated saved state,
-  write caller parameters.
-- `Optimized.Result` is what every optimizer returns: a bound `program`, its
-  `parameters` snapshot, and the algorithm's serializable `report`.
-- `TeacherTrace` is the shared teacher-execution concern behind BootstrapFewShot,
-  BootstrapRS and MIPROv2. `collect` and `stream` run a teacher under leave-one-out
-  overlays and the teacher role, retain every accepted and rejected trace, and
-  never mutate the student or teacher. `firstPerPredictor` is the deterministic
-  one-demo-per-predictor selection BootstrapFewShot uses.
-
-Model roles and settings come from `@scenesystems/effect-lm`. Optimizer calls carry
-`teacher`, `proposer`, or `critic` roles and their `teacherSettings`,
-`proposerSettings`, or `reflectionSettings`; a `ModelBinder.Binder` installed with
-`ModelBinder.withBinder` routes each role to a model and resolves its settings.
-`@scenesystems/effect-inference`'s `ModelBinder.layer` provides a binder for hosted
-providers.
-
-```ts typecheck
-import { Array as Arr, Chunk, Effect, Option, Schema } from "effect"
-import { ModelBinder, ModelSettings } from "@scenesystems/effect-lm"
-import {
-  Example,
-  LabeledFewShot,
-  Metric,
-  Module,
-  ModuleGraph,
-  ParameterSet,
-  type Predictor,
-  Signature,
-  TeacherTrace
-} from "@scenesystems/effect-dsp"
-
-// Applies each request's settings; a real binder also selects a model per role.
-const binder = new ModelBinder.Binder({
-  bind: (request) => (effect) =>
-    Effect.provideService(effect, ModelSettings.Current, ModelSettings.merge(ModelSettings.empty, request.settings))
-})
-
-export const program = Effect.gen(function* () {
-  const signature = yield* Signature.make(
-    "Answer geography questions",
-    { question: Schema.String },
-    { answer: Schema.String }
-  )
-  const qa = yield* Module.predict("qa", signature)
-  const examples = Arr.make(
-    new Example.Example({ input: { question: "Capital of France?" }, labels: Option.some({ answer: "Paris" }) })
-  )
-
-  const paths: ReadonlyArray<Predictor.Path> = Arr.map(
-    Arr.fromIterable(ModuleGraph.predictors(qa)),
-    (predictor) => predictor.path
-  )
-  const before = yield* ParameterSet.snapshot(qa)
-
-  const evidence = yield* TeacherTrace.collect(
-    new TeacherTrace.Options({
-      student: qa,
-      trainset: Chunk.fromIterable(examples),
-      metric: Metric.exactMatch("answer"),
-      teacherSettings: new ModelSettings.ModelSettings({ temperature: 0 })
-    })
-  )
-
-  const result = yield* LabeledFewShot.run(new LabeledFewShot.Options({ module: qa, trainset: examples, k: 1 }))
-  const changed = ParameterSet.diff(before, result.parameters)
-  yield* Module.install(qa, result.parameters)
-  return { paths, accepted: evidence.accepted, changed, report: result.report }
-}).pipe(ModelBinder.withBinder(binder))
-```
+The schemas determine the types accepted and returned by `qa.forward`.
+Keep module names stable: DSP uses predictor paths to identify parameters when
+tracing, optimizing or restoring saved state. See [`Module`](./src/Module.ts)
+for tool-using programs and composition with `react`, `bestOfN` and other modules.
 
 ## Evaluation and optimization
+
+An `Example` holds input fields and optional raw labels. Labels are not decoded
+through the output signature; the metric decides whether an input-only example
+can be scored. Omit `labels` for those rows, or supply `Option.some` as below.
 
 ```ts typecheck
 import { Array as Arr, Effect, Option, Schema } from "effect"
@@ -166,55 +84,43 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-Algorithms are independent modules rather than members of an umbrella registry:
+Every optimizer returns an immutable `Optimized.Result`: an executable bound
+`program`, its `parameters` snapshot and an algorithm-specific serializable
+`report`. The original module stays unchanged on success, failure and
+interruption. Run the returned program directly, or explicitly mutate the
+original with `yield* Module.install(qa, optimized.parameters)`.
+`Module.bound` also binds a program to a snapshot without installing it;
+`Module.load` writes validated saved state.
 
-- `LabeledFewShot.run`
-- `TeacherTrace.collect` and `stream` (teacher evidence, not an optimizer)
-- `BootstrapFewShot.run`, `runWithEvents`, and `stream`
-- `BootstrapRS.run`
-- `MIPROv2.run`, `runWithEvents`, and `stream`
-- `GEPA.run`, `runWithEvents`, `stream`, and `resume`
-- `Ensemble.make`
-
-`MIPROv2Candidates` owns destination-bound candidate construction and validation;
-`MIPROv2Search` owns direct search over those candidates. `EvaluationObjective`
-projects evaluation reports into effect-search objectives.
-
-Each event-producing algorithm also owns its event schema, constructors,
-formatters, stream taps, and summaries. MIPROv2 preserves effect-search
-optimization failures. Candidate validation happens before provider calls;
-failed matching checkpoints evict only the failed candidate and retain historical
-best state. Optimizers return a bound `program`, a `ParameterSet`, and an
-algorithm-specific serializable `report`. Caller parameters remain unchanged on
-success, failure, and interruption; `Module.install` explicitly installs a result.
+Start with [`LabeledFewShot`](./src/LabeledFewShot.ts) for supplied examples
+or [`BootstrapFewShot`](./src/BootstrapFewShot.ts) for generated demonstrations.
+[`BootstrapRS`](./src/BootstrapRS.ts) searches demonstration sets;
+[`MIPROv2`](./src/MIPROv2.ts) searches instructions and demonstrations;
+[`GEPA`](./src/GEPA.ts) uses reflective feedback. Use an algorithm's
+`runWithEvents` or `stream` when it exposes progress.
 
 Evaluation retains failed examples in its ordered outcomes and denominator.
-`Report.average` uses fraction units and includes `failureScore` for failed rows;
-`maxErrors` limits expected failures without swallowing defects or interruption.
-Evaluate's own `maxErrors` defaults to unlimited. BootstrapFewShot, BootstrapRS,
-and MIPROv2 instead resolve an absent or none `maxErrors` to DSPy's settings
-default of 10. BootstrapRS ranks and stops on unrounded fractions; DSPy's
-two-decimal percentages can tie or stop differently for averages less than one
-hundredth of a percent apart (see PARITY.md). MIPROv2's `provideTraceback` logs
-each expected Phase 3 example failure, attaching its Cause when true.
+`Report.average` is a fraction and includes `failureScore` (default zero) for
+failed rows. `maxErrors` stops evaluation when the expected-failure count reaches
+the limit; defects and interruption propagate. Evaluate defaults to no error
+limit. BootstrapFewShot, BootstrapRS and MIPROv2 resolve an absent or none
+`maxErrors` to 10 for their bootstrap and evaluation passes.
 
-GEPA requires exactly one of `auto`, `maxMetricCalls`, or `maxFullEvals`. It
-reflects on training examples and returns the highest aggregate validation score,
-not the first member of its coverage front. Its metric budget stops at iteration
-boundaries and can overshoot; `report.feedbackMetricCalls` separately counts
-targeted feedback invocations.
+BootstrapRS ranks and stops on unrounded fractions. DSPy's rounded percentages
+can choose a different winner or stop near a rounding boundary. MIPROv2 counts
+sampled trials, not baseline or inserted full-evaluation rows, and returns its
+best full-evaluation result rather than its minibatch peak.
 
-`GEPA.State` carries both RNG streams, epoch-shuffled batch state, component
-cursors, merge scheduler counters and deduplication records. Resuming from this
-state reproduces the uninterrupted run exactly with the same module, datasets,
-metric, options and model responses. Upstream gepa 0.1.4 pickles only `GEPAState`:
-its batch sampler and merge proposer rebuild their `random.Random(0)` streams
-and counters on restart (`batch_sampler.py:43`, `merge.py:240`), so an upstream
-resumed run does not reproduce its uninterrupted run.
+GEPA requires exactly one of `auto`, `maxMetricCalls` or `maxFullEvals`.
+It reflects on training examples and returns the highest aggregate validation
+score, not the first member of its coverage front. Metric-budget checks occur
+at iteration boundaries and can overshoot. `report.feedbackMetricCalls` counts
+targeted feedback calls separately from that budget.
 
-`maxIterations` is an absolute checkpoint boundary; raise or remove it when
-continuing. This example pauses after two iterations and continues to ten using
-the same evaluation budget and model services:
+Save a GEPA checkpoint to continue an optimization later. Resuming reproduces an
+uninterrupted Theoria run when the module, datasets, metric, options and model
+responses are the same. `maxIterations` is an absolute boundary, so raise or
+remove it when continuing.
 
 ```ts typecheck
 import { Effect, Schema } from "effect"
@@ -233,80 +139,56 @@ export const optimizeInStages = <I extends Schema.Struct.Fields, O extends Schem
   })
 ```
 
-`resume` rejects a checkpoint that cannot belong to the supplied module and datasets with a typed
-`GEPAError` before restoring either stream. Custom `instructionProposer`s and
-`componentSelector`s receive public GEPA models: `ProgramCandidate`,
-`PredictorInstruction`, `ReflectiveExample`, and `State` with its `ParetoSnapshot`
-and `BatchState`. A selector that returns an unknown or frozen predictor path
-fails with `GEPAError`. Bind a `critic` model through ModelBinder to configure
-reflection independently of task calls.
+For custom objectives and samplers, use
+[`effect-search`](../effect-search/README.md) directly.
+[`EvaluationObjective`](./src/EvaluationObjective.ts) converts evaluation
+reports into search objectives.
 
-Predictor traversal and merge conflict resolution follow stable
-`Module.Structure` path order. Upstream gepa 0.1.4 iterates a Python string set
-(`merge.py:159–163`), whose order depends on `PYTHONHASHSEED` and is randomized
-per process by default. With two or more tied conflicts, upstream itself is not
-reproducible across processes; Theoria is deterministic.
+## Model roles and settings
 
-Search primitives are not mirrored. Import optimization, samplers, Pareto
-operations, and deterministic seed operations directly from effect-search.
-DSP's `Artifact` concern composes generic provenance and envelopes from
-effect-study:
+Model roles and settings come from `@scenesystems/effect-lm`. Optimizers use
+`teacher`, `proposer` and `critic` roles with `teacherSettings`, `proposerSettings`
+and `reflectionSettings`. Install a `ModelBinder.Binder` with
+`ModelBinder.withBinder` to route roles to models and resolve their settings.
+[`effect-inference`](../effect-inference/README.md) provides `ModelBinder.layer`
+for hosted providers. Without a critic binder, GEPA reflection falls back to
+the task model with a warning.
 
-```ts typecheck
-import { Optimization, Pareto, Sampler } from "@scenesystems/effect-search"
+## Traces, payloads and cache
 
-export const sampler = Sampler.tpe(new Sampler.TpeOptions({ seed: 17 }))
-export const frontier = Pareto.nonDominatedIndices
-export const optimize = Optimization.run
-```
+Wrap a program in `Trace.withTracing`, `withCalls` or `withUsageTracking` to
+collect its calls, including calls in child fibers. Each scope has its own
+records. Usage comes from the provider's `Response.Usage`; missing counters
+remain unknown, and DSP does not calculate a total when the provider omits it.
+To retain traces when a program fails, put `Effect.exit(program)` inside the scope.
+`Module.call` returns decoded output, selected traces, parse-attempt evidence
+and usage; `forward` returns the output directly.
 
-## Traces, payloads, and cache
+Use the codecs in [`Payload`](./src/Payload.ts) to store traces and
+demonstrations while preserving their schemas' encoded values.
 
-`Trace.withTracing`, `withCalls`, and `withUsageTracking` create isolated lexical
-scopes inherited by child fibers. Calls retain native `Response.Usage`; missing
-counters stay unknown and total tokens are never synthesized. Put
-`Effect.exit(program)` inside a trace scope when failure evidence must survive.
+Provide [`Cache.layerMemory`](./src/Cache.ts) for local memoization, or an
+effect-search backend to `Cache.layer`. Predictors cache successful model results
+at every temperature unless `cache: "never"` is selected. Toolkit execution and
+failed computations are not cached. Cached results are specific to the model
+and invocation, including their settings and encoded inputs. See the cache
+reference for the full identity contract.
 
-`Module.call` returns decoded output, selected trace entries, parse-attempt
-evidence, and usage. `Module.forward` remains the raw invocation. Signature field
-prefixes and descriptions live in predictor parameter snapshots alongside
-instructions and demos; overlays, save, and load use the same state.
+Declared model identities allow durable reuse. Anonymous model and binder
+identities last only for the Cache layer's scope; a Cache service installed
+without that layer memoizes only declared identities. Change module/runtime
+fingerprints when identity semantics change. Automatic cache failures warn and
+continue; explicit cache operations retain typed failures.
 
-`Payload.encode` and `Payload.decode` serialize data through its owning schema and
-verify encoded-schema equivalence after JSON round trip. Trace inputs/outputs and
-demonstration documents therefore retain nested encoded values losslessly.
-
-`Cache.Cache`, `Cache.Key`, `Cache.key`, `Cache.layer`, and `Cache.layerMemory`
-provide language-model result memoization over effect-search cache backends.
-Provide an effect-search `Cache` layer to `Cache.layer` for filesystem or SQL
-storage. Resolutions contain `value` and `resolution`; failed computations are
-not cached, and rollout partitions remain isolated.
-
-Predictors automatically cache at every temperature when a Cache layer is present,
-unless `cache: "never"` is selected. Toolkit execution is not memoized. Keys include
-model identity, resolved settings, role, rollout, predictor path, effective
-signature, parameters, and input. Declared model identities permit durable reuse.
-Anonymous native runtimes are identified by language-model and binder object
-identity only while the `Cache.layer` (or `Cache.layerMemory`) scope is open;
-closing it releases those identities. A Cache service installed without that
-layer memoizes only declared identities. Automatic cache failures warn and
-continue; explicit cache requests retain typed failures.
-
-`Cache.Request` and `Cache.KeyRequest` require `inputSchema` and `parametersSchema`.
-Use the module signature's input codec and the parameter codec (for
-example, `ModuleParameters`). Cache identity follows their encoded wire values,
-not incidental runtime fields. Codecs are service-free, like the existing cache
-key/output codecs. Preserve the encoded preimage to preserve existing keys;
-change the module/runtime fingerprint when changing identity semantics. Do not
-use `Schema.Unknown` to bypass representation selection.
-
-## Errors and testing
+## Errors
 
 `DspError.DspError` is the schema union of package-owned tagged failures. Native
-Schema, provider, platform, effect-search, and user callback failures remain in
+Schema, provider, platform, effect-search and user callback failures remain in
 their original channels when an operation exposes them separately.
 
-Testing code imports the flat `MockLanguageModel` subpath:
+## Testing
+
+Provide `MockLanguageModel` to test a program without calling a provider:
 
 ```ts typecheck
 import * as LanguageModel from "effect/ai/LanguageModel"
@@ -319,19 +201,31 @@ export const layer = MockLanguageModel.layer(
 ```
 
 Use `MockLanguageModel.fromFunction` for effectful prompt-dependent behavior,
-`sequence` for ordered responses, and `fail` for checked provider failure tests.
+`sequence` for ordered responses and `fail` for checked provider failure tests.
 
-## Public modules
+## Examples
 
-Every production concern is available from the package root and from a matching
-PascalCase subpath: `Signature`, `Module`, `ModuleParameters`, `ModuleGraph`,
-`Predictor`, `ParameterSet`, `Optimized`, `Prediction`,
-`Demonstration`, `Example`, `Metric`, `Evaluate`, `EvaluationObjective`, `Artifact`, `Trace`, `Cache`, `Payload`,
-`DspError`, `OptimizerEvent`, `TeacherTrace`, `LabeledFewShot`, `BootstrapFewShot`,
-`BootstrapRS`, `MIPROv2`, `MIPROv2Candidates`, `MIPROv2Search`, `GEPA`, and `Ensemble`.
-Model settings, roles, identity, and binders are imported from `@scenesystems/effect-lm`.
-`MockLanguageModel` is available through the root namespace and matching testing
-subpath. Private `internal/*` paths are blocked.
+See the [API reference](./src/index.ts) and [examples directory](./examples/):
+
+- [Live classification](./examples/03-basic-classify-live-openai.ts): requires provider credentials.
+- [Search integration](./examples/06-effect-search-interop.ts): runs locally without a provider.
+- [ReAct optimization](./examples/08-react-tool-use-optimized.ts): requires provider credentials.
+
+## Status
+
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and
+the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
+
+## Attribution
+
+The programming model draws on [DSPy](https://github.com/stanfordnlp/dspy) and
+[Khattab et al., 2023](https://arxiv.org/abs/2310.03714). MIPROv2 follows
+[Opsahl-Ong et al., 2024](https://arxiv.org/abs/2406.11695); GEPA follows
+[Agrawal et al., 2025](https://arxiv.org/abs/2507.19457).
 
 ## License
 

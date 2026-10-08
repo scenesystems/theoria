@@ -27,11 +27,20 @@ export type MathExpression = typeof MathExpression.Type
 
 const GuideMath = MathExpression.pipe(Schema.fieldsAssign({ kind: Schema.Literal("math") }))
 
+const guideSpan = Schema.Struct({
+  kind: Schema.Literals(["emphasis", "strong", "delete"]),
+  parts: Schema.Array(Schema.suspend((): Schema.Codec<GuideInline> => GuideInlineSchema))
+})
+
+/** Nested Markdown emphasis. @since 0.0.0 @category models */
+export interface GuideSpan extends Schema.Schema.Type<typeof guideSpan> {}
+
 export const GuideInlineSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("text"), text: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("code"), text: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("link"), text: Schema.String, href: NonEmptyString }),
-  GuideMath
+  GuideMath,
+  Schema.suspend((): Schema.Codec<GuideSpan> => guideSpan)
 ])
 
 const GuideInlinePartsSchema = Schema.Array(GuideInlineSchema)

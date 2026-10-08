@@ -1,6 +1,6 @@
 # Contributing
 
-This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Please report concerns to [security@scenesystems.io](mailto:security@scenesystems.io).
+This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md), which includes the contact for conduct concerns. Report vulnerabilities through the [security policy](./SECURITY.md).
 
 ## Development
 
@@ -12,44 +12,45 @@ bun run --filter @scenesystems/effect-search check
 bun run --filter @scenesystems/effect-search test
 ```
 
-Broaden verification with the change's reach. Root commands are `bun run check:all`,
+For changes that affect several packages, run the root checks: `bun run check:all`,
 `bun run lint`, `bun run test`, and `bun run build`. Documentation-only changes do
-not require a production build. Report failures and unverified behavior; do not
-weaken checks or bypass failing hooks.
+not need a production build. Include any failures or checks you could not run in
+the pull request; leave checks and hooks enabled.
 
 ## Making changes
 
-- Use [Effect](https://effect.website/docs/v4/) public APIs throughout TypeScript,
-  including pure computations, callbacks, tests, and tooling.
-- Make the smallest coherent change. Add abstractions only to remove demonstrated
-  duplication or complexity. Keep refactoring separate from behavior changes.
-- Use `@effect/vitest` and the existing test setup to catch plausible behavioral
-  defects. Prefer direct regression tests over new harnesses or contract-testing
-  layers. Do not test guidance, file inventories, or naming conventions.
-- Update the owning documentation when public behavior or setup changes. Link to
-  canonical information rather than duplicating it.
+Use [Effect](https://effect.website/docs/v4/) public APIs throughout TypeScript,
+including pure computations, callbacks, tests, and tooling. Keep each change
+focused on its purpose, and separate refactoring from behavior changes. Add an
+abstraction when it removes duplication or complexity already present in the code.
 
-For documentation examples, run `bun run docs` and inspect affected guides in the
-docs application. README guides support `$x^2$` for inline math and `$$` on separate
-lines around display math; escape a prose dollar sign as `\$`. This syntax does
-not apply to TypeDoc API comments.
+Tests should catch plausible defects in behavior. Use `@effect/vitest` with the
+existing setup, adding a regression test to the relevant suite rather than a new
+harness. Guidance, file inventories, and naming conventions do not need tests.
 
-Run Python fixture generators with `uv run` to use their declared dependencies.
+When public behavior or setup changes, update the document that describes it.
+Link to that document from other places that need the information.
 
-The effect-math generator pins `PYTHONHASHSEED=0` and
-`NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing NumPy, matching the
-DSPy/Optuna dispatch setting. Use the root `uv.lock` and Python 3.12.14 on Linux
-x86_64 for clean-machine regeneration. Run
-`bun run --filter @scenesystems/effect-math fixtures:verify` to regenerate and
-byte-compare every payload and the manifest; CI runs the same full check.
-Generate into `SCIPY_FIXTURE_OUTPUT_DIRECTORY` for review before replacing
-references. Record approved reference-byte changes with before/after SHA-256
-hashes; never alter assertions or tolerances to accommodate regeneration.
+For documentation examples, run `bun run docs` and inspect affected guides using
+the [docs application workflow](apps/theoria/README.md#edit-documentation).
+Mark independently compilable TypeScript fences with `ts typecheck` so the
+README checker includes them. README guides support `$x^2$` for inline math and
+`$$` on separate lines around display math; escape a prose dollar sign as `\$`.
+This syntax does not apply to TypeDoc API comments.
+
+Run Python fixture generators with `uv run --locked` to use the root dependency
+lock. For Math's environment pins and regeneration commands, see the
+[Math reference fixtures guide](packages/effect-math/README.md#reference-fixtures).
+Record approved reference-byte changes with before/after SHA-256 hashes; never
+alter assertions or tolerances to accommodate regeneration.
 
 ## Pull requests
 
-Submit PRs against `main`. Explain the problem, conceptual change, and actual
-verification—not a file inventory or implementation diary. Omit empty sections.
+Submit PRs against `main`. Keep the required `Problem`, `Change`, and
+`Verification` headings from the [PR template](.github/pull_request_template.md).
+Explain the problem and resulting change, and report checks actually performed
+and material limitations. If no checks ran, say why. Remove author prompts and
+omit optional empty sections.
 
 Keep commits signed, focused, and independently reviewable. Use Conventional
 Commits: `type(scope): concise change`, with the scope naming the affected owner.
@@ -64,8 +65,8 @@ prepared package content. Unpackaged tests, guidance, and tooling with no
 published impact need no changeset. Documentation-only updates need one when
 they should be republished; see the [release content rules](RELEASING.md#package-content).
 
-Write one conceptual note for consumers: what changes, why it matters, and any
-required caller action. Choose patch for compatible fixes and improvements,
+Write the changeset for someone upgrading the package. Describe the change and
+any action they need to take. Choose patch for compatible fixes and improvements,
 minor for added capabilities, and major for breaking changes. For packages below
 1.0, use minor for breaking changes.
 

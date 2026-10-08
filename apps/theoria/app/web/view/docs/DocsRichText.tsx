@@ -33,6 +33,21 @@ const linkTarget = (href: string | Option.Option<string>): Option.Option<string>
 
 const richPart = (part: typeof RichPart.Type, key: number): ReactNode =>
   Match.value(part).pipe(
+    Match.when({ kind: "strong" }, ({ parts }) => (
+      <strong key={key}>
+        <DocsRichText parts={parts} />
+      </strong>
+    )),
+    Match.when({ kind: "emphasis" }, ({ parts }) => (
+      <em key={key}>
+        <DocsRichText parts={parts} />
+      </em>
+    )),
+    Match.when({ kind: "delete" }, ({ parts }) => (
+      <del key={key}>
+        <DocsRichText parts={parts} />
+      </del>
+    )),
     Match.when({ kind: "text" }, ({ text }) => text),
     Match.when({ kind: "math" }, (expression) => <MathContent {...expression} key={key} />),
     Match.when({ kind: "code" }, ({ text }) => (

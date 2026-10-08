@@ -1,9 +1,9 @@
 # Theoria app
 
-The [Theoria website](https://theoria.scenesystems.io/) introduces the packages
-in this repository. The home page runs the Imagined Place demo, a small
-composition built on the packages themselves, and `/docs` serves the generated
-API reference and guides for every published package.
+The [Theoria website](https://theoria.scenesystems.io/) contains the package
+guides and API reference under `/docs`. Its home page demonstrates the libraries
+with [Imagined Place](./docs/imagined-place-landing-demo.md), which lays out a
+description around a drawing and lets readers accept signed proposals for changes.
 
 Press a mark in the demo to read its answer. Answers stay within the viewport
 and avoid the discs, including their invisible touch targets. Long answers
@@ -16,23 +16,26 @@ unobstructed placements use `"free"`.
 
 ## Run it locally
 
-From the repository root:
+Install dependencies from the repository root with `bun install`, then start
+the API server:
 
 ```sh
 bun run app:theoria
 ```
 
-The app listens on `http://127.0.0.1:3876` by default. Set `PORT` to use a
-different port. No provider keys or other secrets are needed: the demo runs
-entirely on deterministic local computation.
+In another terminal, run `bun run dev:web` from `apps/theoria` and open
+`http://localhost:5175`. Vite serves the frontend and proxies API requests to
+the Bun server on port `3876`. The Bun server alone serves the API and any
+existing web build; it does not start Vite.
 
-Production configuration is documented separately in the
-[deployment guide](./DEPLOYMENT.md).
+Set `PORT` for the API server and the matching `THEORIA_PORT` for Vite to use
+another backend port. No provider keys are needed for the local demo.
+
+For production configuration, see the [deployment guide](./DEPLOYMENT.md).
 
 ## Development workflow
 
-The repository includes a tmux runbook for working on the server and Vite
-frontend together:
+From an active local tmux session, the repository can run both servers together:
 
 ```sh
 bun run app:theoria:tmux
@@ -44,17 +47,31 @@ bun run app:theoria:tmux:stop
 `THEORIA_PORT` changes the app port and `THEORIA_TMUX_SESSION` selects the tmux
 session. The frontend development server uses port `5175`.
 
-## How it is organized
+In an Amp orb, run `amp orb services ensure` from the repository root instead.
+The checked-in service configuration starts both servers and returns the docs
+portal URL.
+
+## Edit documentation
+
+Run `bun run docs` from the repository root after changing package READMEs or
+public TSDoc. It typechecks README examples and regenerates guides, API pages,
+navigation, and search data. Reload the affected `/docs` pages in Vite to review
+them; Markdown changes are not watched automatically.
+
+The [generator](../../scripts/api-reference/) converts Markdown and TypeDoc into
+the [shared documentation model](../../packages/docs-model/src/docs-data.ts),
+which the [docs views](./app/web/view/docs/) render. Edit the source README or
+TSDoc rather than generated files under `public/docs-data`.
+
+## Directory structure
 
 - `server.ts` serves the app with Bun; `worker.ts` serves the same app as a
   Cloudflare Worker.
-- `app/contracts` defines the schemas shared by the server and browser: the
-  package cards, docs routes, the Imagined Place request and result, the
-  response envelope, and the text and theme tokens.
-- `app/server` serves static assets and the typed API: health, version,
-  sitemap, and `POST /api/imagined-place/build`.
-- `app/web` contains the React views and core Effect reactivity state, with
-  `@effect/atom-react` bindings, for the home page and the docs pages.
+- `app/contracts` defines shared schemas, including docs routes and the Imagined
+  Place request and result.
+- `app/server` handles API requests and serves static assets.
+- `app/web` contains React views and Effect reactivity state, connected through
+  `@effect/atom-react`.
 
 ## Verify changes
 

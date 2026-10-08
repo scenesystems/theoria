@@ -34,6 +34,60 @@ const guidesFor = (markdown: string, directoryName: string, name: string) =>
     }))
 
 describe("documentation guide generation", () => {
+  it.effect("preserves emphasis around code and links without changing searchable text", () =>
+    Effect.gen(function*() {
+      const generated = yield* guidesFor(
+        "# sign\n\n## Safety\n\n**Never use *test keys* or `seed` in [production](https://example.com).** Use ~~old~~ current keys.",
+        "sign",
+        "@scenesystems/sign"
+      )
+      const page = yield* Effect.fromOption(
+        Array.findFirst(generated.pages, (page) => String.Equivalence(page.title, "Safety"))
+      )
+      expect(page.summary).toBe("Never use test keys or seed in production. Use old current keys.")
+      expect(page.blocks).toEqual(Array.of({
+        kind: "paragraph",
+        parts: Array.make(
+          {
+            kind: "strong",
+            parts: Array.make(
+              { kind: "text", text: "Never use " },
+              { kind: "emphasis", parts: Array.of({ kind: "text", text: "test keys" }) },
+              { kind: "text", text: " or " },
+              { kind: "code", text: "seed" },
+              { kind: "text", text: " in " },
+              { kind: "link", text: "production", href: "https://example.com" },
+              { kind: "text", text: "." }
+            )
+          },
+          { kind: "text", text: " Use " },
+          { kind: "delete", parts: Array.of({ kind: "text", text: "old" }) },
+          { kind: "text", text: " current keys." }
+        )
+      }))
+    }))
+
+  it.effect("omits an empty getting-started destination without dropping authored guides", () =>
+    Effect.gen(function*() {
+      const generated = yield* guidesFor(
+        "# sign\n\nOverview.\n\n## Installation and imports\n\nInstall and import.\n\n## Signing\n\nSign a message.",
+        "sign",
+        "@scenesystems/sign"
+      )
+      expect(Array.map(generated.pages, (page) => page.path)).toEqual(Array.make(
+        "/docs/sign",
+        "/docs/sign/installation-and-imports",
+        "/docs/sign/signing"
+      ))
+      expect(Array.map(generated.guides, (guide) => guide.path)).toEqual(Array.make(
+        "/docs/sign/installation-and-imports",
+        "/docs/sign/signing"
+      ))
+      expect(Array.map(generated.searchEntries, (entry) => entry.path)).toEqual(
+        Array.map(generated.pages, (page) => page.path)
+      )
+    }))
+
   it.effect("embeds a package-owned example in an examples guide without code", () =>
     Effect.sync(() => {
       const blocks = enrichGuideBlocks(

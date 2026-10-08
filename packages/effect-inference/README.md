@@ -1,6 +1,9 @@
 # @scenesystems/effect-inference
 
-Effect-native model intent, route resolution, provider configuration, response evidence, and native provider usage observation for `effect/ai`.
+Inference configures language models and embeddings for `effect/ai`. It records
+which model you requested, which route was selected, and what the provider
+reported in its response. Use the included provider configuration or supply
+your own runtime resolver.
 
 ## Installation
 
@@ -8,38 +11,11 @@ Effect-native model intent, route resolution, provider configuration, response e
 bun add @scenesystems/effect-inference effect
 ```
 
-## Architecture
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-inference/Runtime`.
 
-The package keeps four truths separate:
+## Basic use
 
-1. `RuntimeRequest` records caller intent (`Model`, optional `Route`, and `Capabilities.Requirements`).
-2. `Runtime.Resolution` records the chosen route, conservative capabilities, and executable model layers before a request runs.
-3. `RuntimeEvidence.Response` records only post-response observations.
-4. `RuntimeEvidence.make` joins a resolution and response without treating route decisions as provider evidence.
-
-All public modules are root namespaces and matching flat PascalCase subpaths.
-
-| Module                                             | Responsibility                                                                       |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `Model`                                            | Caller-owned model identity                                                          |
-| `Route`                                            | Route identity, selection policy, runtime flavor, and resolved provenance            |
-| `Capabilities`                                     | Conservative capability truth and caller requirements                                |
-| `RuntimeRequest`                                   | Serializable caller intent and checked decoding                                      |
-| `Runtime`                                          | Resolution service, `Resolution`, `ModelLayers`, `resolve`, `layer`, and `layerWith` |
-| `RuntimeEvidence`                                  | Response, usage, provider metadata, evidence assembly, and checked decoding          |
-| `TextProvider`                                     | Config-driven OpenAI, Anthropic, and OpenRouter language models                      |
-| `ModelBinder`                                      | Per-role hosted runtimes and request-scoped generation settings                      |
-| `OpenAiCompatible`                                 | Static compatible routes, transport plans, model layers, and resolution              |
-| `HuggingFace`                                      | Config-driven Hugging Face resolution                                                |
-| `HuggingFaceEmbeddingModel`                        | Native feature extraction for endpoints and routed providers                         |
-| `HuggingFaceEndpoint`                              | Dedicated endpoint routes and model layers                                           |
-| `HuggingFaceRouted`                                | Provider-router routes and model layers                                              |
-| `InferenceError`                                   | Canonical schema-backed package failure union                                        |
-| `Usage`                                            | Native language-model hook observation through `Usage.ConstructorParams`             |
-| `AnthropicUsage`, `OpenAiUsage`, `OpenRouterUsage` | Native provider client observation                                                   |
-| `Testing`                                          | Deterministic model layers and runtime fixtures                                      |
-
-## Runtime resolution
+Resolve an OpenAI-compatible model route for a local Ollama server.
 
 ```ts typecheck
 import { Effect } from "effect"
@@ -57,9 +33,11 @@ export const resolution = Runtime.resolve({
 }).pipe(Effect.provide(Runtime.layer))
 ```
 
-`Capabilities.Requirements` treats omitted and false booleans as no constraint. Structured output is graded `none < best-effort < strict`; `minimumContextTokens` requires a declared context limit.
-
-`Runtime.Runtime` is the Context tag; `Runtime.Service` describes its `resolve` capability. Use `Runtime.layerWith` to install a caller-owned resolver.
+Resolution selects a route and model layers without calling the model. Add
+`Capabilities.Requirements` to constrain the selection: omitted or false
+booleans impose no constraint, structured output is ordered
+`none < best-effort < strict`, and `minimumContextTokens` requires a declared
+context limit. Use [`Runtime.layerWith`](./src/Runtime.ts) to install your own resolver.
 
 ## Configured text providers
 
@@ -74,13 +52,33 @@ export const program = LanguageModel.generateText({
 }).pipe(Effect.provide(TextProvider.layerConfig()))
 ```
 
-`DSP_PROVIDER` selects `openai`, `anthropic`, or `openrouter` and defaults to `openai`. Provider-specific `OPENAI_*`, `ANTHROPIC_*`, and `OPENROUTER_*` values override generic `DSP_PROVIDER_*` values; explicit `TextProvider.Options` override both. Credentials remain `Redacted`. `TextProvider.fromConfig` acquires validated config, `resolve` returns a `TextProvider.Runtime` whose provider identity, defaults, request intent, and language-model layer all derive from that one config, and `layerConfig` exposes the configured layer directly. A supplied `HttpClient` service replaces only the transport.
+Set `DSP_PROVIDER` to `openai`, `anthropic`, or `openrouter`; the default is
+`openai`. Provider-specific variables such as `OPENAI_*` take precedence over
+`DSP_PROVIDER_*`, and explicit `TextProvider.Options` take precedence over both.
+Credentials use `Redacted`.
 
-Generation defaults come from `TextProvider.Options.defaults` or, when omitted, from `DSP_MODEL_SETTINGS` as JSON-encoded `ModelSettings` from `@scenesystems/effect-lm` (for example `{"temperature":0,"maxTokens":256}`). Each provider sends only the fields its API supports: OpenAI Responses sends `temperature`, `maxTokens`, and `topP`; Anthropic Messages also sends `stop`; OpenRouter sends all five fields, including `seed`. Absent fields keep provider defaults. A configured default the provider cannot send (OpenAI `stop` or `seed`, Anthropic `seed`) makes every operation of the direct layer fail with `AiError.InvalidRequestError` before any HTTP request, rather than being silently dropped.
+`layerConfig` provides the configured language-model layer directly, as above.
+If you need to inspect the configuration or resolution first, use
+[`TextProvider.fromConfig`](./src/TextProvider.ts) to acquire validated configuration,
+or `TextProvider.resolve` to obtain a `TextProvider.Runtime`. Its provider identity,
+generation defaults, request intent, and language-model layer derive from the
+same validated configuration. A supplied `HttpClient` replaces only the transport.
+
+Set generation defaults with `TextProvider.Options.defaults` or, when omitted,
+with `DSP_MODEL_SETTINGS`, a JSON-encoded `ModelSettings` value from
+`@scenesystems/effect-lm`, such as `{"temperature":0,"maxTokens":256}`.
+Absent fields keep provider defaults. OpenAI Responses supports `temperature`,
+`maxTokens`, and `topP`; Anthropic Messages also supports `stop`; OpenRouter
+supports all five fields, including `seed`. Unsupported configured defaults
+(OpenAI `stop` or `seed`, Anthropic `seed`) make every model operation of the
+direct layer fail with `AiError.InvalidRequestError` before HTTP, rather than
+being silently dropped.
 
 ## Model binding by role
 
-`ModelBinder.layer` installs an `@scenesystems/effect-lm` binder from a `HashMap` of semantic roles (`task`, `teacher`, `proposer`, `evaluator`, `critic`) to `TextProvider.Runtime`s. Each bound request uses its role's runtime, falling back to `task`, and resolves settings as runtime defaults, then ambient provider configuration, then the request's own settings; the result is visible through `ModelSettings.Current`, and the runtime's `ModelIdentity` is declared for durable caching. Unsupported resolved settings, or a role with neither its own runtime nor `task`, fail model operations with `InvalidRequestError` before transport. The binder leaves the wrapped effect's error and service channels unchanged.
+Use `ModelBinder.layer` to bind semantic roles (`task`, `teacher`, `proposer`,
+`evaluator`, `critic`) to configured runtimes. It installs an
+`@scenesystems/effect-lm` binder from a `HashMap` of roles to `TextProvider.Runtime`s:
 
 ```ts typecheck
 import { Effect, HashMap } from "effect"
@@ -100,17 +98,24 @@ export const binderLayer = Effect.gen(function* () {
 })
 ```
 
+Each bound request uses its role's runtime, falling back to `task`. Settings
+merge in order: runtime defaults, ambient provider configuration, then request
+settings, with later values taking precedence. The result is available through
+`ModelSettings.Current`, and the runtime's `ModelIdentity` is declared for durable
+caching. Unsupported resolved settings, or a missing role runtime with no `task`
+fallback, fail model operations with `InvalidRequestError` before transport.
+The binder preserves the wrapped effect's error and service channels.
+
 ## Hugging Face
 
 `HuggingFace.resolveConfig` merges explicit `HuggingFace.Config` values over `HUGGINGFACE_*` configuration and resolves either a routed marketplace or dedicated endpoint. `HuggingFace.languageModel` and `embeddingModel` select admitted layers.
 
-`HuggingFaceEmbeddingModel` owns native feature extraction for both route modes:
-
-- `Options.route` selects direct endpoint execution or routed provider discovery.
-- `layer` requires a caller-provided platform `HttpClient`; `layerFetch` supplies `FetchHttpClient.layer`.
-- Successful discovery is cached for five minutes per layer and concurrent misses are coalesced. Discovery and inference retry only HTTP 503, at most twice.
-- `embed` returns an `EmbedResponse` with `vector`; `embedMany` returns ordered `embeddings` and usage metadata. Use `embedMany` for batching. Independent `embed` calls execute in their caller's fiber so interruption cancels inference. Discovery uses a layer-owned `ScopedCache`, retaining shared work only while a caller needs it.
-- This avoids the installed Effect 4.0.0 request-resolver cancellation defect for `embed`. Direct use of the model's low-level `resolver` retains upstream behavior.
+[`HuggingFaceEmbeddingModel`](./src/HuggingFaceEmbeddingModel.ts) provides
+feature extraction for both route modes. `layer` requires your platform
+`HttpClient`; `layerFetch` supplies the Fetch implementation. Use `embed` for a
+single vector and `embedMany` for an ordered batch. Prefer these methods over
+the low-level resolver: `embed` preserves caller interruption, while the
+resolver retains Effect 4.0.0's cancellation limitation.
 
 ```ts typecheck
 import { EmbeddingModel } from "effect/ai"
@@ -129,11 +134,13 @@ const modelLayer = HuggingFaceEmbeddingModel.layerFetch(
 )
 
 export const embedding = Effect.flatMap(EmbeddingModel.EmbeddingModel, (model) =>
-  model.embed("One concern has one owner.")
+  model.embed("The station opens at six in the morning.")
 ).pipe(Effect.provide(modelLayer))
 ```
 
-Routed embeddings preserve Hub mapping order for `auto`, require an exact mapping for explicit providers, reject chat-only policies, retain injected transport behavior, and validate one finite equal-width vector per input.
+Routed embeddings preserve Hub mapping order for `auto` and require an exact
+mapping for an explicit provider. Discovery and inference retry HTTP 503 at
+most twice. See the linked reference for discovery caching and response validation.
 
 ## Runtime evidence
 
@@ -155,7 +162,8 @@ Provider metadata accepts JSON values only. `RuntimeEvidence.decodeUnknown` maps
 
 ## Usage observation
 
-Each native integration is independently imported and exports `observe` plus its related `Observation` model where provider reports have a serializable projection:
+Wrap a provider client with its usage observer to record reports before Effect
+interprets the response:
 
 ```ts typecheck
 import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
@@ -168,11 +176,19 @@ export const observed = Effect.gen(function* () {
 })
 ```
 
-Observers execute in the invoking fiber before native response interpretation. Streams remain lazy and interruptible. Missing reports remain unknown, explicit zeros remain zero, cumulative stream snapshots are not summed, and transport failures do not invent observations.
+Observers run in the calling fiber, and streams remain lazy and interruptible.
+Use one observation integration per invocation to avoid counting the same usage
+at both the raw-client and canonical-response levels.
 
-Canonical usage follows Effect v4's nested `inputTokens` and `outputTokens` structure. Provider-reported totals remain distinct from cache and reasoning details. Derived counters remain absent when their components are missing or inconsistent; raw reports retain provider-specific totals and costs. Anthropic observations preserve their source tag and cumulative state when serialized. Use one observation integration per invocation to avoid recording both raw-client and canonical-finish usage.
+Usage follows Effect v4's nested `inputTokens` and `outputTokens` structure.
+Missing reports remain unknown, explicit zeros remain zero, and cumulative
+stream snapshots are not added together. Derived counters are omitted when
+their components are missing or inconsistent. Raw reports retain the provider's
+totals and costs; serialized Anthropic observations also preserve their source
+tag and cumulative state. A transport failure without a report produces no observation.
 
-Native Google support has been removed. Gemini remains available through OpenRouter or an OpenAI-compatible service, using the matching usage observer.
+For Gemini, use OpenRouter or an OpenAI-compatible service with the matching
+usage observer.
 
 ## Testing
 
@@ -181,6 +197,23 @@ Native Google support has been removed. Gemini remains available through OpenRou
 ## Errors and security
 
 `InferenceError.InferenceError` is the schema and type for `InvalidRuntimeConfig`, `CapabilityMismatch`, `UnsupportedRoute`, and `RuntimeNotImplemented`. Provider transport failures remain in the native `effect/ai/AiError` channel, with semantic failures under `error.reason`. API keys are never stored in requests, resolutions, or evidence.
+
+## Examples
+
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [OpenAI-compatible route evidence](./examples/01-openai-compatible-static-runtime.ts)
+- [Hugging Face routed models](./examples/02-hugging-face-routed-runtime.ts)
+- [Configuration decoding](./examples/03-runtime-config-decoding.ts)
+- [Hugging Face endpoints](./examples/04-hugging-face-endpoint-runtime.ts)
+
+## Status
+
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## License
 

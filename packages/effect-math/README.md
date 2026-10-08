@@ -1,10 +1,6 @@
 # @scenesystems/effect-math
 
-`@scenesystems/effect-math` is a numerical library for programs built with [Effect](https://effect.website). Its flat concern modules cover scalar numerics, algebra, linear algebra, calculus, special functions, probability and distributions, statistics, optimization, geometry, complex arithmetic, runtime policy, and computation planning. Operations use typed failures and schema-checked boundaries where values enter from outside.
-
-Numerical concerns expose the forms their behavior needs. Base operations are synchronous functions for trusted values. `Validated` variants decode unknown input and return an `Effect` whose error channel names what went wrong. `WithPolicies` variants read only the runtime-policy services shown in their Effect requirement, so a program can provide numerical behavior with a Layer.
-
-[`@scenesystems/effect-search`](../effect-search/README.md) builds its samplers on this package, and [`@scenesystems/effect-text`](../effect-text/README.md) uses it to score layout calibration. Content identities for cached numerical inputs come from [`@scenesystems/digest`](../digest/README.md).
+Math provides numerical operations for [Effect](https://effect.website), including linear algebra, calculus, and probability. Call the synchronous functions with trusted values, or use their `Validated` variants to check unknown input and receive typed errors. Operations with a `WithPolicies` variant also let you configure numerical behavior through Effect services.
 
 ## Installation
 
@@ -12,11 +8,11 @@ Numerical concerns expose the forms their behavior needs. Base operations are sy
 bun add @scenesystems/effect-math effect
 ```
 
-Effect `^4.0.0` is a required peer dependency.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-math/LinearAlgebra`.
 
 ## Basic use
 
-The example below uses a base operation for an internal calculation and a validated variant where the vectors arrive as untrusted input.
+Compute a dot product directly or validate vectors supplied as unknown input.
 
 ```ts typecheck
 import { Chunk, Effect } from "effect"
@@ -33,11 +29,9 @@ export const checked = dotValidated({
 }).pipe(Effect.result)
 ```
 
-Import from a concern subpath such as `@scenesystems/effect-math/LinearAlgebra` to keep imports focused, or import concern namespaces from the package root. There are no `contracts` or `experimental` compatibility subpaths.
-
 ## Domains
 
-The public model is a set of owner-named concerns. Each link is both the source of the package subpath and an in-site API destination in generated documentation.
+The module references describe each operation's inputs and numerical behavior.
 
 | Concern                                   | Consumer role                                                                                                                                                                         |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,9 +55,9 @@ The public model is a set of owner-named concerns. Each link is both the source 
 | [`Uncertainty`](./src/Uncertainty.ts)     | Float64 and BigDecimal uncertainty intervals and envelopes                                                                                                                            |
 | [`Computation`](./src/Computation.ts)     | Effect services and Layers that plan scalar, backend, precision, differentiation, and uncertainty metadata                                                                            |
 
-Vectors and matrices use immutable `Chunk<number>` carriers. A matrix is a row-major chunk accompanied by row and column counts, so `matvec(matrix, 2, 3, x)` multiplies a 2×3 matrix by a 3-vector. `LinearAlgebra.add(a, b)` adds vectors and `LinearAlgebra.scale(vector, alpha)` scales one. Distribution functions use suffixes such as `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
+Vectors and matrices use immutable `Chunk<number>` values. A matrix is a row-major chunk accompanied by row and column counts, so `matvec(matrix, 2, 3, x)` multiplies a 2×3 matrix by a 3-vector. `LinearAlgebra.add(a, b)` adds vectors and `LinearAlgebra.scale(vector, alpha)` scales one. Distribution functions use suffixes such as `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
 
-Distribution evaluation and probability-mass operations have separate owners:
+Use `Distribution` for distribution functions and `Probability` for entropy:
 
 ```ts typecheck
 import { Chunk } from "effect"
@@ -97,28 +91,13 @@ $$
 
 Thus a fair coin has entropy $\ln 2$, rather than one bit. These formulas describe the mathematical quantities; floating-point operations remain subject to the numerical behavior documented by each operation.
 
-## Naming and vocabulary
-
-Effect imports retain their public module names: `Number.sum`, `Array.map`, `Boolean.match`, `String.concat`, `BigDecimal.multiply`, and `BigInt.gcd`. Concern imports retain their mathematical names. When operations overlap, qualify them with their owning namespace rather than inventing an alias:
-
-```ts typecheck
-import { Complex, Numeric } from "@scenesystems/effect-math"
-
-export const realRoot = Numeric.sqrt(2)
-export const complexRoot = Complex.sqrt(Complex.make(-1, 0))
-```
-
-Internal modules follow the same rule: `Arithmetic`, `Integration`, `Ridder`, and `Normal` name a subject or algorithm, without bridge or implementation suffixes. A pure implementation keeps its operation's spelling, including distribution suffixes such as `Logpdf` and `Logpmf`. Algorithm-specific names such as `gammaLanczos` identify an actual mathematical distinction. Conventional scalar symbols and coefficients remain mathematical notation, not abbreviations for module imports.
-
-These conventions also apply to tests, examples, scripts, and documentation. The operation forms below describe behavior rather than import provenance.
-
 ## Operation forms
 
 An operation appears under its base name and, when its behavior needs them, with `Validated` and `WithPolicies` suffixes.
 
-The base operation assumes its documented preconditions and returns a plain value. Where IEEE 754 defines a result, such as `-Infinity` for `log(0)`, scalar operations return that result. `logStrict` preserves the established deterministic binary64 series, while `log` uses a range-reduced rational approximation through Effect's native `Number` module; both retain IEEE 754 exceptional-value behavior. Exponential range boundaries use `BigDecimal` to avoid premature overflow and underflow. Use `logValidated` when invalid logarithm input should enter the typed error channel.
+The base operation assumes its documented preconditions and returns a plain value. Where IEEE 754 defines a result, such as `-Infinity` for `log(0)`, scalar operations return that result. Use a validated operation when invalid input should enter the typed error channel; see [`Numeric`](./src/Numeric.ts) for numerical behavior and operation-specific alternatives.
 
-The validated variant takes `unknown`, decodes it against the operation's input schema with excess properties rejected, checks structural preconditions such as matching lengths, and runs the operation. Errors have concise module-local names such as `DecodeError`, `ParameterError`, and `ShapeMismatchError`; their established wire tags remain stable. Use validated operations at API boundaries, on deserialized data, and anywhere bad input should remain in the typed error channel.
+Use the validated variant for deserialized data or other unknown input. It rejects excess properties and checks preconditions such as matching vector lengths before running the operation. Failures use module-local errors such as `DecodeError`, `ParameterError`, and `ShapeMismatchError`.
 
 The policy-aware variant takes typed input and reads the runtime-policy services described below. It reports non-finite results as domain violations under a strict precision policy, consults backend preferences where documented, and emits diagnostics when they are enabled.
 
@@ -150,7 +129,7 @@ export const program = Effect.gen(function* () {
 
 ## Runtime policies
 
-Policy-aware operations declare their configuration as `Context.Service` services from [`Policy`](./src/Policy.ts), and an Effect that calls one keeps those services in its requirements until a Layer provides them. Service payloads retain the `{ policy: ... }` shape.
+Provide the services from [`Policy`](./src/Policy.ts) to configure `WithPolicies` operations. Each service carries a `{ policy: ... }` value, and the operation's Effect type records which services it needs.
 
 | Service              | Policy values                                    | Effect on policy-aware operations                                        |
 | -------------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
@@ -159,15 +138,17 @@ Policy-aware operations declare their configuration as `Context.Service` service
 | `Policy.Backend`     | `scalar` or `compensated`                        | Selects the documented backend preference for operations that consult it |
 | `Policy.Diagnostics` | `enabled` or `disabled`                          | Enables or disables policy-aware diagnostic logging                      |
 
-`Policy.layerDeterministic` and `Policy.layerNondeterministic` build a Layer with all four services. `Policy.snapshot` reads them into `Policy.Settings`. Supply a single service with `Layer.succeed` when an operation needs only part of the set. Policies affect only operations with the `WithPolicies` suffix; base and validated operations never read them, so a policy Layer cannot change code that did not opt in.
+`Policy.layerDeterministic` and `Policy.layerNondeterministic` provide the full set. Use `Layer.succeed` when you need an individual service, and `Policy.snapshot` to read the current settings. Base and validated operations do not read these services.
 
 For `Numeric.sumWithPolicies`, `compensated` selects Kahan-compensated accumulation over an immutable `Chunk`. The `scalar` policy selects ordinary iteration-order accumulation. This preference does not imply a different algorithm for every operation: `LinearAlgebra.dotWithPolicies`, for example, records the preference in diagnostics while using its documented dot-product algorithm.
 
 ## Seeded reference streams and upstream sums
 
-[`PseudoRandom`](./src/PseudoRandom.ts) reproduces two upstream generators bit for bit, for statistical sampling only and never for cryptographic material. `makeCPython` seeds CPython's integer-array `random.seed` and provides `random`, `getrandbits`, `randbelow`, `randint`, `choice`, `shuffle`, and `sample`. `makeNumPyLegacy` seeds NumPy's uint32 legacy `RandomState` and provides `randomSample`, `rand`, `uniform`, and weighted `choice`. Each stream is independent: every operation is one atomic state transition, `snapshot` captures a Schema-encodable `State` without drawing, and `restore` or the class constructor continues from a captured or decoded `State`. These streams serve reference parity where a consumer must match upstream draws; they do not read `Policy.Randomness`.
+Use [`PseudoRandom`](./src/PseudoRandom.ts) when sampling must reproduce upstream draws bit for bit. Choose `makeCPython` to match CPython's integer-seeded `random`, or `makeNumPyLegacy` to match NumPy's uint32-seeded legacy `RandomState`. These independent streams do not read `Policy.Randomness` and are for statistical sampling, never cryptographic material.
 
-CPython operations come in two forms. The `Validated` forms (`randbelowValidated`, `randintValidated`, `choiceValidated`, `getrandbitsValidated`, `sampleValidated`) check CPython's argument domain before drawing and fail with `PseudoRandom.InvalidArgument` without consuming randomness. The base forms are for trusted arguments: they return identical values for valid input and raise the same `InvalidArgument` as a defect, before any draw, when a precondition is violated.
+For CPython draws with argument preconditions, use the `Validated` forms to receive `PseudoRandom.InvalidArgument` in the typed error channel. The base forms are for trusted arguments and raise the same error as a defect when a precondition is violated. Both forms return identical values for valid input and reject invalid arguments before consuming randomness.
+
+To replay draws, capture a Schema-encodable `State` with `snapshot`, then pass the captured or decoded state to `restore` or a stream constructor. Capturing state consumes no randomness; each draw is an atomic state transition.
 
 ```ts typecheck
 import { Chunk, Effect } from "effect"
@@ -185,43 +166,52 @@ export const replay = Effect.gen(function* () {
 })
 ```
 
-`replay` returns the same element twice: the resumed stream continues from the captured state. `Numeric.sumNeumaier` matches CPython 3.12's builtin float `sum`, including cancellation, overflow, infinities, and signed zero, and `Numeric.sumPairwise` reproduces NumPy's pairwise summation order. Use them where a result must match those upstream reductions; `cpython-sum` and `numeric.scalar-parity` record the interpreter evidence.
+`replay` returns the same element twice: the resumed stream continues from the captured state.
+
+Use `Numeric.sumNeumaier` to match CPython 3.12's builtin float `sum` with its default integer start, including cancellation, overflow, infinities, and signed zero. Use `Numeric.sumPairwise` for NumPy's dense float64 pairwise summation order. These operations reproduce upstream reduction order and rounding, not necessarily the correctly rounded sum of real-number inputs.
 
 ## Computation planning
 
-The planning concerns describe how a numerical computation should run without executing its kernel. [`Scalar`](./src/Scalar.ts) selects an available Float64 or BigDecimal lane. [`Precision`](./src/Precision.ts) evaluates convergence and escalation. [`Backend`](./src/Backend.ts) resolves a backend compatible with the selected lane. [`Autodiff`](./src/Autodiff.ts) chooses forward or reverse mode, or an allowed finite-difference fallback. [`Uncertainty`](./src/Uncertainty.ts) defines lane-specific result envelopes.
+[`Computation`](./src/Computation.ts) plans a computation without executing it. The plan selects a scalar representation and compatible backend, then records precision, differentiation, and uncertainty decisions. `Computation.plan` decodes an untrusted request; `planWithAuthorities` accepts an already decoded request. Provide `Computation.layer` for the default planner and its services.
 
-[`Computation`](./src/Computation.ts) composes those decisions. `Computation.plan` decodes untrusted requests through the configured `Computation` service; `Computation.planWithAuthorities` accepts a decoded request and reads the individual authority services. `Computation.layer` provides the default planner and authorities. This planning layer records selections and provenance; it does not execute a numerical operation.
+The planner's `Precision.Precision` service handles convergence and scalar escalation. It is separate from `Policy.Precision`, which sets strict or relaxed behavior for numerical `WithPolicies` operations.
 
-`Policy.Precision` is the strict/relaxed runtime policy read by numerical `WithPolicies` operations. `Precision.Precision` is a separate computation-planning service for convergence and scalar escalation. Their qualified names make that distinction explicit.
+## Errors
 
-## Errors and boundaries
-
-Validated and policy-aware operations fail with tagged errors, so `Effect.catchTag` and `Effect.catchTags` work on them directly and the generated API reference lists each operation's exact union. Import errors from their owning concern: for example, `Numeric.ExecutionError` captures callback failure while preserving the `KernelExecutionError` wire tag, and `LinearAlgebra.ShapeMismatchError` reports incompatible dimensions. Encodable errors use `Schema.TaggedError`; service-only failures that need no codec may use `Data.TaggedError`.
+Validated and policy-aware operations fail with tagged errors, so `Effect.catchTag` and `Effect.catchTags` work on them directly. The API reference lists each operation's error union. Import errors from their module: `Numeric.ExecutionError` reports callback failure with the `KernelExecutionError` tag, and `LinearAlgebra.ShapeMismatchError` reports incompatible dimensions.
 
 Base operations have no typed error channel. They require their documented preconditions; `Numeric.unsafeDivide`, for example, throws on a zero divisor, following Effect v4. Use `Numeric.safeDivide` for an `Option` result or `Numeric.unsafeDivideValidated` for typed validation failures.
 
 ## Examples
 
-The [examples directory](./examples/) contains runnable programs showing base, validated, and policy-aware forms: [numeric transforms](./examples/01-numeric-scalar-transforms.ts), [linear algebra](./examples/02-linear-algebra-vectors.ts), [geometry](./examples/03-geometry-distances.ts), [probability](./examples/04-probability-distributions.ts), [statistics](./examples/05-statistics-summary.ts), [special functions](./examples/06-special-functions.ts), [algebra](./examples/07-algebra-polynomials.ts), [calculus](./examples/08-calculus-numerical.ts), [optimization](./examples/09-optimization-solvers.ts), and [distributions](./examples/10-distributions.ts).
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [Numeric transforms](./examples/01-numeric-scalar-transforms.ts)
+- [Linear algebra](./examples/02-linear-algebra-vectors.ts)
+- [Geometry](./examples/03-geometry-distances.ts)
+- [Probability](./examples/04-probability-distributions.ts)
+- [Statistics](./examples/05-statistics-summary.ts)
+- [Special functions](./examples/06-special-functions.ts)
+- [Algebra](./examples/07-algebra-polynomials.ts)
+- [Calculus](./examples/08-calculus-numerical.ts)
+- [Optimization](./examples/09-optimization-solvers.ts)
+- [Distributions](./examples/10-distributions.ts)
 
 ## Reference fixtures
 
 Committed SciPy/NumPy/CPython fixtures provide independent numerical expectations. The manifest records each payload's SHA-256. From this package directory, run `bun run fixtures:check` to validate the manifest, every payload's schema and hash, and the absence of unlisted files, or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
 
-`bun run fixtures:verify` validates schemas and SHA-256 hashes, then regenerates all 16 payloads and the manifest and compares all 17 files byte for byte, locally and in CI. The generator pins `PYTHONHASHSEED=0` and `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing NumPy, using the locked Python environment on Linux x86_64. The five formerly CPU-sensitive payloads are repinned to this portable dispatch: a last-ulp provenance change with no library behavior change.
-
-The Effect entrypoint discovers reference families, runs Python processes in scopes with bounded concurrency, decodes their JSON responses through the fixture schemas, and writes the fixture files and manifest. Python owns SciPy/NumPy reference computation, result conversion, and JSON input/output. The manifest records the actual SciPy, NumPy, and Python versions used.
+`bun run fixtures:verify` validates schemas and SHA-256 hashes, then regenerates all 16 payloads and the manifest and compares all 17 files byte for byte, locally and in CI. The generator pins `PYTHONHASHSEED=0` and `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing NumPy. Use the root `uv.lock` and Python 3.12.14 on Linux x86_64 for regeneration.
 
 Set `SCIPY_FIXTURE_OUTPUT_DIRECTORY` to generate into a separate directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the default reproducible timestamp `2026-03-23T00:00:00Z`. Generator failures and invalid responses fail the command before any fixture files are written. Filesystem write failures can leave partial output, so use a separate output directory when reviewing regenerated references.
 
 ## Status
 
-This package is pre-1.0. Public concern APIs are provisional: minor releases may change signatures and behavior. Pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
 
 ## Contributing and support
 
-Read the repository [contributing guide](../../CONTRIBUTING.md) before opening a pull request. Report defects and request changes through [GitHub issues](https://github.com/scenesystems/theoria/issues). For security concerns, follow the [security policy](../../SECURITY.md).
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## Attribution
 

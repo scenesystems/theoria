@@ -1,233 +1,113 @@
 # @scenesystems/digest
 
-`@scenesystems/digest` provides strict UTF-8, RFC 8785 canonical JSON, cryptographic hashes, content digest models, HMAC, and key derivation for [Effect](https://effect.website) programs. Cryptographic kernels come from audited [Noble Hashes](https://paulmillr.com/noble/).
+Digest provides hashing and key derivation for [Effect](https://effect.website) programs using [Noble Hashes](https://paulmillr.com/noble/). It can hash exact bytes or identify structured data through a Schema and RFC 8785 canonical JSON. Text encoding rejects malformed Unicode.
 
 ## Installation
 
 ```sh
-npm install @scenesystems/digest effect
+bun add @scenesystems/digest effect
 ```
 
-Effect `^4.0.0` is a required peer dependency.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/digest/ContentDigest`.
 
-## Imports
+## Basic use
 
-The root exposes concern namespaces:
-
-```ts typecheck
-import { CanonicalJson, ContentDigest, Digest, Utf8 } from "@scenesystems/digest"
-```
-
-Every namespace also has a matching tree-shakeable subpath:
+Hash UTF-8 text with BLAKE3. Operations return lazy Effects with typed validation failures.
 
 ```ts typecheck
-import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import * as Digest from "@scenesystems/digest/Digest"
-```
-
-Supported names are `Digest`, `ContentDigest`, `CanonicalJson`, `Utf8`, `Blake3`, `Hmac`, and `Hkdf`. Internal and legacy flat paths are not public.
-
-## Choose the right result channel
-
-The API distinguishes deterministic work from validation and cooperative effects:
-
-| Shape    | Operations                                                                                         |
-| -------- | -------------------------------------------------------------------------------------------------- |
-| `Effect` | hashing, strict text encoding, keyed primitives, canonical JSON, streams, and Schema-value digests |
-
-Operations are lazy, typed validation remains explicit, and interruption, upstream failures, and service requirements stay in `Effect`.
-
-## Raw bytes and strict text
-
-`Digest.hash(algorithm, bytes)` lazily produces raw 32-byte output in an Effect. `Digest.hashString` first performs strict UTF-8 validation and returns an `Effect` with `Utf8.InvalidUnicode`.
-
-```ts typecheck
-import * as Digest from "@scenesystems/digest/Digest"
-import * as Utf8 from "@scenesystems/digest/Utf8"
+import { Digest, Utf8 } from "@scenesystems/digest"
 import { Effect } from "effect"
-import { Base64Url, Hex } from "effect/encoding"
+import { Hex } from "effect/encoding"
 
 export const program = Effect.gen(function* () {
   const bytes = yield* Utf8.encode("hello")
-  const byteHash = yield* Digest.hash("blake3-256", bytes)
-  const textHash = yield* Digest.hashString("sha256", "hello")
-
-  return {
-    blake3Hex: Hex.encode(byteHash),
-    sha256Base64Url: Base64Url.encode(textHash)
-  }
+  const hash = yield* Digest.hash("blake3-256", bytes)
+  return Hex.encode(hash)
 })
 ```
 
-There are no package-specific hex or base64 conveniences. Compose `Hex.encode`, `Base64Url.encode`, `Hex.decode`, or `Base64Url.decode` from `effect/encoding`.
+[`Digest`](./src/Digest.ts) supports `"blake3-256"` and `"sha256"`, both producing 32 bytes. `hashString` validates text before hashing. For large inputs, `hashStream` and `hashStringStream` process chunks incrementally while preserving upstream errors and service requirements. Use Effect's `Hex`, `Base64`, or `Base64Url` for wire encodings.
 
-`Digest.hashStream(algorithm, byteStream)` and `Digest.hashStringStream(algorithm, textStream)` hash incrementally. Both preserve the stream's error and requirement types. The text stream handles surrogate pairs split across chunks and reports malformed text at its absolute UTF-16 code-unit index.
+[`Utf8`](./src/Utf8.ts) rejects malformed Unicode rather than replacing it. Valid text is preserved without normalization; streaming text can split a surrogate pair across chunks.
 
-## Content digests
+## Identify structured content
 
-`ContentDigest.ContentDigest` is a `Schema.Class` with two fields:
-
-- `algorithm: Digest.Algorithm`, currently `"blake3-256" | "sha256"`
-- `digest: ContentDigest.Value`, a branded canonical 43-character unpadded base64url value
-
-The model is not the wire string. Call `ContentDigest.toString(model)` at protocol boundaries to produce `<algorithm>:<base64url>`.
+Choose a Schema that defines the representation whose identity matters:
 
 ```ts typecheck
-import * as ContentDigest from "@scenesystems/digest/ContentDigest"
+import { ContentDigest } from "@scenesystems/digest"
 import { Effect, Schema } from "effect"
 
-const Document = Schema.Struct({ domain: Schema.Literal("document"), version: Schema.Literal(1), text: Schema.String })
-
-export const identify = (value: typeof Document.Type) =>
-  ContentDigest.fromSchema(Document, value).pipe(Effect.map(ContentDigest.toString))
-```
-
-`ContentDigest.fromBytes` hashes exact bytes directly. Structured identities require an owner-selected codec through `fromSchema` or `fromSchemaWithByteLimit`; both incrementally hash canonical segments without collecting the complete preimage. The owner chooses identity fields, transformations, and domain/version markers. Schema identifiers are not automatically included in the preimage.
-
-Migration from 0.7: `ContentDigest.fromUnknown` is removed. Select the actual domain codec rather than wrapping arbitrary values in `Schema.Unknown`. Digests remain identical only when the encoded canonical preimage remains identical. Changing identity fields or transformations requires the domain owner to plan its identity/cache migration. `CanonicalJson` remains available for lower-level strict JSON encoding, not implicit domain identity.
-
-### Schema values
-
-Runtime values such as dates and transformed domain models must be encoded through their owner-selected Schema before hashing:
-
-```ts typecheck
-import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import { Effect, Schema } from "effect"
-
-const Event = Schema.Struct({
-  name: Schema.String,
-  occurredAt: Schema.DateFromString
+const Document = Schema.Struct({
+  domain: Schema.Literal("document"),
+  text: Schema.String,
+  createdAt: Schema.DateFromString
 })
 
-export const eventId = (event: typeof Event.Type) =>
-  ContentDigest.fromSchema(Event, event).pipe(Effect.map(ContentDigest.toString))
+export const identify = (document: typeof Document.Type) =>
+  ContentDigest.fromSchema(Document, document).pipe(Effect.map(ContentDigest.toString))
 ```
 
-`fromSchema(schema, value, algorithm?)` delegates to `Schema.encodeEffect`, preserves the codec's encoding service requirements (independently of decoding requirements), and defaults to BLAKE3-256. Its error channel includes `Schema.SchemaError` and `CanonicalJson.Error`.
+`fromSchema` hashes the Schema's encoded value as canonical JSON, using BLAKE3-256 by default. In this example, the date becomes a string before hashing. Schema encoding failures and service requirements remain in the returned Effect. `toString` includes the algorithm in the result: `<algorithm>:<base64url>`.
 
-For large preimages, `fromSchemaWithByteLimit(schema, value, maximumBytes, algorithm?)` returns a `ContentDigest.Result` containing `digest` and exact `canonicalByteLength`. The `ContentDigest.Result` model is distinct from Effect's success/failure `Result` container.
+Choose the Schema's fields and transformations to match the content you want to identify. Schema identifiers do not contribute to the digest. Use `fromBytes` to hash exact bytes without encoding or canonicalization.
+
+For a canonical byte budget, use `fromSchemaWithByteLimit`:
 
 ```ts typecheck
-import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import { Effect, Schema } from "effect"
+import { ContentDigest } from "@scenesystems/digest"
+import { Number, Schema } from "effect"
 
 const Payload = Schema.Struct({ id: Schema.String, tags: Schema.Array(Schema.String) })
 
-export const bounded = (payload: typeof Payload.Type) =>
-  ContentDigest.fromSchemaWithByteLimit(Payload, payload, 64 * 1024).pipe(
-    Effect.map(({ canonicalByteLength, digest }) => ({
-      canonicalByteLength,
-      id: ContentDigest.toString(digest)
-    })),
-    Effect.catchTag("CanonicalByteLimitExceeded", () => Effect.succeed({ canonicalByteLength: -1, id: "too-large" }))
-  )
+export const identifyBounded = (payload: typeof Payload.Type) =>
+  ContentDigest.fromSchemaWithByteLimit(Payload, payload, Number.multiply(64, 1024))
 ```
 
-The limit is inclusive and counts serializer-emitted UTF-8 segments. It stops before constructing the complete oversized output. It does not bound Schema encoding, key sorting, input graph traversal, property count, or work inside one emitted segment; apply structural limits before canonicalization for untrusted data.
+The result includes the digest and `canonicalByteLength`. Values exceeding the inclusive byte limit fail with a typed error. Because encoding and key sorting can consume resources before bytes are emitted, untrusted inputs also need structural limits. See [`ContentDigest`](./src/ContentDigest.ts) for the result and error types.
 
 ## Canonical JSON
 
-`CanonicalJson.encode(value)` returns canonical text, and `CanonicalJson.encodeBytes(value)` returns its strict UTF-8 bytes. Both are cooperative Effects and fail with `CanonicalJson.Error`, the closed union of:
+[`CanonicalJson`](./src/CanonicalJson.ts) exposes canonical text and bytes when hashing is not needed. It accepts JSON-compatible values with finite numbers, well-formed strings, dense arrays, and own enumerable string-keyed records. Encode dates, bigints, collections, and domain models through a suitable Schema first.
 
-- `Utf8.InvalidUnicode`
-- `CanonicalJson.UnsupportedValue`
-- `CanonicalJson.CyclicValue`
+Keys sort by UTF-16 code units as RFC 8785 requires. Strings are not normalized or repaired. Unsupported values, cycles, and malformed Unicode fail explicitly. Keep the input graph unchanged until the Effect completes. Traversal yields cooperatively, but key sorting and synchronous Schema transforms are not preemptible.
 
-The admission law accepts `null`, booleans, finite numbers, well-formed strings, dense arrays, and own enumerable string-keyed record values. Keys sort by UTF-16 code units as RFC 8785 requires. Inherited, non-enumerable, symbol-keyed, and non-element array properties are ignored.
+## Authenticate messages and derive keys
 
-Unsupported values include `undefined`, non-finite numbers, bigint, functions, symbols, sparse arrays, typed arrays, dates, regular expressions, maps, and sets. Convert those values through a Schema to their intended wire form. Strings are never normalized or repaired. Errors carry bounded diagnostics and do not include rejected text, keys, paths, or preimages.
-
-Traversal is stack-safe and yields between bounded batches. Record key collection and sorting, synchronous Schema transforms, final string joining, and final UTF-8 materialization remain synchronous. The caller must keep the visible input graph stable until the Effect completes.
-
-Byte-limit failures use `CanonicalJson.ByteLimitError`: `InvalidByteLimit` or `ByteLimitExceeded`. Their serialized `_tag` values remain `InvalidCanonicalByteLimit` and `CanonicalByteLimitExceeded` for wire compatibility.
-
-## UTF-8 and Unicode scalars
-
-`Utf8.encode(text)` returns `Effect<Uint8Array, Utf8.InvalidUnicode>`. It preserves valid text exactly and reports a lone surrogate's UTF-16 code-unit index.
-
-`Utf8.Scalar` is the numeric Schema and brand for Unicode scalar values: integers from 0 through `0x10FFFF`, excluding the surrogate range. `Utf8.fromScalar(number)` validates before constructing text and returns `Effect<string, Schema.SchemaError>`. NUL, controls, unassigned scalars, noncharacters, and U+FEFF remain valid; no normalization occurs.
-
-## Authentication and key derivation
-
-Hashing does not authenticate. `Hmac.sha256(key, message)` and protocol-compatibility `Hmac.sha1(key, message)` lazily return bytes. `Blake3.mac(key, message)` additionally reports invalid key length in its Effect error channel.
-
-`Hkdf.sha256(ikm, salt, info, length)` and `Hkdf.sha512` accept `Option<Uint8Array>` salt and return `Effect<Uint8Array, Hkdf.InvalidLength>`. `Option.none()` supplies a hash-length zero salt. The inclusive output ranges are 0–8160 and 0–16320 bytes respectively. `Blake3.deriveKey(context, input, length?)` defaults to 32 bytes and admits non-negative safe-integer lengths; impose an application-specific allocation limit for external requests. It reports `Utf8.InvalidUnicode` or `Blake3.InvalidLength`; allocation failures remain runtime defects.
+Hashing alone does not authenticate. [`Hmac`](./src/Hmac.ts) provides SHA-256 authentication; [`Blake3`](./src/Blake3.ts) provides keyed hashing and domain-separated derivation. [`Hkdf`](./src/Hkdf.ts) derives keys with SHA-256 or SHA-512.
 
 ```ts typecheck
-import * as Hmac from "@scenesystems/digest/Hmac"
-import * as Utf8 from "@scenesystems/digest/Utf8"
+import { Hmac, Utf8 } from "@scenesystems/digest"
 import { Effect } from "effect"
-import { Base64Url } from "effect/encoding"
 
-export const authenticate = Effect.gen(function* () {
-  const key = yield* Utf8.encode("shared secret")
-  const message = yield* Utf8.encode("webhook body")
-  return Base64Url.encode(yield* Hmac.sha256(key, message))
-})
+export const authenticate = (key: Uint8Array, body: string) =>
+  Utf8.encode(body).pipe(Effect.flatMap((message) => Hmac.sha256(key, message)))
 ```
 
-Compare authenticators using the surrounding protocol's constant-time comparison and bind algorithm, key identity, and message domain there. Key storage, rotation, and secret lifecycle are application responsibilities.
-
-## Standards and provenance
-
-The suite checks RFC 8785 JCS, the BLAKE3 specification, FIPS 180-4 SHA-256, RFC 2104 HMAC, and RFC 5869 HKDF, with vectors from RFC 4231, RFC 2202, NIST CAVP, and Project Wycheproof. Fixture source revisions, licenses, transformations, exclusions, verdict mappings, and local hashes live in [`test/fixtures/external/sources.manifest.json`](./test/fixtures/external/sources.manifest.json).
-
-Tests exercise the supported concern imports. Smaller suites live in `test/Blake3.test.ts`, `test/Hmac.test.ts`, and `test/Hkdf.test.ts`; larger suites use concern directories with operation or behavior names. [`scripts/fixtures.ts`](./scripts/fixtures.ts) owns fixture decoding, provenance validation, and loading for both tests and scripts. Run `bun run fixtures:verify` from this package to check all source hashes and execute the conformance suites.
-
-## Throughput regression matrix
-
-From the repository root, on an otherwise idle host:
-
-```sh
-OUTPUT=.tmp/digest-throughput.jsonl bash packages/digest/benchmark/throughput.sh node bun
-```
-
-The runner bundles once and alternates three fresh-process pairs per case/runtime.
-It covers one million numbers, mixed scalars, small records, short escaped strings,
-and long ASCII/BMP/astral/escaped strings. Each process measures its first invocation
-and five warm invocations on freshly constructed graphs. Input construction and
-module loading are excluded; candidate Schema encoding and cooperative yields are
-included. The other engine is never run before timing, and every candidate result
-must equal the complete independent digest.
-
-The independent oracle rebuilds sorted-key trees with Effect collections, invokes
-native JSON serialization once through Schema, encodes the complete text once with
-Effect's native UTF-8 stream encoder, and hashes with Noble. It deliberately buffers
-the whole preimage and has no cooperative traversal obligation. It does not call
-the package's canonicalizer. This is an independent algorithm reached through
-Effect APIs, not a claim that Effect's wrapper overhead is zero.
-
-The output includes raw samples and a `.ratios.json` report. Cold and warm-fresh
-medians have separate **candidate/baseline ≤ 1.0** budgets; the runner exits nonzero
-if any budget is missed. This performance gate is separate from correctness CI
-because shared runners cannot establish uncontended timing. A failed ratio is not
-silently accepted or replaced with a warmed or same-object sample.
-
-The oracle ratio is a diagnostic, not release acceptance. The oracle does less than
-the package: no strict admission or own-index check before each read, no Schema
-encoding of the caller's codec, no byte accounting, and no cooperative yielding. A
-candidate that does that work can miss 1.0 on every case while still being the
-fastest correct implementation; the miss stays visible in the report.
-
-Release acceptance compares the candidate with the previously published package:
-both bundled from the same Effect and Noble installation, driven through
-`fromSchema` with identical explicit codecs, fresh-process cold and warm-fresh
-timings on the same shapes plus the Vocabulary corpora, and every digest checked
-equal across release, candidate, and oracle. The criterion is measured improvement
-over the published release, not parity with a whole-preimage oracle and not a win
-in every cell: every shape and runtime is reported with its raw samples, each
-slower cell is listed with its dispersion, and a material regression is evaluated
-against the gains before release rather than hidden behind a summary. Measured
-matrices are recorded on the pull request that changes the canonicalizer.
+Store and rotate keys securely, and compare authenticators in constant time. Your protocol must bind the algorithm and key identity to the message's intended use. Set output-length limits appropriate to that protocol.
 
 ## Examples
 
-- [content hashing](./examples/01-content-hashing.ts)
-- [webhook HMAC](./examples/02-webhook-verification.ts)
-- [content addressing](./examples/03-content-addressing.ts)
-- [streaming digests](./examples/04-streaming-digest.ts)
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
 
-This package is pre-1.0. Pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
+- [Content hashing](./examples/01-content-hashing.ts)
+- [Webhook HMAC](./examples/02-webhook-verification.ts)
+- [Content addressing](./examples/03-content-addressing.ts)
+- [Streaming](./examples/04-streaming-digest.ts)
+
+## Verification
+
+Conformance tests use RFC 8785, BLAKE3, FIPS 180-4, HMAC, and HKDF references, including NIST and Wycheproof vectors. [Fixture provenance](./test/fixtures/external/sources.manifest.json) records revisions, licenses, and transformations. From this package, `bun run fixtures:verify` checks source hashes and conformance tests.
+
+For local throughput measurements, run `OUTPUT=.tmp/digest-throughput.jsonl bash packages/digest/benchmark/throughput.sh node bun` from the repository root on an idle host. The [runner](./benchmark/throughput.sh) writes raw samples and candidate/oracle ratios and exits nonzero when a ratio exceeds 1. The whole-preimage oracle does less admission and cooperative work; its ratio is diagnostic, not a comparison with a published release.
+
+## Status
+
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
+
+## Contributing and support
+
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## License
 
