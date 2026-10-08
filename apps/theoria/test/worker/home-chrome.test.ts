@@ -60,7 +60,7 @@ const pinnedDark = "Dark mode — follow the system"
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
-    it("the baseline instrument reads the line a wrapped value begins on, where its label rests", () =>
+    it.effect("the baseline instrument reads the line a wrapped value begins on, where its label rests", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: phone })
         yield* goto(page, "/")
@@ -77,7 +77,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the header's ways off the page stand equally apart in either theme, each with a glyph and a full hit area", () =>
+    it.effect("the header's ways off the page stand equally apart in either theme, each with a glyph and a full hit area", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
         yield* goto(page, "/")
@@ -131,7 +131,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the footer aligns its two desktop rows, stacks centrally on narrow screens, and names the legal company", () =>
+    it.effect("the footer aligns its two desktop rows, stacks centrally on narrow screens, and names the legal company", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop, reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -161,7 +161,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("whatever can be pressed wears the hand, however it is rendered", () =>
+    it.effect("whatever can be pressed wears the hand, however it is rendered", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
         yield* goto(page, "/")
@@ -183,7 +183,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a step's name and its packages rest on one baseline, and a package's underline is drawn below its descenders", () =>
+    it.effect("a step's name and its packages rest on one baseline, and a package's underline is drawn below its descenders", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
         yield* goto(page, "/")
@@ -214,7 +214,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("an answer's facts rest label with value on one baseline, and its call with its copy", () =>
+    it.effect("an answer's facts rest label with value on one baseline, and its call with its copy", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
         yield* goto(page, "/")

@@ -88,7 +88,7 @@ const stageFillsItsStep = (page: Page, where: string) =>
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
-    it("wide screens leave reading margins while Arrange reaches 720px, with chrome on the same edges", () =>
+    it.effect("wide screens leave reading margins while Arrange reaches 720px, with chrome on the same edges", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1920, height: 1080 } })
         yield* goto(page, "/")
@@ -113,7 +113,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("below lg the stage takes the whole reading column, as wide as the widest stage, and centres beyond it", () =>
+    it.effect("below lg the stage takes the whole reading column, as wide as the widest stage, and centres beyond it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
@@ -134,7 +134,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("while the column is resized neither the drawing nor its paper stands wider than the frame, and the frame stays centred", () =>
+    it.effect("while the column is resized neither the drawing nor its paper stands wider than the frame, and the frame stays centred", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1400, height: 900 } })
         yield* act(() => page.addInitScript(recordFrameFit))
@@ -171,7 +171,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * rules before the prose is flowed around it. Every frame from the
      * narrowing until the new arrangement lands keeps the gap.
      */
-    it("from the widest column to the narrowest, every frame keeps the gap between prose and discs", () =>
+    it.effect("from the widest column to the narrowest, every frame keeps the gap between prose and discs", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1400, height: 900 } })
         yield* goto(page, "/")
@@ -201,7 +201,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a landed drawing is redrawn for another width or another build only, never for the reader's presence", () =>
+    it.effect("a landed drawing is redrawn for another width or another build only, never for the reader's presence", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 900 } })
         yield* act(() => page.addInitScript(recordPaperFrames))

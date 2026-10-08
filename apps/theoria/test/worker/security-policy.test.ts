@@ -70,7 +70,7 @@ const servedPolicy = (page: Page, path: string) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "4 minutes" })(
   "Theoria security policy in Chromium",
   (it) => {
-    it("the page runs under a policy that admits no inline style, and nothing it does is refused", () =>
+    it.effect("the page runs under a policy that admits no inline style, and nothing it does is refused", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const where = `${String(viewport.width)}×${String(viewport.height)}`

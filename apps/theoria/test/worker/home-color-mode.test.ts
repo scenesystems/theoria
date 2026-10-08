@@ -93,7 +93,7 @@ const preferenceCookie = (context: BrowserContext) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria colour mode in Chromium",
   (it) => {
-    it("every tone's solid slots, and the neutral's, paint the palette's colour in both modes", () =>
+    it.effect("every tone's solid slots, and the neutral's, paint the palette's colour in both modes", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -114,7 +114,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a chosen fill, a checked toggle and an answered mark each step deeper on the ladder, in both modes", () =>
+    it.effect("a chosen fill, a checked toggle and an answered mark each step deeper on the ladder, in both modes", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -168,7 +168,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the control cycles system → light → dark → system, and following the system follows it live", () =>
+    it.effect("the control cycles system → light → dark → system, and following the system follows it live", () =>
       Effect.gen(function*() {
         const { context, failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -215,7 +215,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a reader who chose dark is served a dark shell: the first frame is dark before any script runs", () =>
+    it.effect("a reader who chose dark is served a dark shell: the first frame is dark before any script runs", () =>
       Effect.gen(function*() {
         const { context, failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -246,7 +246,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a reader who chose light on a dark system is served the light shell, and the app keeps it light", () =>
+    it.effect("a reader who chose light on a dark system is served the light shell, and the app keeps it light", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ colorScheme: "dark" })
         yield* goto(page, "/")

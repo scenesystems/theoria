@@ -38,7 +38,7 @@ import { drawn, fromAnswerToItsCode } from "./demo.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page demo in Chromium: marks and their answers",
   (it) => {
-    it("every mark answers, and the answer lights what made it", () =>
+    it.effect("every mark answers, and the answer lights what made it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -159,21 +159,21 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * By keyboard the landing shows its ring; under reduced motion it lands at
      * once rather than gliding.
      */
-    it("an answer's credited line, followed by pointer, lands on that line of code", () =>
+    it.effect("an answer's credited line, followed by pointer, lands on that line of code", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("pointer", "no-preference")
         expect(landing).toMatchObject({ site: siteId, inViewport: true })
         expect(yield* failures).toEqual([])
       }))
 
-    it("an answer's credited line, followed by keyboard, lands on that line with its focus ring", () =>
+    it.effect("an answer's credited line, followed by keyboard, lands on that line with its focus ring", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("keyboard", "no-preference")
         expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
         expect(yield* failures).toEqual([])
       }))
 
-    it("under reduced motion the credited line is landed on at once", () =>
+    it.effect("under reduced motion the credited line is landed on at once", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("keyboard", "reduce")
         expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
@@ -185,14 +185,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * lands on it there too, and a line of the prose, credited to a step other
      * than the one open, lands with that step's code shown.
      */
-    it("on a phone, a disc's credited line, followed by pointer, is landed on", () =>
+    it.effect("on a phone, a disc's credited line, followed by pointer, is landed on", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("pointer", "no-preference", "disc", phone)
         expect(landing).toMatchObject({ site: siteId, inViewport: true })
         expect(yield* failures).toEqual([])
       }))
 
-    it("on a phone, a prose line's credited line, followed by keyboard, opens its own step and lands", () =>
+    it.effect("on a phone, a prose line's credited line, followed by keyboard, opens its own step and lands", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId, step } = yield* fromAnswerToItsCode(
           "keyboard",
@@ -205,7 +205,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the lines answer from the keyboard, and a proposal lights the line its sentence stands on", () =>
+    it.effect("the lines answer from the keyboard, and a proposal lights the line its sentence stands on", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -299,7 +299,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * Escape hands it back to the mark; a second press on the same mark closes
      * it, and a press on another mark moves the answer there.
      */
-    it("the pointer reveals nothing; a press opens, moves and closes the answer", () =>
+    it.effect("the pointer reveals nothing; a press opens, moves and closes the answer", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -381,7 +381,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * stay where the reader is rather than handing it to whatever was focused
      * before.
      */
-    it("a mark leaving the page takes its answer with it", () =>
+    it.effect("a mark leaving the page takes its answer with it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -413,7 +413,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("an answer opened on the drawing survives the next story's build and closes with its drawing", () =>
+    it.effect("an answer opened on the drawing survives the next story's build and closes with its drawing", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -460,7 +460,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a preview opened from an answer stacks on it, and each dismisses in turn", () =>
+    it.effect("a preview opened from an answer stacks on it, and each dismisses in turn", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")

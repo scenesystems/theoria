@@ -91,7 +91,7 @@ const nothingShifted = (page: Page, where: string) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria homepage typefaces in Chromium",
   (it) => {
-    it("text stands at the served face's metrics before it arrives, the stage is drawn in what the page shows, and the arrival re-measures without moving anything", () =>
+    it.effect("text stands at the served face's metrics before it arrives, the stage is drawn in what the page shows, and the arrival re-measures without moving anything", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const where = `${String(viewport.width)}×${String(viewport.height)}`

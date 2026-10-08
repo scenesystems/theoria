@@ -12,9 +12,8 @@ const escapeForRegExp = (path: string) => Str.replaceAll("/", "\\/")(path)
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria docs routes in Chromium",
   (it) => {
-    it(
+    it.effect(
       "every generated package, guide, and API navigation route resolves",
-      { timeout: 300_000 },
       () =>
         Effect.gen(function*() {
           const { manifest } = yield* Site
@@ -57,7 +56,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             }))
 
           expect(yield* failures).toEqual([])
-        })
+        }),
+      { timeout: 300_000 }
     )
   }
 )
