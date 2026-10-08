@@ -241,6 +241,12 @@ and `BatchState`. A selector that returns an unknown or frozen predictor path
 fails with `GEPAError`. Bind a `critic` model through ModelBinder to configure
 reflection independently of task calls.
 
+Predictor traversal and merge conflict resolution follow stable
+`Module.Structure` path order. Upstream gepa 0.1.4 iterates a Python string set
+(`merge.py:159–163`), whose order depends on `PYTHONHASHSEED` and is randomized
+per process by default. With two or more tied conflicts, upstream itself is not
+reproducible across processes; Theoria is deterministic.
+
 Search primitives are not mirrored. Import optimization, samplers, Pareto
 operations, and deterministic seed operations directly from effect-search.
 DSP's `Artifact` concern composes generic provenance and envelopes from

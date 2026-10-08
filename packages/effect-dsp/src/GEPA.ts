@@ -214,13 +214,24 @@ export class Options<
   readonly skipPerfectScore?: boolean
   readonly addFormatFailureAsFeedback?: boolean
   readonly reflectionSettings?: ModelSettings
-  /** Custom selectors must return trainable predictor paths; unknown or frozen paths fail with `GEPAError`. */
+  /** Built-in predictor traversal follows stable Module.Structure path order.
+   * Merge conflicts use the same order. Upstream gepa 0.1.4 iterates a Python
+   * string set (merge.py:159–163): PYTHONHASHSEED controls its order and is
+   * randomized per process by default. With two or more tied conflicts upstream
+   * is not reproducible across processes; Theoria is deterministic.
+   * Custom selectors must return trainable paths; unknown or frozen paths fail with `GEPAError`.
+   */
   readonly componentSelector?: "roundRobin" | "all" | ((state: State) => Chunk.Chunk<Predictor.Path>)
   readonly instructionProposer?: (
     candidate: ProgramCandidate,
     components: Chunk.Chunk<Predictor.Path>,
     examples: Record.ReadonlyRecord<string, ReadonlyArray<ReflectiveExample>>
   ) => Effect.Effect<Record.ReadonlyRecord<string, string>, ME, MR>
+  /** Enables merging in stable Module.Structure path order, including conflict resolution.
+   * Upstream's Python string-set order depends on PYTHONHASHSEED and is randomized
+   * per process by default, so two or more tied conflicts are not reproducible
+   * across processes. Theoria's order is deterministic.
+   */
   readonly useMerge?: boolean
   readonly maxMergeInvocations?: number
   readonly numThreads?: number
