@@ -59,7 +59,7 @@
     "@changesets/changelog-github": "^1.0.0",
     "@changesets/cli": "^3.0.3",
     "@effect/ai-anthropic": "4.0.0",
-    "@effect/ai-openai": "4.0.0",
+    "@effect/ai-openai": "4.0.1",
     "@effect/ai-openrouter": "4.0.0",
     "@effect/build-utils": "^0.8.9",
     "@effect/platform-bun": "4.0.0",
