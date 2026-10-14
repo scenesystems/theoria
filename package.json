@@ -65,7 +65,7 @@
     "@effect/platform-bun": "4.0.0",
     "@effect/sql-sqlite-node": "4.0.0",
     "@effect/tsgo": "0.47.2",
-    "@effect/vitest": "4.0.0",
+    "@effect/vitest": "4.0.1",
     "@scenesystems/digest": "workspace:*",
     "@scenesystems/effect-search": "workspace:*",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
