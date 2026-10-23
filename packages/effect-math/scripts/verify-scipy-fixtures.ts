@@ -4,8 +4,9 @@
  * Decodes every fixture and manifest, verifies their pinned SHA-256 hashes,
  * then regenerates every family and the manifest with the root uv lock at the
  * committed timestamp. All 17 files must match byte for byte, locally and in CI.
- * The generator pins PYTHONHASHSEED=0 and
- * NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F before importing NumPy.
+ * The generator pins PYTHONHASHSEED=0,
+ * NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F and OPENBLAS_CORETYPE=Prescott
+ * before importing NumPy.
  *
  * @since 0.1.0
  * @module
@@ -31,7 +32,7 @@ import {
  * SHA-256 of the committed `manifest.json` bytes. Update only this value when
  * the manifest metadata changes intentionally.
  */
-const expectedManifestSha256 = "b0c9ef71c0ef72e05ca68c56c4aa92bc00e855da2d62db777612d12f8840858d"
+const expectedManifestSha256 = "c63a28de1364e7f7b80c89e8e7736d338f40e64c02ee140c824afae5bea10880"
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
