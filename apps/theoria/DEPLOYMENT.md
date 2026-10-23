@@ -40,6 +40,14 @@ Keep the Miniflare dependency aligned with the version bundled by Wrangler.
 Browser test files run sequentially to avoid interference with motion and
 layout measurements. CI distributes them across runners with
 `bun run test:worker -- --shard=i/n`; each runner tests the Build job's artifact.
+The Build job reads the installed Playwright version from the frozen dependency
+lock and selects its official Ubuntu Noble container image. Worker test jobs use
+that image's browsers and system libraries without running `apt` or downloading
+browsers again. The matching Ubuntu 24.04 runner supplies its installed `unzip`
+read-only for Bun setup; the Playwright image does not include it. Local machines
+still use `test:worker:browsers` for installation.
+A new PR push cancels its entire obsolete CI run immediately. Main's active
+staging publication remains serialized and is not cancelled by a newer push.
 
 Run `bun run test:worker:profile` to measure vitals and environment behavior
 against the local test server. Use `bun run test:worker:staging` for staging,

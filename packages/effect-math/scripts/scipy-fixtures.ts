@@ -161,17 +161,22 @@ const formatJson = (prettier: string, repositoryRoot: string, canonicalPath: str
   )
 
 /**
- * Portable dispatch provenance for all families, including the five payloads
- * repinned from AVX-512/SVML references without changing library behavior.
+ * Portable NumPy and OpenBLAS dispatch provenance for all families, including
+ * payloads repinned without changing library behavior.
  */
 export const manifestProvenance = FixtureManifestProvenanceSchema.make({
   cpuDispatch: FixtureCpuDispatchProvenanceSchema.make({
     observation:
-      "All reference families run with PYTHONHASHSEED=0 and NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F before NumPy imports. The listed cpuSensitiveFiles were repinned from AVX-512/SVML dispatch to this portable environment: last-ulp reference provenance changes only, with no library behavior change. Every payload and the manifest are regenerated and byte-compared in CI.",
-    generatorPinnedEnvironment: Array.make("PYTHONHASHSEED=0", "NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F"),
+      "All reference families run with PYTHONHASHSEED=0, NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F and OPENBLAS_CORETYPE=Prescott before NumPy imports on Linux x86_64. NumPy's feature mask does not control OpenBLAS dispatch: dot-large-5d changes from 97.39999999999999 with SkylakeX to 97.4 with Prescott. The listed cpuSensitiveFiles were repinned from AVX-512/SVML or host-selected BLAS dispatch: last-ulp reference provenance changes only, with no library behavior change. Every payload and the manifest are regenerated and byte-compared in CI.",
+    generatorPinnedEnvironment: Array.make(
+      "PYTHONHASHSEED=0",
+      "NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F",
+      "OPENBLAS_CORETYPE=Prescott"
+    ),
     cpuSensitiveFiles: Array.make(
       "complex/arithmetic-parity.json",
       "distribution/algebra-parity.json",
+      "linalg/vector-parity.json",
       "numeric/logspace-parity.json",
       "numeric/scalar-parity.json",
       "probability/distribution-parity.json"

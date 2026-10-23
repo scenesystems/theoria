@@ -16,6 +16,12 @@ on:
   push:
     branches: [main]
 
+# Stop obsolete PR tests as soon as a newer push arrives, not only after its
+# Build job finishes. Main runs retain their per-job publication custody below.
+concurrency:
+  group: theoria-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -38,9 +44,16 @@ jobs:
       build-sha: ${{ env.BUILD_SHA }}
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
       package-artifact-id: ${{ steps.packages.outputs.artifact-id }}
+      browser-image: ${{ steps.browser.outputs.image }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup
+
+      - name: Select the locked Playwright image
+        id: browser
+        run: |
+          version=$(jq -er .version apps/theoria/node_modules/@playwright/test/package.json)
+          echo "image=mcr.microsoft.com/playwright:v${version}-noble" >> "$GITHUB_OUTPUT"
 
       # `check.yml` runs the full suite for the same commit, but nothing links
       # the two workflows; gate the deployable artifact on the app's own checks
@@ -93,7 +106,15 @@ jobs:
   test:
     name: Test Worker (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Browsers and OS libraries arrive together, matching the installed lockfile.
+    # Do not repeat apt upgrades and browser downloads on every test runner.
+    container:
+      image: ${{ needs.build.outputs.browser-image }}
+      options: --init --ipc=host
+      # setup-bun needs unzip; use the matching Noble host's installed binary.
+      volumes:
+        - /usr/bin/unzip:/usr/local/bin/unzip:ro
     timeout-minutes: 15
     concurrency:
       group: theoria-test-${{ github.event.pull_request.number || github.ref }}-${{ matrix.shard }}
@@ -115,13 +136,6 @@ jobs:
       - uses: ./.github/actions/theoria-build-check
         with:
           path: apps/theoria
-
-      # The workspace's own Playwright installs the browser build it launches;
-      # `bunx playwright` would resolve the registry's latest release, whose
-      # Chromium revision drifts from the one `@playwright/test` in the lockfile
-      # expects.
-      - name: Install Chromium for Worker browser tests
-        run: bun run --cwd apps/theoria test:worker:browsers
 
       - name: Test Worker in workerd
         run: bun run --cwd apps/theoria test:worker -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
