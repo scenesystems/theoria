@@ -1,5 +1,14 @@
 # effect-text
 
+## 0.5.3
+
+### Patch Changes
+
+- Updated dependencies [[`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee)]:
+  - @scenesystems/effect-study@0.3.0
+  - @scenesystems/effect-math@0.6.0
+  - @scenesystems/effect-search@0.9.0
+
 ## 0.5.2
 
 ### Patch Changes

@@ -1,5 +1,30 @@
 # @scenesystems/effect-inference
 
+## 0.5.0
+
+### Minor Changes
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Remove format-version fields from resolved route provenance, module saved state, and example reports. `Route.Resolved.schemaVersion`, `Route.provenanceVersion`, `Route.ProvenanceVersion`, and `Module.SavedState.version` are removed. Saved state retains optional caller metadata. These contracts describe the current shape only; no compatibility decoders or migration APIs are provided.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add provider-independent model settings, semantic roles, and scoped model binding. Predictors apply their settings and invocation overrides to text and structured calls; ReAct applies predictor settings to tool calls. Optimizer model calls carry teacher, proposer, and critic roles. Mock language models and the reference recorder retain settings and rollout identity.
+
+  Hosted inference adds `ModelBinder.layer`, which selects `TextProvider.Runtime`s by role with task fallback and maps settings to provider configuration without replacing omitted defaults. Unsupported supplied settings fail with `AiError.InvalidRequestError` before transport runs: OpenAI Responses rejects stop and seed, Anthropic Messages rejects seed, and OpenRouter supports all declared settings. The direct `TextProvider` language-model layer applies the same contract to configured defaults: an unsupported default makes every operation of that layer fail with `InvalidRequestError` before HTTP instead of being silently dropped.
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add predictor request caching partitioned by model identity, settings, role, rollout, predictor path, effective signature and parameters. Automatic caching warns and continues on cache failures; explicit cache operations retain typed errors. ModelIdentity declares provider/model identity for durable reuse. Runtimes without a declared identity are partitioned by language-model and binder object identity only for the lifetime of the `Cache.layer` scope, which releases those identities when it closes; a Cache service installed without that layer memoizes only declared identities, and no identity is invented per call.
+
+  TextProvider.Runtime now accepts only a validated Config and derives model identity, defaults, request intent and its language-model layer from it; callers no longer supply independent model layers or settings. TextProvider configuration accepts defaults directly or through DSP_MODEL_SETTINGS. The binder resolves defaults, ambient provider configuration and invocation overrides in that order and exposes the resolved settings through ModelSettings.Current. A supplied HttpClient service replaces only the transport, not model configuration. Auto-caching applies at every temperature; rollout IDs partition sampling requests and cache: "never" opts out.
+
+  Retain parse attempts and failed response evidence under a per-invocation execution ID. Module.call returns selected completed entries separately from attempts and accounts for every model call. Cache hits do not count as new provider usage.
+
+  Add output-only signatures and immutable instruction, field prefix and field description edits. Persist editable field metadata inside ModuleParameters so parameter overlays, snapshots and load/save share one state channel. Saved parameters and trace entries use the new shapes directly.
+
+  Breaking: structured output schema failures now use ParseOutputError with actual predictor/input/raw-response evidence, like text parsing; unrelated provider failures remain AiError. ReAct terminal parse failures carry the same context. Demonstration codecs project away extra input/output record keys before strict field validation, and prompts omit demos with no recognized output field instead of emitting an empty assistant turn. Partial demos retain native ordering and rendering.
+
+### Patch Changes
+
+- Updated dependencies [[`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee)]:
+  - @scenesystems/effect-lm@0.1.0
+
 ## 0.4.0
 
 ### Minor Changes
