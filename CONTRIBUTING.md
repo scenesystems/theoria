@@ -2,6 +2,33 @@
 
 This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md), which includes the contact for conduct concerns. Report vulnerabilities through the [security policy](./SECURITY.md).
 
+## Scene Systems workflow
+
+Linear owns outcomes, acceptance criteria, and current state. Amp holds the
+primary execution thread; GitHub holds delivery and verification evidence.
+Public contributors can still report questions, defects, and proposals through
+GitHub issues; Scene Systems tracks accepted work in Linear without duplicating
+its current state across systems.
+
+Search existing issues and Amp threads before creating another. Track substantial
+authorized work with a Linear issue, a human owner, and a linked primary execution
+thread. Small internal steps belong in that thread, not separate tickets.
+Tracking work does not authorize it; agents follow the
+[execution authority and pause rules](AGENTS.md#documentation-and-delivery).
+
+`Done` means the issue's acceptance criteria are satisfied, not that a PR merged
+or an agent stopped. A merged implementation may still leave operational
+acceptance outstanding.
+
+## Issue references
+
+For broad operational acceptance, use relation-only `Related to THR-...` with
+the actual issue ID and link. Use non-closing `Contributes to THR-...` only when
+earlier automation is wanted. Do not use closing keywords for partial delivery
+or negated closing phrases: automation may still interpret a closing keyword
+inside a negation. A closing reference is appropriate only when merge satisfies
+the issue's full acceptance criteria.
+
 ## Development
 
 Use [Bun](https://bun.sh) and run `bun install`. Start with the affected package's
@@ -48,9 +75,12 @@ alter assertions or tolerances to accommodate regeneration.
 
 Submit PRs against `main`. Keep the required `Problem`, `Change`, and
 `Verification` headings from the [PR template](.github/pull_request_template.md).
-Explain the problem and resulting change, and report checks actually performed
-and material limitations. If no checks ran, say why. Remove author prompts and
-omit optional empty sections.
+Explain the problem and resulting change. For Scene Systems work, include the
+actual issue reference using the [linking rules](#issue-references), plus the
+primary Amp thread link. Report decisive checks actually performed, their tested
+revision, and material limitations; identify evidence from an earlier revision
+rather than presenting it as verification of the current head. If no checks ran,
+say why. Remove author prompts and omit optional empty sections.
 
 Keep commits signed, focused, and independently reviewable. Use Conventional
 Commits: `type(scope): concise change`, with the scope naming the affected owner.

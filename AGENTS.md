@@ -65,14 +65,26 @@ Libraries live in `packages/`; the documentation application lives in `apps/`.
 
 - Update the owning documentation when public behavior or setup changes. Write
   for the reader's task; do not create work diaries or parallel specifications.
+- Follow the [Scene Systems workflow](CONTRIBUTING.md#scene-systems-workflow)
+  for tracking, acceptance, and delivery references.
+- An implementation request authorizes verification, commits, pushing a feature
+  branch, opening or updating its PR, and addressing review and CI within scope.
+  Narrower task instructions override this default. Merge, deployment, publishing,
+  destructive actions, shared-data writes, and rewriting published history require
+  explicit approval; process setup does not authorize product work.
+- A pause supersedes callbacks and scheduled instructions until explicitly
+  resumed. Neither a handoff nor an automated wake-up expands approval or resumes
+  paused work.
+- A direct dependency handoff must lead to the consumer's next authorized action
+  or an exact blocker, not just an acknowledgment. Continue independent work
+  within authority while a dependency is blocked.
 - Commit completed, verified logical slices rather than accumulating an opaque
   batch. Use signed Conventional Commits: `type(scope): concise change`, with the
   type describing the change and the scope naming its owner. Inspect the staged
   diff and run relevant checks before committing; do not disable signing or
   bypass failing hooks without explicit authorization.
 - When reorganizing commits, inspect the complete diff and preserve the final
-  tree and behavior. Commit permission does not authorize pushing or rewriting
-  published history.
+  tree and behavior. Permission only to commit does not authorize pushing.
 - Distinguish implemented, verified, committed, pushed, merged, and released in
   status reports. Report actual results, not planned checks or assumed success.
 
