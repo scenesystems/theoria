@@ -43,7 +43,9 @@ layout measurements. CI distributes them across runners with
 The Build job reads the installed Playwright version from the frozen dependency
 lock and selects its official Ubuntu Noble container image. Worker test jobs use
 that image's browsers and system libraries without running `apt` or downloading
-browsers again. Local machines still use `test:worker:browsers` for installation.
+browsers again. The matching Ubuntu 24.04 runner supplies its installed `unzip`
+read-only for Bun setup; the Playwright image does not include it. Local machines
+still use `test:worker:browsers` for installation.
 A new PR push cancels its entire obsolete CI run immediately. Main's active
 staging publication remains serialized and is not cancelled by a newer push.
 
