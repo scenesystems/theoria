@@ -1,5 +1,48 @@
 # effect-search
 
+## 0.9.0
+
+### Minor Changes
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add `PseudoRandom` CPython and NumPy legacy streams over one MT19937 engine, with portable checkpoints and bit-exact upstream draws. DSP sampling now uses the numerical package without a re-export shim. Add NumPy-order `Numeric.sumPairwise` and use it in `logSumExp`.
+
+  Align seeded categorical RandomSampler and TPE with Optuna's persistent startup and model streams, singleton handling, categorical draw order, and product-mixture scoring. Persist both streams through JSON optimization checkpoints. Exact trajectory identity is not claimed across libm-sensitive acquisition ties; identical-input ties retain the earliest candidate.
+
+  Add `Numeric.sumNeumaier`, matching CPython 3.12's builtin float sum, including cancellation, overflow, infinities, and signed zero. DSP consumers use this reduction rather than Kahan or ordinary left-to-right sums where upstream calls `sum`.
+
+  `PseudoRandom.CPython` adds `randbelowValidated`, `randintValidated`, `choiceValidated`, `getrandbitsValidated` and `sampleValidated`, which check CPython's argument domain before drawing and fail with `PseudoRandom.InvalidArgument` without consuming randomness. The trusted forms produce identical values for valid arguments and raise the same `InvalidArgument` as a defect, before any draw, when a precondition is violated. Streams are constructed from a captured or decoded `State`.
+
+  Breaking: `CPython` and `NumPyLegacy` constructors take the public `PseudoRandom.State` rather than an internal mutable engine reference. Factories still construct independent streams from seeds. Public declarations no longer require private engine types.
+
+  Breaking: seeded sampler checkpoints now carry continuing RNG streams rather than a seed-only reconstruction. `Sampler.Checkpoint` `Random` entries require an `rng` key and `Tpe` entries require `rng` and `startupRng` keys (each a nullable `PseudoRandom.State`); earlier JSON checkpoints without them are rejected rather than reconstructed from the seed. Optimization journal entries are `OptimizationSnapshot.TrialRecord` values containing both the trial and its sampler checkpoint; custom storage implementations and journal producers must supply this current shape. Recovery advances to the last durable journal checkpoint, including when a crash prevents a later snapshot. Old journal shapes are not decoded. Sequential Random and TPE startup/model-phase recovery is tested against uninterrupted execution; unfinished concurrent reservations do not promise identical evaluation trajectories.
+
+  Repin five SciPy/NumPy reference payloads to `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F`, with `PYTHONHASHSEED=0` set before imports. This is a last-ulp provenance change with no library behavior change: numerical implementations, test assertions, tolerances and timeouts are unchanged. `fixtures:verify` now regenerates and byte-compares all 16 payloads and their manifest in CI; the host-sensitive `fixtures:verify:full` alternative is removed. All other fixture bytes are unchanged.
+
+  Approved reference SHA-256 changes, relative to `packages/effect-math/test/fixtures/scipy/`:
+
+  | File                                   | Before SHA-256                                                     | After SHA-256                                                      |
+  | -------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+  | `complex/arithmetic-parity.json`       | `7afdba6b89ddd2fed7c832344d5ecf3a18711d4c22b952a61f9334687027d69f` | `44176b639216d0f83e17d701d62a58de4ad1e6a49f3ec4e7abc87878279b2f8f` |
+  | `distribution/algebra-parity.json`     | `11925ad2cf91c00dc6e6a3cba146e36c68d98e15f70996f3ac530aa55f2ae243` | `da6ee045938cacec6dd314ac93b166708ce9288c000629181425bd362c054d8e` |
+  | `numeric/logspace-parity.json`         | `64c286075a9458633f4202dba893a3c7816c24cc586c0fc0d8dae334a86824e4` | `5be8d1708ab788375cbed46864c73842308886879233a32157ef576dc34b7ed1` |
+  | `numeric/scalar-parity.json`           | `230413ca6154ca4015e70634702a71ba5b9a2c9e46d0333d5126f786784e0720` | `f84ce12ee22c3b9615c65fbad58b440411759383d5711b642a0cb316565fbe80` |
+  | `probability/distribution-parity.json` | `cdbae0f440d803d317430d8c35830fc962d02429d7b8b79dc9da26e91d19a303` | `5013a21e9cfebb5d2122c73b59d5bf89bf568d381e6c0a245fe39f7a0dea81b4` |
+  | `manifest.json`                        | `809ec1033cefa1ab56babce676bf3d69eedc3d53348d5770f2c9c8f2b1929c7b` | `2a266ac03147553bc5bf16e7282b099df3adc49925d5ddc9853fad538c0eabcb` |
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Align TPE kernels and trial-history handling with pinned Optuna 4.9.0. Use shared mixture components for joint categorical and mixed-space sampling, observation-only bandwidth neighbors, constraint-violation ordering, and greedy hypervolume subset selection.
+
+  Add `Context.pruned` with intermediate reports and retain reports in pruned trial state. Keep pending reservations separate from completed observations: the new `constantLiar` option defaults to false; enabling it places running trials above without counting them toward startup. Other samplers no longer receive imputed pending objectives. Trial reporting retains the first value for a duplicate step and accepts unseen decreasing steps. Policies receive step-ordered reports; `Pruning.lastStepReport` selects the greatest step independently of arrival order.
+
+  Breaking: pruned trials retain their intermediate reports. `Trial.prune` takes a required `reports` argument (data-first arity 6, data-last arity 5), the `Pruned` variant of `Trial.State` requires `reports`, and persisted pruned trials without it are not decoded. No overload without reports is provided. `Sampler.Context.pruned` exposes `Sampler.PrunedObservation` values to samplers.
+
+  Breaking: default TPE pending handling and numeric trajectories change to match the pinned independent routing and component-before-value RNG draw order. Pruned configurations participate in constraint evaluation. Feasible-only multi-objective fronts, MOTPE contribution weights, quantized float cell densities and lazy hypervolume subset selection replace the previous policies. The many-objective splitter retains exact recorded identities without recursively recomputing every candidate volume. Continuous inverse-CDF and 3-D BLAS-weight comparisons retain explicit numerical tolerances; multivariate numeric trajectory identity is not claimed.
+
+### Patch Changes
+
+- Updated dependencies [[`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee), [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee)]:
+  - @scenesystems/effect-study@0.3.0
+  - @scenesystems/effect-math@0.6.0
+
 ## 0.8.1
 
 ### Patch Changes
