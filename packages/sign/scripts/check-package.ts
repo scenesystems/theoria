@@ -8,6 +8,7 @@ import {
   FileSystem,
   Number as N,
   Path,
+  pipe,
   Record,
   Schema,
   String as Str
@@ -99,7 +100,12 @@ const program = Effect.gen(function*() {
       },
       // Resolve sign's transitive digest dependency to the same candidate tarball.
       // Its not-yet-bumped version may also exist in the public registry.
-      overrides: Record.set(versions.overrides, "@scenesystems/digest", path.join(temporary, "digest.tgz"))
+      // Keep the platform implementation aligned with the pinned Effect release.
+      overrides: pipe(
+        versions.overrides,
+        Record.set("@effect/platform-node-shared", versions.devDependencies["@effect/platform-bun"]),
+        Record.set("@scenesystems/digest", path.join(temporary, "digest.tgz"))
+      )
     })
   )
   yield* fs.makeDirectory(path.join(temporary, "scripts/worker"), { recursive: true })
